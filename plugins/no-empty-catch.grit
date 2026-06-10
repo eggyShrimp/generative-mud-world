@@ -1,0 +1,8 @@
+language js(typescript, jsx)
+
+JsCatchClause(body = JsBlockStatement(statements = [])) as $catch where {
+    register_diagnostic(
+        span = $catch,
+        message = "空 catch 块不允许。至少写一行错误处理代码（注释不算）。参考: docs/dev-guide/trap-tokens.md"
+    )
+}

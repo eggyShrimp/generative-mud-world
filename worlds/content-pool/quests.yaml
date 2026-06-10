@@ -1,0 +1,713 @@
+# 任务模板 — 中晚唐西域剧情
+# 主线：驼铃东归 (C) + 四条支线 (A/B/D/E)
+
+questTemplates:
+  # ============================================================
+  # 支线：龟兹乐舞谱 (A线)
+  # ============================================================
+
+  - id: quest_stolen_music_score
+    title: "消失的龟兹乐谱"
+    description: "龟兹国宝级乐谱《摩诃兜勒》不翼而飞。苏毗摩是最了解这份乐谱的人，但他似乎有所隐瞒。找到乐谱的下落。"
+    giverNpcId: npc_subi_musician
+    autoDiscover:
+      triggerRoomId: room_music_dance_hall
+      triggerText: "墙上的琵琶少了一具，架子上放乐谱的锦盒空着。苏毗摩坐在角落里，脸色异常苍白。"
+    objectives:
+      - groupId: 0
+        type: talk
+        targetId: npc_subi_musician
+        count: 1
+        description: "与苏毗摩交谈"
+      - groupId: 1
+        type: talk
+        targetId: npc_cave_painter
+        count: 1
+        description: "向窟画师打听苏毗摩的行踪"
+      - groupId: 2
+        type: explore
+        targetId: room_kizil_caves
+        count: 1
+        description: "前往克孜尔石窟寻找线索"
+    rewards:
+      traitModifiers:
+        - trait: curiosity
+          delta: 5
+      relationDelta:
+        targetId: npc_subi_musician
+        delta: 5
+      narrative: "你在石窟的暗格中找到了乐谱的锦盒——但盒子空了。窟画师说苏毗摩三天前的深夜抱走了乐谱，离开时神色慌张。"
+    repeatable: false
+    deadlineDays: null
+
+  - id: quest_tibetan_agent
+    title: "吐蕃密探的威胁"
+    description: "苏毗摩盗取乐谱并非本意——吐蕃密探挟持了他的家人。帮他摆脱威胁。"
+    giverNpcId: npc_subi_musician
+    objectives:
+      - groupId: 0
+        type: talk
+        targetId: npc_subi_musician
+        count: 1
+        description: "继续与苏毗摩交谈"
+      - groupId: 1
+        type: talk
+        targetId: npc_bandit_lookout
+        count: 1
+        description: "找到吐蕃密探的眼线并在铁门关对峙"
+      - groupId: 2
+        type: talk
+        targetId: npc_kuche_attendant
+        count: 1
+        description: "向龟兹侍臣求助，请王宫施压"
+    rewards:
+      traitModifiers:
+        - trait: courage
+          delta: 10
+        - trait: trust
+          delta: 5
+      relationDelta:
+        targetId: npc_subi_musician
+        delta: 25
+      items:
+        - itemId: reward_music_score
+          name: "摩诃兜勒乐谱"
+          quantity: 1
+      narrative: "吐蕃密探在龟兹王宫的压力下放人。苏毗摩恢复了乐谱，合掌对你说：'这份乐谱里记着一段古音，能在沙暴中指路。也许你东归的路上用得到。'他将乐谱抄本递给了你。"
+    repeatable: false
+    deadlineDays: null
+
+  # ============================================================
+  # 支线：楼兰遗梦 (B线)
+  # ============================================================
+
+  - id: quest_loulan_voices
+    title: "楼兰的歌声"
+    description: "楼兰废墟中传出诡异的歌声。一位先到此地的汉僧失踪了，只留下一本记录着恐惧的手札。找到他。"
+    giverNpcId: null
+    autoDiscover:
+      triggerRoomId: room_loulan_ruins
+      triggerText: "风穿过残垣的孔洞，发出的声音不像是风——那调子里有起伏，像一个女人在唱一首没有歌词的古老旋律。废墟东边搭着一顶空帐篷，帐篷里的手札写到一半。"
+    objectives:
+      - groupId: 0
+        type: explore
+        targetId: room_loulan_ruins
+        count: 1
+        description: "仔细搜索楼兰废墟"
+      - groupId: 1
+        type: collect
+        targetId: npc_loulan_singer
+        count: 1
+        description: "找到歌声的来源"
+      - groupId: 2
+        type: talk
+        targetId: npc_desert_hermit
+        count: 1
+        description: "向沙漠隐士请教楼兰的往事"
+    rewards:
+      traitModifiers:
+        - trait: courage
+          delta: 8
+      relationDelta:
+        targetId: npc_desert_hermit
+        delta: 10
+      narrative: "沙漠隐士沉默了很久才开口：'你听到的是楼兰末代王后的别离曲。她在等一个人来带走她的火种。'他递给你一根用旧布包裹的柏木火把——从祆祠盗来的圣火火种。"
+    repeatable: false
+    deadlineDays: null
+
+  - id: quest_zoroastrian_ritual
+    title: "祆教的最后祭司"
+    description: "楼兰废墟地下藏着祆教的最后仪式场。歌声来自楼兰歌者——她是祆教最后的守望者。失踪僧侣被困在祭坛深处。"
+    giverNpcId: null
+    autoDiscover:
+      triggerRoomId: room_loulan_ruins
+      triggerText: "废墟佛塔底层发现了一条向下的石阶。石阶尽头是一个地宫，墙壁刻满带翼日轮图案。失踪僧侣蜷缩在角落里，口中念念有词。楼兰歌者站在祭坛中央，目光穿过你看向远方。"
+    objectives:
+      - groupId: 0
+        type: talk
+        targetId: npc_missing_monk
+        count: 1
+        description: "确认失踪僧侣的情况"
+      - groupId: 1
+        type: talk
+        targetId: npc_zoroastrian_priest
+        count: 1
+        description: "前往疏勒祆祠请教祆教祭司"
+      - groupId: 2
+        type: collect
+        targetId: npc_zoroastrian_priest
+        count: 1
+        description: "获得祆教祭司的指示"
+    rewards:
+      traitModifiers:
+        - trait: spiritual
+          delta: 10
+      relationDelta:
+        targetId: npc_zoroastrian_priest
+        delta: 20
+      narrative: "祆教祭司老泪纵横：'楼兰的圣火已经烧了三百年。把它带回来——或者在它熄灭之前，把火种带回疏勒，让圣火在祆祠里继续燃烧。'一切取决于你的选择。"
+    repeatable: false
+    deadlineDays: null
+
+  # ============================================================
+  # 支线：安西铁壁 (D线)
+  # ============================================================
+
+  - id: quest_turkic_alliance
+    title: "突厥部落之盟"
+    description: "裴将军的援军迟迟不到，吐蕃三日后攻城。唯一的希望是说服疏勒以北的突厥部落出兵相助——而阿史那正需要大唐在商路上的关照。"
+    giverNpcId: npc_general_pei
+    autoDiscover:
+      triggerRoomId: room_kashgar_barracks
+      triggerText: "裴将军将一封信函推到你面前：'吐蕃人在城外立营了。我需要你的帮助。高昌有个叫阿史那的突厥商人，他的人脉能影响部落。'"
+    objectives:
+      - groupId: 0
+        type: talk
+        targetId: npc_ashina
+        count: 1
+        description: "回高昌找到阿史那"
+      - groupId: 1
+        type: talk
+        targetId: npc_general_pei
+        count: 1
+        description: "带着阿史那的答复回到疏勒军营"
+    rewards:
+      traitModifiers:
+        - trait: discipline
+          delta: 8
+        - trait: trust
+          delta: 10
+      relationDelta:
+        targetId: npc_general_pei
+        delta: 30
+      narrative: "阿史那沉思片刻：'裴将军的面子我得给。但部落出兵需要时间——我能拖住吐蕃的斥候一天，给守军争取一线生机。剩下的交给你。'他递给你一个突厥部落的狼头令牌。"
+    repeatable: false
+    deadlineDays: 3
+
+  - id: quest_defend_kashgar
+    title: "疏勒的曙光"
+    description: "清晨的号角声撕裂了大漠的寂静。吐蕃大军终于列阵。你怀里揣着突厥令牌，手掌按在刀柄上。"
+    giverNpcId: npc_general_pei
+    objectives:
+      - groupId: 0
+        type: talk
+        targetId: npc_du_canjun
+        count: 1
+        description: "与杜参军商讨最后的防御策略"
+      - groupId: 1
+        type: talk
+        targetId: npc_border_merchant
+        count: 1
+        description: "从葱岭商贾处紧急调集粮草"
+      - groupId: 2
+        type: talk
+        targetId: npc_general_pei
+        count: 1
+        description: "向裴将军报告准备就绪"
+    rewards:
+      traitModifiers:
+        - trait: courage
+          delta: 15
+        - trait: discipline
+          delta: 10
+      relationDelta:
+        targetId: npc_general_pei
+        delta: 20
+      narrative: "突厥骑兵的号角在最后时刻响起。裴将军带着你在箭雨中守住城门，直到吐蕃人放弃攻城。他用沾血的手拍了拍你的肩：'你比任何密函都有用。'"
+    repeatable: false
+    deadlineDays: 1
+
+  # ============================================================
+  # 支线：佛光东渐 (E线)
+  # ============================================================
+
+  - id: quest_royal_proposition
+    title: "于阗王的交易"
+    description: "于阗王对驼箱产生了极大兴趣。他需要一个筹码——天竺高僧般若陀罗携带的经卷。把经卷带来，他就派兵护送你到疏勒。"
+    giverNpcId: npc_khotan_king
+    autoDiscover:
+      triggerRoomId: room_khotan_palace
+      triggerText: "于阗王微笑：'我知道你手里的驼箱装的是什么。但我不需要那些——我需要一个大唐欠我的人情。那边住着一位天竺高僧，他带着一部经卷。说服他把经卷留下。事成之后，你要多少护送我出多少。'"
+    objectives:
+      - groupId: 0
+        type: talk
+        targetId: npc_indian_monk
+        count: 1
+        description: "找到般若陀罗，了解经卷的真相"
+      - groupId: 1
+        type: talk
+        targetId: npc_khotan_prime_minister
+        count: 1
+        description: "向于阗相国打听高僧被软禁的实情"
+    rewards:
+      traitModifiers:
+        - trait: pragmatic
+          delta: 5
+      relationDelta:
+        targetId: npc_khotan_king
+        delta: 15
+      narrative: "般若陀罗告诉你真相：经卷的内容是关于一处藏着更多失传经文的遗址。于阗王知道这些经文的价值，但他更在意的是——那处遗址恰好在他和吐蕃的争议领土上。"
+    repeatable: false
+    deadlineDays: null
+
+  - id: quest_free_the_monk
+    title: "高僧的出路"
+    description: "你必须在两难中做出选择：把经卷交给于阗王换取护送，还是帮助般若陀罗安全离开，让真理不受政治玷污。"
+    giverNpcId: null
+    objectives:
+      - groupId: 0
+        type: talk
+        targetId: npc_indian_monk
+        count: 1
+        description: "与般若陀罗商议脱身之计"
+      - groupId: 1
+        type: talk
+        targetId: npc_khotan_prime_minister
+        count: 1
+        description: "说服于阗相国暗中帮忙"
+      - groupId: 2
+        type: explore
+        targetId: room_jade_river_ford
+        count: 1
+        description: "在玉河渡口安排好高僧的出路"
+    rewards:
+      traitModifiers:
+        - trait: kind
+          delta: 10
+        - trait: trust
+          delta: 10
+      relationDelta:
+        targetId: npc_indian_monk
+        delta: 25
+      narrative: "于阗相国在夜色中安排了一匹快马。般若陀罗将经卷抄本交到你手中：'原卷我带走了，抄本留给你——在东归的路上，你有权知道安西所有遗址的位置。'他合十告别，消失在暮色中。"
+    repeatable: false
+    deadlineDays: null
+
+  # ============================================================
+  # 剧情主线：驼铃东归 (C线)
+  # 六阶段剧情
+  # ============================================================
+
+  # -- 剧情配置 --
+  - id: story_camel_caravan_east
+    title: "驼铃东归"
+    description: "粟特商魁康老掌柜临终前将一批神秘货物托付给你。从敦煌到疏勒，每一座城邦都有人想得到它。你必须在这条丝路上活着走到终点——并决定这批货的归属。"
+    giverNpcId: null
+    autoTrigger:
+      type: player_action
+      conditions:
+        - action: talk
+          targetId: npc_kang_lao
+          operator: "=="
+          value: 1
+    stages:
+      # Stage 1: 临终委托 — 沙州市集
+      - id: stage_last_wish
+        title: "临终委托"
+        questIds: [quest_receive_cargo, quest_escape_yangguan]
+        completionCondition: all
+        narrativeGuide: >
+          康老掌柜用颤抖的手将一把铜匙塞进你掌心：「我走不完这条路了。驼箱里的东西——帮我送到疏勒的裴将军手里。
+          我知道这很危险。但你要是答应，箱子里一半的货是你的。」他咳出一口血，嘴角却挂着一丝商人最后的精明微笑。
+
+      # Stage 2: 高昌验货 — 高昌
+      - id: stage_gaochang_check
+        title: "高昌验货"
+        questIds: [quest_pass_gaochang, quest_examine_cargo]
+        completionCondition: all
+        narrativeGuide: >
+          阿史那在胡商坊的酒桌上敲了敲驼箱：「这东西够沉的。康老一辈子精明，临死前托付给一个陌生人——里面装的大概不是寻常货物。」
+          高昌城门的守卫刁难得厉害，没有打点过不去的。但阿史那恰好认识的人能帮你。
+
+      # Stage 3: 大漠劫途 — 大漠深处
+      - id: stage_desert_trial
+        title: "大漠劫途"
+        questIds: [quest_caravan_ambush, quest_storm_survival]
+        completionCondition: all
+        narrativeGuide: >
+          沙暴来得毫无预兆。能见度降到了伸手不及骆驼的距离，驼铃被风吞没。沙暴中有人影在靠近——不是迷路的旅人，是趁乱下手的马贼。
+          驼箱差点被劫走。沙暴散后，楼兰废墟的方向有歌声传来。
+
+      # Stage 4: 龟兹夜话 — 龟兹
+      - id: stage_kuche_revelation
+        title: "龟兹夜话"
+        questIds: [quest_kuche_revelation]
+        completionCondition: all
+        narrativeGuide: >
+          龟兹是丝路上难得的歇脚处。苏毗摩在乐舞坊为你弹了一曲，曲终时他放下琵琶：「你的驼箱箱底有一层夹层，敲击声在音阶上偏了半度——我听过这种声音。夹层里藏着金属和羊皮纸。」他压低声音：「安西的布防图。还有吐蕃人的密函。康老掌柜不是商人——他是双面情报贩子。」
+
+      # Stage 5: 于阗抉择 — 于阗
+      - id: stage_khotan_crossroad
+        title: "于阗抉择"
+        questIds: [quest_khotan_dilemma]
+        completionCondition: all
+        narrativeGuide: >
+          驼箱的真相已经在手。于阗王敏锐地察觉到了机会。他给你两个选择——把布防图交给他，换取一支护送到疏勒的卫队；或者忽视他的提议，独自面对吐蕃人控制的最后一段路。
+
+      # Stage 6: 疏勒终局 — 疏勒
+      - id: stage_kashgar_finale
+        title: "疏勒终局"
+        questIds: [quest_kashgar_finale]
+        completionCondition: all
+        narrativeGuide: >
+          疏勒。终点。裴将军在军营等你。你怀里揣着布防图，身后是六个日夜的尘沙，一条丝路的分量就压在这几十张羊皮纸上。
+          交给大唐？毁掉让所有人扑空？还是用它换你自己的活路？驼铃在风中最后一次响起，该做决定了。
+
+    objectives: []
+    rewards:
+      narrative: "一个月后，张校尉在玉门烽燧收到了一封没有署名的信。信上只有一句话：「驼铃已到。」他放下信，望向东边的方向。沙暴似乎小了一些。"
+    repeatable: false
+    deadlineDays: null
+
+  # -- 主线子任务 --
+
+  # Stage 1 子任务
+  - id: quest_receive_cargo
+    title: "临终之托"
+    description: "康老掌柜将驼箱托付给你。但他还有未尽的交代——他在阳关驿站留下了给你的通关文书。"
+    giverNpcId: npc_kang_lao
+    objectives:
+      - groupId: 0
+        type: talk
+        targetId: npc_kang_lao
+        count: 1
+        description: "听取康老掌柜的遗愿"
+      - groupId: 1
+        type: collect
+        targetId: npc_kang_lao
+        count: 1
+        description: "接过驼箱和密匙"
+      - groupId: 2
+        type: explore
+        targetId: room_yangguan_station
+        count: 1
+        description: "前往阳关驿站取得通关文书"
+    rewards:
+      relationDelta:
+        targetId: npc_yangguan_innkeeper
+        delta: 5
+      narrative: "驿丞从积满灰的柜子里翻出一封印着火漆的信件：'康老五天前托人送来的。他说如果自己没来取，就给第一个带着驼箱来这里的人。'信上是安西各驿站的通关打点名单。"
+    repeatable: false
+    deadlineDays: null
+
+  - id: quest_escape_yangguan
+    title: "出阳关"
+    description: "唐军探子赵鸦儿已经注意到了你的驼箱。使用通关文书摆脱他，然后踏上西行之路。"
+    giverNpcId: null
+    objectives:
+      - groupId: 0
+        type: talk
+        targetId: npc_zhao_ya
+        count: 1
+        description: "应付赵鸦儿的盘问"
+      - groupId: 1
+        type: explore
+        targetId: room_gaochang_gate
+        count: 1
+        description: "离开敦煌，前往高昌"
+    rewards:
+      traitModifiers:
+        - trait: cautious
+          delta: 5
+      narrative: "赵鸦儿盯着你的驼箱看了很久，最终挥了挥手：'走吧。但你记住——在关外要是遇到麻烦，不要指望着有人回头来救你。'他转身融进沙尘里，但你隐约觉得他并不是真的放弃了。"
+    repeatable: false
+    deadlineDays: null
+
+  # Stage 2 子任务
+  - id: quest_pass_gaochang
+    title: "通关高昌"
+    description: "高昌城门盘查森严，驼箱引起了门尉的注意。找到办法通过——或者找人帮忙疏通。"
+    giverNpcId: null
+    objectives:
+      - groupId: 0
+        type: talk
+        targetId: npc_gaochang_gate_officer
+        count: 1
+        description: "面对高昌门尉的盘查"
+      - groupId: 1
+        type: talk
+        targetId: npc_ashina
+        count: 1
+        description: "找到阿史那请求帮助"
+    rewards:
+      relationDelta:
+        targetId: npc_ashina
+        delta: 10
+      narrative: "阿史那走到门尉身边低声说了几句，递了一个小布包过去。门尉咳嗽了一声，挥挥手让你通过。阿史那朝你眨了眨眼：'他欠我人情。不过你欠我一个。西域就是这样——没有人情，寸步难行。'"
+    repeatable: false
+    deadlineDays: null
+
+  - id: quest_examine_cargo
+    title: "驼箱的秘密"
+    description: "阿史那对驼箱很好奇。和他一起在胡商坊检查箱子——在安全的灯光下。"
+    giverNpcId: npc_ashina
+    objectives:
+      - groupId: 0
+        type: talk
+        targetId: npc_ashina
+        count: 1
+        description: "在胡商坊开箱检查"
+      - groupId: 1
+        type: collect
+        targetId: npc_mijifen
+        count: 1
+        description: "向米继芬求证康老掌柜的过往"
+    rewards:
+      relationDelta:
+        targetId: npc_ashina
+        delta: 5
+      narrative: "箱子打开，上层是普通的丝绸和铜器。但底板的厚度不对。阿史那用刀尖撬开夹层，露出了暗格——空无一物。但他取下一角羊皮纸残片：'这不是货物箱。这是情报箱。康老在玩什么计谋？'"
+    repeatable: false
+    deadlineDays: null
+
+  # Stage 3 子任务
+  - id: quest_caravan_ambush
+    title: "大漠伏击"
+    description: "驼队营地外突然传来马蹄声和尖叫。马贼首领带着人围住了营地——她的目光直接越过其他货物，落在你的驼箱上。"
+    giverNpcId: null
+    autoDiscover:
+      triggerRoomId: room_caravan_camp
+      triggerText: "驼队头领突然跳起来踢翻了茶碗。营帐外的黑暗中，十几个火把同时亮起。马贼首领骑在马上，弯刀在火光中闪着寒光。"
+    objectives:
+      - groupId: 0
+        type: talk
+        targetId: npc_bandit_chief
+        count: 1
+        description: "与马贼首领对峙"
+      - groupId: 1
+        type: talk
+        targetId: npc_caravan_leader
+        count: 1
+        description: "与驼队头领商议对策"
+    rewards:
+      traitModifiers:
+        - trait: courage
+          delta: 5
+      relationDelta:
+        targetId: npc_caravan_leader
+        delta: 15
+      narrative: "马贼首领冷笑：'康老给过我一笔钱，让我守在沙漠等他的货。但你不是康老。'犹豫片刻，她收起刀：'算了，这次的买卖我放弃了。但传个话给康老——他欠我一个人情，死人也得还。'说罢带着人马消失在沙丘后。"
+    repeatable: false
+    deadlineDays: null
+
+  - id: quest_storm_survival
+    title: "搏沙"
+    description: "一场罕见的大沙暴席卷了驼队营地。在零能见度中活下去。楼兰废墟的方向有歌声在风中传来，似乎在指引安全的方位。"
+    giverNpcId: null
+    autoDiscover:
+      triggerRoomId: room_caravan_camp
+      triggerText: "天色突然暗下来。驼铃同时狂响不止。东方的天际线被整面黄墙吞没——沙暴。它来得太快了，快到来不及把帐篷钉死。"
+    objectives:
+      - groupId: 0
+        type: explore
+        targetId: room_loulan_ruins
+        count: 1
+        description: "跟随歌声的方向，前往楼兰废墟避难"
+    rewards:
+      traitModifiers:
+        - trait: resilience
+          delta: 8
+      narrative: "你躲在楼兰废墟的残墙后，沙暴从头顶呼啸而过。歌声也停了，但你觉得它保护了你。废墟的地面上，你发现了一条通向地下的石阶——它在沙暴过后才暴露出来。"
+    repeatable: false
+    deadlineDays: null
+
+  # Stage 4 子任务
+  - id: quest_kuche_revelation
+    title: "夹层中的真相"
+    description: "苏毗摩从驼箱的敲击声中听出了异常。在乐舞坊的夜色中，彻底检查箱子。"
+    giverNpcId: npc_subi_musician
+    objectives:
+      - groupId: 0
+        type: talk
+        targetId: npc_subi_musician
+        count: 1
+        description: "请苏毗摩鉴定驼箱"
+      - groupId: 1
+        type: collect
+        targetId: npc_subi_musician
+        count: 1
+        description: "获得夹层中的布防图和密函"
+    rewards:
+      traitModifiers:
+        - trait: curiosity
+          delta: 10
+      relationDelta:
+        targetId: npc_subi_musician
+        delta: 15
+      narrative: "夹层里是两张羊皮纸。一张画着安西四镇的兵力部署——疏勒的防御缺口赫然在目。另一张用吐蕃文写着：'康公：疏勒裴氏已无援可待。九月望日 ，城西三里，以火为号。'康老掌柜不是商人，他是情报贩子——双面间谍。现在这个秘密在你手中。"
+    repeatable: false
+    deadlineDays: null
+
+  # Stage 5 子任务
+  - id: quest_khotan_dilemma
+    title: "王者之间的博弈"
+    description: "驼箱的秘密在龟兹已经走漏了风声。于阗王决定利用这个筹码。他需要一个你无法拒绝的理由。"
+    giverNpcId: npc_khotan_king
+    objectives:
+      - groupId: 0
+        type: talk
+        targetId: npc_khotan_king
+        count: 1
+        description: "接受于阗王的提议——或拒绝"
+      - groupId: 1
+        type: talk
+        targetId: npc_khotan_prime_minister
+        count: 1
+        description: "由于于阗相国给出了商量的余地"
+    rewards:
+      traitModifiers:
+        - trait: pragmatic
+          delta: 5
+      relationDelta:
+        targetId: npc_khotan_prime_minister
+        delta: 10
+      narrative: "于阗相国私下告诉你：'王上争权力争了半辈子。但那些布防图对你没有意义。你真正需要抉择的是——到了疏勒之后，把它们交给谁。一切等到了'"
+    repeatable: false
+    deadlineDays: null
+
+  # Stage 6 子任务
+  - id: quest_kashgar_finale
+    title: "疏勒终局"
+    description: "驼铃停下的那一刻。裴将军的军营在晨光中。你手里捏着安西的命运——至少是安西守军和吐蕃密线的命运。做决定吧。"
+    giverNpcId: npc_general_pei
+    objectives:
+      - groupId: 0
+        type: talk
+        targetId: npc_general_pei
+        count: 1
+        description: "将布防图交给裴将军"
+      - groupId: 1
+        type: talk
+        targetId: npc_zhao_ya
+        count: 1
+        description: "回应赵鸦儿的一路追踪"
+    rewards:
+      traitModifiers:
+        - trait: courage
+          delta: 15
+        - trait: trust
+          delta: 10
+      relationDelta:
+        targetId: npc_general_pei
+        delta: 40
+      narrative: "裴将军盯着布防图看了很久，把它放在蜡烛上。图烧成了灰烬。他站起来：'这份地图只要存在，吐蕃人就有一个要挟我们的筹码。不管你是想拯救大唐的边关，还是想还康老一个人情——你已经做到了。'他递给你一包干粮和一支短刀：'接下来的路随你。'"
+    repeatable: false
+    deadlineDays: null
+
+  # ============================================================
+  # 独立小任务
+  # ============================================================
+
+  - id: quest_jade_mystery
+    title: "奇石的秘密"
+    description: "于阗玉商收到了一块石皮上有天然金色梵文的奇石。法显觉得这可能是某个遗失佛教遗迹的标记。"
+    giverNpcId: npc_jade_merchant
+    autoDiscover:
+      triggerRoomId: room_jade_bazaar
+      triggerText: "玉商用黏湿的舌头舔了舔石皮，金色的纹路在水分下更加清晰——不是一个字，而是一句话。梵文。他抬起头，眼神不安。"
+    objectives:
+      - groupId: 0
+        type: talk
+        targetId: npc_monk_faxian
+        count: 1
+        description: "回敦煌请教法显法师辨认梵文"
+      - groupId: 1
+        type: talk
+        targetId: npc_jade_merchant
+        count: 1
+        description: "将法显的解读带回给于阗玉商"
+    rewards:
+      traitModifiers:
+        - trait: curiosity
+          delta: 10
+      relationDelta:
+        targetId: npc_monk_faxian
+        delta: 15
+      items:
+        - itemId: reward_gold_vein_jade
+          name: "金纹玉坠"
+          quantity: 1
+      narrative: >
+        法显沉吟良久：「石上的文字是，此间藏法，待有缘人。那是比克孜尔石窟更古老的西域佛教遗迹。
+        但它的位置在吐蕃人的控制区。」玉商将石头切下最后一块边角料，打磨成一条金纹玉坠给你。「就当给我长见识的谢礼。」
+    repeatable: false
+    deadlineDays: null
+
+  - id: quest_hermit_salt
+    title: "隐士之盐"
+    description: "沙漠隐士的全部家当中最珍贵的是从疏勒带来的一罐盐。他想托你给裴将军带一封信——一封写了三年、一直没勇气送出去的信。"
+    giverNpcId: npc_desert_hermit
+    autoDiscover:
+      triggerRoomId: room_desert_oasis
+      triggerText: "隐士擦了擦那把旧唐刀，从刀鞘里抽出一封用羊皮包着的信。信纸已经发黄了。"
+    objectives:
+      - groupId: 0
+        type: talk
+        targetId: npc_desert_hermit
+        count: 1
+        description: "接受隐士的嘱托"
+      - groupId: 1
+        type: talk
+        targetId: npc_general_pei
+        count: 1
+        description: "把信件送给疏勒的裴将军"
+    rewards:
+      traitModifiers:
+        - trait: trust
+          delta: 10
+      relationDelta:
+        targetId: npc_desert_hermit
+        delta: 25
+      narrative: "裴将军拆开信，读了一遍，又读了一遍。他的眼眶红了，但脸上没有表情。他把信折起来塞进铠甲的内层：'他是我父亲——三十年前在吐蕃人手中丢了疏勒的上一任守将。他以为我不肯原谅他。'"
+    repeatable: false
+    deadlineDays: null
+
+  # 剧情线：帮助赵鸦儿的追踪线
+  - id: story_raven_tracker
+    title: "鸦儿的追踪"
+    description: "赵鸦儿其实从一开始就知道驼箱的秘密。他的任务不是拦截你，而是确认康老掌柜的忠诚——以及你值得信任。"
+    giverNpcId: null
+    autoTrigger:
+      type: player_action
+      conditions:
+        - action: talk
+          targetId: npc_zhao_ya
+          operator: "=="
+          value: 2
+    stages:
+      - id: stage_raven_truth
+        title: "追踪者的真相"
+        questIds: [quest_raven_reveal]
+        completionCondition: all
+        narrativeGuide: >
+          赵鸦儿在疏勒军营外拍了拍你的肩膀。「从敦煌我就盯着你了。张校尉让我确认你不是来刺探的人——驼箱的事情，我从一开始就知道。你做得不错。」他从怀里摸出一个小布袋：「这是康老真正留给你的东西。他不是双面情报贩子——他是安西军的暗探。夹层是他被吐蕃人逼着做的，那些情报不假——但他也抄了一份给朝廷。你守住了安西没有烂掉的最后一条线。」
+    objectives: []
+    rewards:
+      narrative: "赵鸦儿把布袋放进你手里。里面是一个小铜环——康老掌柜的私印。铜环内侧刻着极细的字：「天下兴亡，匹夫有责。」"
+    repeatable: false
+    deadlineDays: null
+
+  - id: quest_raven_reveal
+    title: "最后的真相"
+    description: "赵鸦儿需要和你私下谈一谈——关于康老掌柜的真正身份和你一路走过的代价。"
+    giverNpcId: npc_zhao_ya
+    objectives:
+      - groupId: 0
+        type: talk
+        targetId: npc_zhao_ya
+        count: 1
+        description: "听赵鸦儿的解释"
+    rewards:
+      traitModifiers:
+        - trait: trust
+          delta: 10
+      items:
+        - itemId: reward_kang_seal
+          name: "康老印信"
+          quantity: 1
+      narrative: "赵鸦儿低声道：'康老在吐蕃人手下做了五年卧底。那张布防图上的缺口是他故意留的——如果吐蕃从那里攻来，会掉进疏勒河谷的伏击圈。裴将军可能不知道。但你现在知道了。'"
+    repeatable: false
+    deadlineDays: null
+
+storylineConfig:
+  enabled: true

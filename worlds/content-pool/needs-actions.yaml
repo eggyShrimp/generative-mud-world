@@ -1,0 +1,240 @@
+# 需求定义 + 行为效果 + 需求→行为映射
+# 丝路主题
+
+needDefinitions:
+  - type: hunger
+    baseUrgency: 0.5
+    decayRate: 5
+    description: 对食物的需求
+    bornFrom: baseline
+  - type: safety
+    baseUrgency: 0.4
+    decayRate: 2
+    description: 对人身安全的需求
+    bornFrom: baseline
+  - type: social
+    baseUrgency: 0.3
+    decayRate: 3
+    description: 对社交互动的需求
+    bornFrom: baseline
+  - type: rest
+    baseUrgency: 0.2
+    decayRate: 8
+    description: 对休息的需求
+    bornFrom: baseline
+
+itemTemplates:
+  - id: copper_coin
+    name: 开元通宝
+    properties:
+      currency: true
+      value: 1
+  - id: iron_ore
+    name: 铁矿石
+    properties:
+      material: true
+      value: 4
+  - id: tent
+    name: 帐篷
+    properties:
+      restItem: true
+      restRecovery: 60
+      value: 10
+  - id: bedroll
+    name: 睡袋
+    properties:
+      restItem: true
+      restRecovery: 40
+      durability: 3
+      value: 6
+  - id: silk_bolt
+    name: 丝绸
+    properties:
+      material: true
+      valuable: true
+      value: 8
+  - id: jade_rough
+    name: 玉石料
+    properties:
+      material: true
+      valuable: true
+      value: 15
+  - id: tea_brick
+    name: 茶砖
+    properties:
+      edible: true
+      restRestore: 5
+      value: 3
+  - id: waterskin
+    name: 水囊
+    properties:
+      drinkable: true
+      value: 2
+  - id: sutra_copy
+    name: 佛经抄本
+    properties:
+      readable: true
+      spiritual: true
+      value: 5
+  - id: camel_bell
+    name: 驼铃
+    properties:
+      usable: true
+      value: 3
+  - id: naan_bread
+    name: 烤馕
+    properties:
+      edible: true
+      hungerRestore: 15
+      value: 2
+  - id: grap_wine
+    name: 蒲桃酒
+    properties:
+      drinkable: true
+      socialRestore: 8
+      value: 4
+  - id: tang_dao
+    name: 唐刀
+    properties:
+      usable: true
+      weapon: true
+      value: 20
+  - id: torch
+    name: 火把
+    properties:
+      lightSource: true
+      usable: true
+      value: 2
+  - id: prayer_beads
+    name: 念珠
+    properties:
+      usable: true
+      spiritual: true
+      value: 4
+  - id: dried_meat
+    name: 干肉
+    properties:
+      edible: true
+      hungerRestore: 10
+      value: 2
+  - id: herb
+    name: 草药
+    properties:
+      material: true
+      usable: true
+      value: 3
+    tradeable: false
+  - id: trinket
+    name: 杂物
+    properties:
+      value: 0
+    tradeable: false
+
+actionEffects:
+  - action: sleep_at_inn
+    needDeltas: { rest: 80 }
+    endsDay: true
+  - action: rest_at_camp
+    needDeltas: { rest: 50 }
+    endsDay: true
+  - action: end_day
+    needDeltas: { rest: 20 }
+  - action: eat_at_tavern
+    needDeltas: { hunger: 30, social: 10 }
+    itemCosts: { copper_coin: 3 }
+  - action: eat_at_home
+    needDeltas: { hunger: 25 }
+  - action: sleep_at_home
+    needDeltas: { rest: 50 }
+  - action: work_at_smithy
+    needDeltas: { rest: -10 }
+    itemDeltas: { iron_ore: 1 }
+  - action: work_at_farm
+    needDeltas: { rest: -15, hunger: -5 }
+    itemDeltas: { copper_coin: 2 }
+  - action: guard_post
+    needDeltas: { safety: 10, rest: -5 }
+  - action: serve_lunch
+    needDeltas: { social: 10 }
+    itemDeltas: { copper_coin: 2 }
+  - action: serve_dinner
+    needDeltas: { social: 10 }
+    itemDeltas: { copper_coin: 2 }
+  - action: prepare_tavern
+    needDeltas: { rest: -5 }
+  - action: rest
+    needDeltas: { rest: 15 }
+  - action: tend_stall
+    needDeltas: { social: 5, rest: -8 }
+    itemDeltas: { copper_coin: 3 }
+  - action: count_coins
+    needDeltas: { }
+  - action: socialize
+    needDeltas: { social: 10 }
+  - action: patrol
+    needDeltas: { safety: 5, rest: -5 }
+  - action: move
+    needDeltas: { rest: -5 }
+  - action: talk
+    needDeltas: { social: 5, rest: -2 }
+  - action: wait
+    needDeltas: { rest: 3 }
+  - action: chant_sutras
+    needDeltas: { social: 5 }
+  - action: browse_stalls
+    needDeltas: { rest: 3, social: -2 }
+  - action: watch_river
+    needDeltas: { rest: 4, social: -3 }
+  - action: tend_mount
+    needDeltas: { rest: 4, social: -2 }
+  - action: wander_bazaar
+    needDeltas: { rest: 2, social: -2 }
+  - action: admire_palace
+    needDeltas: { rest: 5, social: -3 }
+  - action: explore_ruins
+    needDeltas: { rest: -8 }
+  - action: draw_water
+    needDeltas: { rest: -3 }
+  - action: repair_equipment
+    needDeltas: { rest: -8 }
+  - action: train
+    needDeltas: { rest: -10 }
+  - action: scout_ahead
+    needDeltas: { safety: 5, rest: -5 }
+  - action: pray
+    needDeltas: { social: 10, rest: -3 }
+  - action: meditate
+    needDeltas: { rest: 10, social: 5 }
+  - action: order_drink
+    needDeltas: { social: 5 }
+    itemCosts: { copper_coin: 2 }
+  - action: examine_goods
+    needDeltas: { rest: -2 }
+  - action: search_debris
+    needDeltas: { rest: -5 }
+  - action: mine_ore
+    needDeltas: { rest: -10 }
+    itemDeltas: { iron_ore: 1 }
+  - action: prospect_minerals
+    needDeltas: { rest: -5 }
+  - action: craft_goods
+    needDeltas: { rest: -8 }
+  - action: gather_herbs
+    needDeltas: { rest: -5 }
+  - action: hunt_game
+    needDeltas: { hunger: 15, rest: -8 }
+  - action: harvest_crops
+    needDeltas: { rest: -10 }
+    itemDeltas: { copper_coin: 2 }
+  - action: fish
+    needDeltas: { rest: -5 }
+
+needActionMap:
+  - needType: hunger
+    actionNames: [eat_at_tavern, eat_at_home]
+  - needType: safety
+    actionNames: [guard_post, patrol]
+  - needType: social
+    actionNames: [socialize, eat_at_tavern, serve_lunch, serve_dinner, tend_stall, chant_sutras, pray, meditate, order_drink]
+  - needType: rest
+    actionNames: [sleep_at_home, rest, sleep_at_inn, rest_at_camp]

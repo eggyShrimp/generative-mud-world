@@ -1,0 +1,12 @@
+{
+  "name": "commit-discipline",
+  "version": "0.2.0",
+  "description": "Validate AI-assisted commit messages",
+  "type": "module",
+  "bin": {
+    "commit-discipline": "./dist/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

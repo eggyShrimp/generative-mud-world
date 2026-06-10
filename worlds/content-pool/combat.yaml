@@ -1,0 +1,54 @@
+# 战斗配置 + 战斗技能
+# 规则引擎查表，LLM 可演化
+
+combatConfig:
+  # 推导公式参数
+  baseHp: 50
+  enduranceToHp: 1.5
+  baseAtk: 5
+  skillToAtk: 0.4
+  strengthToAtk: 0.3
+  baseDef: 3
+  skillToDef: 0.2
+  enduranceToDef: 0.3
+  baseSpd: 5
+  skillToSpd: 0.2
+  agilityToSpd: 0.3
+
+  # 伤害
+  damageMultiplier: 1.0
+  defenseReductionPerPoint: 0.6
+  minDamage: 1
+  damageVariance: 0.2
+
+  # 暴击
+  critBaseChance: 0.1
+  critSpdBonus: 0.002
+  critMultiplier: 1.5
+
+  # 节奏
+  pulseInterval: 3
+  restCostPerAttack: 8
+
+  # 逃跑
+  fleeBaseChance: 0.5
+  fleeSpdBonus: 0.015
+
+  # 虚弱
+  incapacitatedDuration: 120
+
+  # 防御姿态
+  defendingBonus: 5
+  defenseDamageMultiplier: 0.5
+
+  # NPC 主动攻击
+  npcHostilityThreshold: -30
+  npcAttackCooldown: 60
+
+  # AI 逃跑决策
+  fleeHpThreshold: 0.3
+  fleeCourageThreshold: 0
+  fleeBaseAttemptChance: 0.3
+  defaultCourageValue: 50
+
+combatSkills: []

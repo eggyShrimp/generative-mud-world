@@ -1,0 +1,15 @@
+language js(typescript, jsx)
+
+file($name, $body) where {
+    or {
+        $filename <: r".*src/engine/.*\.ts$",
+        $filename <: r".*src/combat/.*\.ts$"
+    },
+    not $filename <: r".*src/__tests__/.*",
+    $body <: contains `description: $value` as $description,
+    $value <: r".*[\u4e00-\u9fff].*",
+    register_diagnostic(
+        span = $description,
+        message = "src/engine 和 src/combat 不允许直接写中文 description 文案。请从 ContentPool narrativeTemplates 渲染，避免游戏文本多源维护。"
+    )
+}

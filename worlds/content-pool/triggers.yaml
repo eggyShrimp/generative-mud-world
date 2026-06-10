@@ -1,0 +1,38 @@
+# LLM 触发频率配置
+# 调试/测试/MVP/生产 可独立调节
+
+llmTriggerConfig:
+  worldEvent:
+    perSettlement: 1
+    enabled: true
+
+  memoryCompression:
+    maxCandidates: 3
+    minMemoriesToTrigger: 3
+    enabled: true
+
+  settlementGrowth:
+    npcToRoomRatio: 4
+    prosperityThreshold: 70
+    threatThreshold: 30
+    enabled: true
+
+  contentPoolEvolve:
+    checkDay: 1
+    enabled: true
+
+  narrativeDirection:
+    intervalMonths: 1
+    enabled: false
+
+  culturalEvolution:
+    adoptionThreshold: 0.3
+    enabled: false
+
+  discoveryGeneration:
+    activityThreshold: 1000
+    enabled: false
+
+  dialogueOptions:
+    optionCount: 4
+    enabled: true

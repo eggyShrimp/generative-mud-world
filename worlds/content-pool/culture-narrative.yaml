@@ -1,0 +1,90 @@
+# 命名池 + 叙事模板 + 日历
+# 中晚唐西域世界观
+# LLM 可演化
+
+namePools:
+  - culture: 汉人
+    surnames: [赵, 钱, 孙, 李, 周, 吴, 郑, 王, 冯, 陈, 张, 裴, 杜, 康, 米]
+    maleGiven: [行舟, 大山, 德, 仁, 勇, 守田, 铁柱, 志远, 青山, 福, 显, 慧, 远, 法, 玄]
+    femaleGiven: [秀, 兰, 春芽, 巧, 珠, 月, 翠, 芬, 桂英, 小荷]
+    neutralGiven: [石头, 小河, 顺, 平安, 丰收]
+    epithetPatterns: ["老{char}", "{surname}铁匠", "{surname}{given}", "{role}{name}"]
+
+  - culture: 粟特
+    surnames: [康, 安, 米, 曹, 石, 何, 史]
+    maleGiven: [拂耽, 继芬, 延寿, 毗舍, 俱罗, 诺槃, 菩提]
+    femaleGiven: [摩耶, 祆奴, 月娘, 七宝]
+    neutralGiven: [商, 驼, 铃]
+    epithetPatterns: ["{surname}{given}", "{role}胡商"]
+
+  - culture: 突厥
+    surnames: [阿史那, 咄陆, 沙陀, 苏毗, 哥舒]
+    maleGiven: [啜, 设, 特勤, 吐屯, 颉利发, 阙, 贺鲁, 磨延啜]
+    femaleGiven: [阿依古丽, 优婆, 叶护]
+    neutralGiven: [狼, 鹰, 铁, 山]
+    epithetPatterns: ["{surname}{given}", "草原{given}"]
+
+  - culture: 波斯
+    surnames: [摩诃, 苏鲁支, 万贺, 勃善]
+    maleGiven: [沙欣, 巴赫拉姆, 玛赫多尔]
+    femaleGiven: [莎拉, 安妮莎]
+    neutralGiven: [火, 香, 珠]
+    epithetPatterns: ["{given}{role}", "{surname}氏"]
+
+narrativeTemplates:
+  moveNarrative: "{actor} 到达了 {room}。"
+  talkNarrative: "{actor}: \"{query}\"\n{target}: \"{response}\""
+  waitNarrative: "{actor} 在原地逗留了一会。"
+  npcNotFound: "{npcName}不在这里。"
+  npcSilentFallback: "{target}点了点头，没有多说什么。"
+  emptyDaySummary: 平淡的一天。
+  moodLabels:
+    - { threshold: 0, label: 低落 }
+    - { threshold: 50, label: 平静 }
+    - { threshold: 70, label: 愉快 }
+  relationLabels:
+    - { threshold: 0, label: 冷淡 }
+    - { threshold: 30, label: 普通 }
+    - { threshold: 50, label: 友好 }
+  endingCommands: [结束今天, 休息, 过完这天, 结束这一天]
+  chatPattern: "(和|跟|问|找|与)([^，。\\s]{1,6})(聊天|说话|讲话|打听|问话|聊聊|谈谈|对话|了解|问问)"
+  directionNames:
+    北: north
+    南: south
+    东: east
+    西: west
+    上: up
+    下: down
+  traveloguePrompt: |
+    你是游记作家。请根据玩家今日的经历，以第三人称章回体小说的风格撰写一篇游记。
+
+    写作要求:
+    - 使用第三人称叙事，以角色名为叙述主语
+    - 章回体风格: 标题用简洁的章回名（如"第三回·苍山城初遇奇人"），正文要展现角色在世界的经历
+    - 3-5段正文，每段4-6句话，生动刻画场景
+    - 以地点为线索组织叙事，每到一个新地点另起一段
+    - 融入诗意描写：景色、氛围、角色的细微感受
+    - 保留遭遇NPC的对话要点
+
+    输出格式为严格的JSON:
+    {"title": "章回标题", "narrative": "正文内容"}
+
+calendar:
+  hourStart: 6
+  daysPerMonth: 30
+  monthsPerYear: 12
+  monthNames:
+    - 初春月
+    - 仲春月
+    - 暮春月
+    - 初夏月
+    - 仲夏月
+    - 暮夏月
+    - 初秋月
+    - 仲秋月
+    - 暮秋月
+    - 初冬月
+    - 仲冬月
+    - 暮冬月
+  eraName: 大历
+  yearFormat: "{era}{year}年"

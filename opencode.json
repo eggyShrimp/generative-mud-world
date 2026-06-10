@@ -1,0 +1,15 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "lsp": {
+    "biome": {
+      "command": ["npx", "biome", "lsp-proxy"],
+      "extensions": [".ts", ".tsx", ".json", ".jsonc", ".yaml", ".yml"]
+    }
+  },
+  "formatter": {
+    "biome": {
+      "command": ["npx", "biome", "format", "--stdin-file-path", "{file}"],
+      "extensions": [".ts", ".tsx", ".json", ".jsonc", ".yaml", ".yml"]
+    }
+  }
+}

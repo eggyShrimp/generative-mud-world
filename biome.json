@@ -1,0 +1,57 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.16/schema.json",
+  "plugins": [
+    "./plugins/no-empty-catch.grit",
+    "./plugins/no-create-default-outside-world.grit",
+    "./plugins/no-hardcoded-labels.grit",
+    "./plugins/no-direct-world-mutation.grit"
+  ],
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "style": {
+        "noParameterAssign": "error",
+        "useAsConstAssertion": "error",
+        "useDefaultParameterLast": "error",
+        "useEnumInitializers": "error",
+        "useSelfClosingElements": "error",
+        "useSingleVarDeclarator": "error",
+        "noUnusedTemplateLiteral": "error",
+        "useNumberNamespace": "error",
+        "noInferrableTypes": "error",
+        "noUselessElse": "error"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["**/src/__tests__/**/*.test.ts"],
+      "linter": {
+        "rules": {
+          "style": { "noNonNullAssertion": "off" },
+          "suspicious": { "noExplicitAny": "off" },
+          "correctness": { "noUnusedVariables": "off" }
+        }
+      }
+    },
+    {
+      "includes": ["**/src/client-tui/**"],
+      "linter": {
+        "rules": {
+          "a11y": { "noStaticElementInteractions": "off" }
+        }
+      }
+    }
+  ],
+  "files": {
+    "includes": ["**", "!**/logs", "!**/plugins", "!.agents"]
+  }
+}

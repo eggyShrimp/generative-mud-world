@@ -1,0 +1,18 @@
+language js(typescript, jsx)
+
+file($name, $body) where {
+    or {
+        $filename <: r".*src/engine/.*",
+        $filename <: r".*src/llm/.*",
+        $filename <: r".*src/combat/.*",
+        $filename <: r".*src/simulation/.*",
+        $filename <: r".*src/core/.*"
+    },
+    not $filename <: r".*types\.ts.*",
+    not $filename <: r".*schemas/.*",
+    $body <: contains `const $name: Record<string, string> = $value` as $decl,
+    register_diagnostic(
+        span = $decl,
+        message = "硬编码映射表。检查 ContentPool 是否已有此字段。参考: docs/dev-guide/trap-tokens.md"
+    )
+}

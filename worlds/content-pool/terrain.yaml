@@ -1,0 +1,129 @@
+# 地形配置 — 丝路主题
+# 每种地形定义移动消耗、速度、危险度、通行条件
+
+terrainConfig:
+  - terrain: road
+    label: 驿道
+    baseCost: 1
+    speedMod: 1.5
+    danger: 1
+    requires: []
+
+  - terrain: trail
+    label: 小径
+    baseCost: 2
+    speedMod: 1.0
+    danger: 2
+    requires: []
+
+  - terrain: plain
+    label: 戈壁
+    baseCost: 2
+    speedMod: 1.2
+    danger: 2
+    requires: []
+
+  - terrain: forest
+    label: 密林
+    baseCost: 3
+    speedMod: 0.8
+    danger: 3
+    requires: []
+
+  - terrain: hills
+    label: 丘陵
+    baseCost: 3
+    speedMod: 0.8
+    danger: 2
+    requires: []
+
+  - terrain: mountain
+    label: 山路
+    baseCost: 5
+    speedMod: 0.5
+    danger: 4
+    requires: [climbing]
+
+  - terrain: desert
+    label: 大漠
+    baseCost: 4
+    speedMod: 0.7
+    danger: 3
+    requires: []
+
+  - terrain: oasis
+    label: 绿洲
+    baseCost: 2
+    speedMod: 1.0
+    danger: 2
+    requires: []
+
+  - terrain: swamp
+    label: 沼泽
+    baseCost: 4
+    speedMod: 0.5
+    danger: 5
+    requires: []
+
+  - terrain: river
+    label: 渡河
+    baseCost: 4
+    speedMod: 0.6
+    danger: 3
+    requires: [swimming]
+
+  - terrain: lake
+    label: 湖畔
+    baseCost: 3
+    speedMod: 0.5
+    danger: 2
+    requires: [swimming]
+
+  - terrain: ocean
+    label: 海路
+    baseCost: 6
+    speedMod: 0.3
+    danger: 6
+    requires: [sailing]
+
+  - terrain: bridge
+    label: 石桥
+    baseCost: 1
+    speedMod: 1.2
+    danger: 1
+    requires: []
+
+  - terrain: tunnel
+    label: 隧道
+    baseCost: 2
+    speedMod: 1.0
+    danger: 2
+    requires: []
+
+  - terrain: cave
+    label: 洞穴
+    baseCost: 3
+    speedMod: 0.8
+    danger: 3
+    requires: [light_source]
+
+  - terrain: portal
+    label: 传送
+    baseCost: 0
+    speedMod: 99
+    danger: 0
+    requires: []
+
+  - terrain: stairs_up
+    label: 向上
+    baseCost: 2
+    speedMod: 0.8
+    danger: 1
+    requires: []
+
+  - terrain: stairs_down
+    label: 向下
+    baseCost: 2
+    speedMod: 0.8
+    danger: 1
+    requires: []

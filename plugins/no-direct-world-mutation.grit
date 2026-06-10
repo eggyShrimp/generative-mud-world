@@ -1,0 +1,34 @@
+language js(typescript, jsx)
+
+file($name, $body) where {
+    or {
+        $filename <: r".*src/engine/.*",
+        $filename <: r".*src/combat/.*",
+        $filename <: r".*src/simulation/.*",
+        $filename <: r".*src/core/.*"
+    },
+    not $filename <: r".*src/core/world\.ts.*",
+    not $filename <: r".*src/engine/delta-registry\.ts.*",
+    not $filename <: r".*src/engine/command-executor\.ts.*",
+    not $filename <: r".*src/combat/pulse\.ts.*",
+    not $filename <: r".*src/combat/incapacitation\.ts.*",
+    not $filename <: r".*src/core/content-pool-loader\.ts.*",
+    not $filename <: r".*src/core/world-loader\.ts.*",
+    not $filename <: r".*src/core/materializer\.ts.*",
+    not $filename <: r".*src/__tests__/.*",
+    or {
+        $body <: contains `$obj.relations.push($args)` as $mutation,
+        $body <: contains `$obj.inventory.push($args)` as $mutation,
+        $body <: contains `$obj.activeQuests.push($args)` as $mutation,
+        $body <: contains `$obj.completedQuests.push($args)` as $mutation,
+        $body <: contains `$obj.failedQuests.push($args)` as $mutation,
+        $body <: contains `$obj.knownRooms.push($args)` as $mutation,
+        $body <: contains `$obj.combatState.hp = $value` as $mutation,
+        $body <: contains `need.value = $value` as $mutation,
+        $body <: contains `trait.value = $value` as $mutation
+    },
+    register_diagnostic(
+        span = $mutation,
+        message = "世界状态写入必须集中在明确的写入口。这样设计是为了避免 applyDelta 和其它路径各写一套逻辑，导致服务端返回结构不一致。请把变化表达为 delta，或先把写入函数收敛到当前允许的写入口；如果确实需要新增写入口，请同步更新此规则和 docs/dev-guide/modification-workflow.md。"
+    )
+}

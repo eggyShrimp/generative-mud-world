@@ -1,0 +1,113 @@
+# 场景标签→行为映射
+# 丝路主题
+
+entityActionsByTag:
+  mine:
+    - mine_ore
+    - prospect_minerals
+  tavern:
+    - order_drink
+    - eat_at_tavern
+    - sleep_at_inn
+  camp:
+    - rest_at_camp
+  smithy:
+    - work_at_smithy
+    - craft_goods
+  forest:
+    - gather_herbs
+    - hunt_game
+  farm:
+    - work_at_farm
+    - harvest_crops
+  market:
+    - browse_stalls
+  temple:
+    - pray
+    - meditate
+    - chant_sutras
+  guard_post:
+    - guard_post
+  dock:
+    - fish
+    - watch_river
+  caravanserai:
+    - rest_at_camp
+    - tend_mount
+  bazaar:
+    - examine_goods
+    - wander_bazaar
+  garrison:
+    - guard_post
+    - repair_equipment
+    - train
+  oasis:
+    - draw_water
+    - rest_at_camp
+    - gather_herbs
+  ruins:
+    - explore_ruins
+    - search_debris
+  mountain_pass:
+    - scout_ahead
+    - rest_at_camp
+  palace:
+    - admire_palace
+  workshop:
+    - craft_goods
+    - work_at_smithy
+  river:
+    - draw_water
+    - fish
+
+entityActionLabels:
+  mine_ore: 采矿
+  prospect_minerals: 勘探矿脉
+  order_drink: 点酒
+  eat_at_tavern: 用餐
+  work_at_smithy: 锻造物品
+  craft_goods: 制作物品
+  gather_herbs: 采集草药
+  hunt_game: 打猎
+  work_at_farm: 耕作
+  harvest_crops: 收获作物
+  browse_stalls: 闲逛集市
+  pray: 祈祷
+  meditate: 冥想
+  chant_sutras: 诵经
+  guard_post: 守卫
+  fish: 钓鱼
+  watch_river: 观河景
+  sleep_at_inn: 住宿休息
+  rest_at_camp: 营地休息
+  tend_mount: 照料坐骑
+  examine_goods: 鉴定物品
+  wander_bazaar: 闲逛巴扎
+  repair_equipment: 修理装备
+  train: 操练
+  draw_water: 取水
+  explore_ruins: 探索废墟
+  search_debris: 翻找残骸
+  scout_ahead: 侦查前方
+  admire_palace: 观赏宫殿
+
+entityTagLabels:
+  mine: 矿场
+  tavern: 酒馆
+  camp: 营地
+  smithy: 铁匠铺
+  forest: 森林
+  farm: 农田
+  market: 集市
+  temple: 寺院
+  guard_post: 哨所
+  dock: 码头
+  caravanserai: 驿站
+  bazaar: 巴扎
+  garrison: 军营
+  oasis: 绿洲
+  ruins: 废墟
+  mountain_pass: 关隘
+  palace: 宫殿
+  workshop: 作坊
+  river: 河岸

@@ -1,0 +1,898 @@
+name: 安西大都护府
+seed: 中晚唐时期，大唐在西域的影响力正在衰退。东起敦煌，西至葱岭，丝绸之路串联着一座座绿洲城邦。吐蕃帝国从南线不断蚕食，大食的势力自西渗透，各城邦在列强夹缝中摇摆求生。商队、僧侣、戍卒和密探在这片大漠中匆匆穿行，每个人都有自己的使命与秘密。
+era: 大历十二年
+regions:
+  - id: region_dunhuang
+    name: 敦煌郡
+    dominantCulture: 大唐边塞
+    prosperity: 65
+    threatLevel: 40
+  - id: region_gaochang
+    name: 高昌国
+    dominantCulture: 绿洲城邦
+    prosperity: 75
+    threatLevel: 35
+  - id: region_kuche
+    name: 龟兹国
+    dominantCulture: 丝路乐都
+    prosperity: 60
+    threatLevel: 50
+  - id: region_khotan
+    name: 于阗国
+    dominantCulture: 玉石之邦
+    prosperity: 70
+    threatLevel: 45
+  - id: region_kashgar
+    name: 疏勒镇
+    dominantCulture: 安西军镇
+    prosperity: 40
+    threatLevel: 80
+  - id: region_taklamakan
+    name: 大漠深处
+    dominantCulture: 流沙之海
+    prosperity: 15
+    threatLevel: 75
+rooms:
+  - id: room_dunhuang_mogao
+    name: 莫高窟
+    regionId: region_dunhuang
+    description: 鸣沙山东麓的断崖上，密布着数百座石窟。崖壁在夕阳下泛着金光，洞窟内壁画斑斓，飞天与千佛在幽暗中若隐若现。香火混合着干燥的沙土气息，远处传来隐约的诵经声。
+    tags:
+      - temple
+  - id: room_yangguan_station
+    name: 阳关驿站
+    regionId: region_dunhuang
+    description: 夯土筑成的驿站院落，大院的井辘轳吱呀作响。驿卒在廊下打盹，马槽边拴着几匹汗湿的驿马。墙上贴着褪色的安西军报，一张粗糙的木桌旁聚着几个等待通关的旅人。
+    tags:
+      - caravanserai
+  - id: room_dunhuang_bazaar
+    name: 沙州市集
+    regionId: region_dunhuang
+    description: 宽敞的土路两旁挤满了摊位，胡汉商贩的叫卖声此起彼伏。丝绸、香料、玉石和铜镜在阳光下闪烁。空气中弥漫着烤馕和药草的混合气味，驼铃声从南来北往的商队中传出。
+    tags:
+      - bazaar
+  - id: room_yumen_beacon
+    name: 玉门烽燧
+    regionId: region_dunhuang
+    description: 矗立在戈壁高地上的烽火台，夯土台基被风沙打磨得棱角圆润。台顶的狼烟灶里堆着干骆驼粪，五色令旗在风中猎猎作响。从这里可以望见东西两道蜿蜒的烽燧线消失在天际。
+    tags:
+      - garrison
+  - id: room_gaochang_gate
+    name: 高昌城门
+    regionId: region_gaochang
+    description: 厚实的生土城墙开着一道拱形城门，门洞深约三丈。守门士卒盘查着每个出入的商队，驼背上卸下来的货箱堆在门洞两侧。门楣上挂着褪色的汉文和吐火罗文匾额。
+    tags:
+      - garrison
+  - id: room_sogdian_quarter
+    name: 胡商坊
+    regionId: region_gaochang
+    description: 窄巷交错的蕃坊区，木骨泥墙的店铺插着各色幡旗。粟特人坐在门前的土炕上拨算盘，柜台上摊着龟兹锦、波斯银币和于阗玉石。巷子深处飘出蒲桃酒的甜香，有人弹着琵琶哼着异域调子。
+    tags:
+      - bazaar
+  - id: room_grape_valley
+    name: 葡萄沟
+    regionId: region_gaochang
+    description: 火焰山峡谷中的绿洲村落。成排的葡萄架延伸到山脚下，山泉顺着坎儿井流进院子。泥屋前的土炕上铺着色彩鲜艳的地毯，老人在阴凉处摇着纺车。
+    tags:
+      - farm
+  - id: room_jiaohe_temple
+    name: 交河佛寺
+    regionId: region_gaochang
+    description: 在台地上挖出的寺院，大殿从生土中凿出。佛陀塑像历经风沙依然肃穆，墙壁上的千佛壁画色泽如新。庭院里一株老桑树遮出大片荫凉，几个僧人在树下译经抄卷。
+    tags:
+      - temple
+  - id: room_kuche_royal_city
+    name: 龟兹王城
+    regionId: region_kuche
+    description: 被白杨树环绕的城池，宫墙粉着白垩，在阳光下耀眼如雪。城门口立着两尊石狮子，胡服侍从牵着骏马进出。王宫方向隐约传出筚篥与羯鼓之声。
+    tags:
+      - palace
+  - id: room_music_dance_hall
+    name: 乐舞坊
+    regionId: region_kuche
+    description: 穹顶土屋的大厅，地上铺着波斯地毯。墙壁上绘满了舞动的伎乐天，一面铜镜正对门口。琵琶、筚篥、竖箜篌挂在架子上，空气中残留着沉香和脂粉的气味，似乎刚刚散了一场宴乐。
+    tags:
+      - tavern
+  - id: room_kizil_caves
+    name: 克孜尔石窟
+    regionId: region_kuche
+    description: 悬崖上开凿的百余座洞窟，栈道悬空连接。石窟内壁画以青金石蓝为主色，菱格画中描绘着佛本生故事。一些洞窟明显被人翻动过，散落的颜料罐和草稿显示画师刚离开不久。
+    tags:
+      - temple
+  - id: room_tiemen_pass
+    name: 铁门关
+    regionId: region_kuche
+    description: 两山夹峙的狭窄隘口，关口用条石砌成，铁皮包裹的木门半掩着。隘口两侧的崖壁上凿有箭垛，地面散落着断箭和马蹄铁。风从关外灌进来，发出低沉的呜呜声，像是谁在低声警告。
+    tags:
+      - mountain_pass
+  - id: room_jade_river_ford
+    name: 玉河渡口
+    regionId: region_khotan
+    description: 喀拉喀什河宽阔的河床上铺满了鹅卵石。每逢秋季，采玉人便卷起裤腿在冰冷的河水中摸索。渡口边搭着几个芦苇棚，摆渡的木船系在岸边的胡杨木桩上。
+    tags:
+      - river
+  - id: room_khotan_palace
+    name: 于阗王宫
+    regionId: region_khotan
+    description: 土坯和木构混合的宫室群落，墙面上贴着金箔残片。大殿地上铺着于阗自产的织锦，王座背后挂着一幅巨大的于阗王礼佛图。空气中混合着檀香和清甜的桑葚酒味，侍臣在廊下低声交谈。
+    tags:
+      - palace
+  - id: room_jade_bazaar
+    name: 玉石巴扎
+    regionId: region_khotan
+    description: 沿河摆开的上百个石料摊位，摊主蹲在毡子上，手中攥着油亮的羊脂玉。打磨玉石的石砣转动声不绝于耳，玉石匠人对着阳光检查原石的纹理。买家在摊位间往来比价，交易在低声和简单手势中完成。
+    tags:
+      - bazaar
+  - id: room_silk_workshop
+    name: 桑蚕坊
+    regionId: region_khotan
+    description: 连排的土坯作坊里，蚕匾叠成几层。女工们熟练地缫丝、络丝，手中的梭子织出精美的联珠纹锦。庭院里晾着刚染好的丝帛，色彩从茜草红到靛蓝，层层叠叠如同凝固的彩虹。
+    tags:
+      - workshop
+  - id: room_kashgar_barracks
+    name: 疏勒军营
+    regionId: region_kashgar
+    description: 用夯土和木栅围成的方形军营，营内帐幕排列整齐。练兵场上数十名戍卒正在操练，戈矛碰撞声整齐划一。中军大帐前立着安西都护府的旌旗，旗上的"唐"字已经褪色。空气中弥漫着皮革、铁锈和马汗的气息。
+    tags:
+      - garrison
+  - id: room_congling_road
+    name: 葱岭驿道
+    regionId: region_kashgar
+    description: 帕米尔高原东麓的古道，碎石路面被千百年来往的驼队磨得发亮。道旁的里程碑上模糊刻着"距疏勒十里"。远处的慕士塔格峰白雪皑皑，近处几只旱獭在石头间探头张望。风从这里出发，一路向东吹向整个西域。
+    tags:
+      - mountain_pass
+  - id: room_zoroastrian_shrine
+    name: 祆祠
+    regionId: region_kashgar
+    description: 低矮的土石结构建筑，正门朝东以便迎接日出。祠内常年燃着圣火，火坛四周供着石榴和胡麻。墙上刻着带翼日轮的图案，空气中弥漫着乳香和没药的气味。祭司在火前喃喃念着阿维斯塔经文。
+    tags:
+      - temple
+  - id: room_border_market
+    name: 边境市集
+    regionId: region_kashgar
+    description: 靠近葱岭的无序集市。摊位上摆放着费尔干纳的汗血马鞍、波斯的玻璃器皿和大食的铜壶。来自不同方向的商人在这里碰头，交换货物、消息和货币。讲价声中夹杂着波斯语、粟特语、突厥语和汉语，没人对任何交易大惊小怪。
+    tags:
+      - bazaar
+  - id: room_loulan_ruins
+    name: 楼兰废墟
+    regionId: region_taklamakan
+    description: 黄沙半掩的古城废墟。倾颓的土墙上，风蚀出诡异的孔洞，沙子在其中呜咽，像是某种断续的低语。一座佛塔从沙丘中露出尖顶，周围散落着木简和陶片。入夜后，废墟中有微弱的磷光闪烁，仿佛这座城市仍不甘心被遗忘。
+    tags:
+      - ruins
+  - id: room_desert_oasis
+    name: 沙漠绿洲
+    regionId: region_taklamakan
+    description: 沙海中的一滴水。百余株胡杨环绕着一汪清泉，树荫下长着小片的芦苇和骆驼刺。泉边有几间半地穴式的土屋，井边放着陶罐。这里是穿越沙漠的生命线，但有人在此不怀好意地盘踞。
+    tags:
+      - oasis
+  - id: room_caravan_camp
+    name: 驼队营地
+    regionId: region_taklamakan
+    description: 一排柳条帐篷围成圆圈，几十头骆驼卧在沙地上反刍。中央的篝火上吊着一口黑铁锅，煮着砖茶和羊肉。帐篷边的箱子上印着各种商号的烙印，货主们围坐在篝火边抽着铜烟锅，低声交换前方道路的消息。
+    tags:
+      - caravanserai
+npcs:
+  - id: npc_kang_lao
+    name: 康老掌柜
+    roomId: room_dunhuang_bazaar
+    personality: 粟特商魁，在沙州市集经营了三十年的丝绸生意。此刻面色蜡黄地靠在炕上，咳嗽时白绢帕上带着血丝。他有最后一批货要送到东边——但自己走不动了。
+    npcTier: core
+    role: merchant
+    traits:
+      - name: pragmatic
+        value: 70
+      - name: trust
+        value: 60
+    needs:
+      hunger: 35
+      safety: 25
+      social: 50
+      rest: 30
+    items:
+      - templateId: silk_bolt
+        quantity: 1
+      - templateId: trinket
+        quantity: 1
+  - id: npc_monk_faxian
+    name: 法显
+    roomId: room_dunhuang_mogao
+    personality: 汉地来的中年僧人，在莫高窟修行抄经。面容清瘦，语气温和平静。他懂得一些已经失传的梵文，也知道窟中某些洞室里藏着的秘密。
+    npcTier: core
+    role: monk
+    traits:
+      - name: kind
+        value: 65
+      - name: spiritual
+        value: 75
+    needs:
+      hunger: 50
+      safety: 60
+      social: 40
+      rest: 55
+    items:
+      - templateId: sutra_copy
+        quantity: 1
+      - templateId: prayer_beads
+        quantity: 1
+  - id: npc_zhang_xiaowei
+    name: 张校尉
+    roomId: room_yumen_beacon
+    personality: 玉门烽燧的唐军校尉，话少，目光锐利。知道大漠里每一股盗贼的动向，但他说出来的往往只有三成。对安西的局势比对自己家事更上心。
+    npcTier: regional
+    role: guard
+    traits:
+      - name: courage
+        value: 65
+      - name: pragmatic
+        value: 60
+    needs:
+      hunger: 62
+      safety: 78
+      social: 35
+      rest: 50
+    items:
+      - templateId: tang_dao
+        quantity: 1
+      - templateId: trinket
+        quantity: 1
+  - id: npc_yangguan_innkeeper
+    name: 阳关驿丞
+    roomId: room_yangguan_station
+    personality: 年过半百的驿站管事，脸被风沙刻满了沟壑。熟记每一条驿路每口水井的位置，也清楚哪些人永远没有走到下一站。
+    npcTier: regional
+    role: innkeeper
+    traits:
+      - name: kind
+        value: 40
+      - name: pragmatic
+        value: 65
+    needs:
+      hunger: 58
+      safety: 60
+      social: 55
+      rest: 52
+    items:
+      - templateId: trinket
+        quantity: 1
+      - templateId: trinket
+        quantity: 1
+  - id: npc_zhao_ya
+    name: 赵鸦儿
+    roomId: room_yangguan_station
+    personality: 唐军探子，身形瘦小像一阵风就能吹倒。眼神却像鹰一样警觉。康老掌柜的驼箱一出市集，他就已经注意到了。
+    npcTier: background
+    role: scout
+    traits:
+      - name: suspicious
+        value: 55
+      - name: agility
+        value: 50
+    needs:
+      hunger: 60
+      safety: 48
+      social: 40
+      rest: 44
+    items:
+      - templateId: tang_dao
+        quantity: 1
+      - templateId: trinket
+        quantity: 1
+  - id: npc_gaochang_gate_officer
+    name: 高昌门尉
+    roomId: room_gaochang_gate
+    personality: 高昌国守门官，胡人面孔，会说流利的唐语。秉公执法也收得起人情，看人下菜的本事炉火纯青。驼箱在他眼里从来不只是驼箱。
+    npcTier: regional
+    role: guard
+    traits:
+      - name: pragmatic
+        value: 65
+      - name: suspicious
+        value: 45
+    needs:
+      hunger: 60
+      safety: 72
+      social: 50
+      rest: 55
+    items:
+      - templateId: trinket
+        quantity: 1
+      - templateId: trinket
+        quantity: 1
+  - id: npc_ashina
+    name: 阿史那
+    roomId: room_sogdian_quarter
+    personality: 突厥裔中间商人，个子魁梧，笑起来声音洪亮。他的人脉从高昌一直延伸到葱岭以西的突厥部落。近来做生意越来越难，吐蕃人在南边堵住了他的老路。他缺一个能帮他疏通的人。
+    npcTier: core
+    role: merchant
+    traits:
+      - name: social
+        value: 70
+      - name: ambitious
+        value: 55
+    needs:
+      hunger: 60
+      safety: 50
+      social: 78
+      rest: 55
+    items:
+      - templateId: trinket
+        quantity: 1
+      - templateId: grap_wine
+        quantity: 1
+  - id: npc_mijifen
+    name: 米继芬
+    roomId: room_sogdian_quarter
+    personality: 粟特裔丝绸商，手指上戴着三个民族的戒指。精明而谨慎，说话永远留三分余地。康老掌柜是他的老对手，也是老朋友。听说康老病了，他看起来并不惊讶。
+    npcTier: regional
+    role: merchant
+    traits:
+      - name: pragmatic
+        value: 70
+      - name: suspicious
+        value: 40
+    needs:
+      hunger: 58
+      safety: 62
+      social: 68
+      rest: 58
+    items:
+      - templateId: silk_bolt
+        quantity: 1
+      - templateId: trinket
+        quantity: 1
+      - templateId: copper_coin
+        quantity: 1
+  - id: npc_qu_winemaker
+    name: 麴氏
+    roomId: room_grape_valley
+    personality: 高昌王族后裔，如今只是个酿酒的农人。院子里葡萄架下埋着几缸好酒，酒香里藏着家族几代人的故事。脸上带着看透世事的平静，不卑不亢。
+    npcTier: background
+    role: farmer
+    traits:
+      - name: kind
+        value: 50
+      - name: pessimistic
+        value: 35
+    needs:
+      hunger: 62
+      safety: 55
+      social: 50
+      rest: 60
+    items:
+      - templateId: grap_wine
+        quantity: 1
+  - id: npc_monk_huiyuan
+    name: 慧远
+    roomId: room_jiaohe_temple
+    personality: 在交河佛寺译经的汉僧，沉默寡言，笔下却温柔有力。正在翻译一部梵文经卷，其中某些段落让他不安——经文里藏着似乎是地图坐标的密文。他不确定该找谁商量。
+    npcTier: regional
+    role: monk
+    traits:
+      - name: spiritual
+        value: 70
+      - name: naive
+        value: 35
+    needs:
+      hunger: 48
+      safety: 58
+      social: 38
+      rest: 52
+    items:
+      - templateId: sutra_copy
+        quantity: 1
+      - templateId: sutra_copy
+        quantity: 1
+  - id: npc_kuche_attendant
+    name: 龟兹侍臣
+    roomId: room_kuche_royal_city
+    personality: 王宫侍臣，穿着翠蓝色丝绸袍子，动作优雅得像在跳舞。知道王宫里所有不能公开的客人名单，也知道苏毗乐师和乐舞坊之间有一笔说不清的账。
+    npcTier: regional
+    role: envoy
+    traits:
+      - name: social
+        value: 65
+      - name: cautious
+        value: 55
+    needs:
+      hunger: 50
+      safety: 65
+      social: 72
+      rest: 58
+    items:
+      - templateId: trinket
+        quantity: 1
+      - templateId: camel_bell
+        quantity: 1
+  - id: npc_subi_musician
+    name: 苏毗摩
+    roomId: room_music_dance_hall
+    personality: 龟兹最负盛名的乐师，琵琶技艺名震西域。但他脸色苍白，眼中藏着恐惧——吐蕃密探前几天找上门来，威胁他盗取龟兹国宝级乐谱《摩诃兜勒》，否则就伤害他的家人。
+    npcTier: core
+    role: bard
+    traits:
+      - name: curious
+        value: 70
+      - name: fearful
+        value: 45
+    needs:
+      hunger: 52
+      safety: 35
+      social: 72
+      rest: 48
+    items:
+      - templateId: silk_bolt
+        quantity: 1
+      - templateId: sutra_copy
+        quantity: 1
+  - id: npc_ayi_guli
+    name: 阿依古丽
+    roomId: room_music_dance_hall
+    personality: 年轻的龟兹舞伎，胡旋舞跳得让看客忘了茶凉。心思灵巧，知道苏毗摩最近总是半夜出门、回来后就不说话。她担心他，却不敢问。
+    npcTier: background
+    role: dancer
+    traits:
+      - name: kind
+        value: 55
+      - name: curious
+        value: 45
+    needs:
+      hunger: 56
+      safety: 50
+      social: 75
+      rest: 55
+    items:
+      - templateId: silk_bolt
+        quantity: 1
+      - templateId: silk_bolt
+        quantity: 1
+  - id: npc_cave_painter
+    name: 窟画师
+    roomId: room_kizil_caves
+    personality: 终日在克孜尔石窟作画的画师，双手布满青金石染蓝的茧。他见过苏毗摩深夜独自来石窟——不是来礼佛，而是从某个洞窟的暗格中取走一卷东西。
+    npcTier: background
+    role: artisan
+    traits:
+      - name: diligent
+        value: 70
+      - name: cautious
+        value: 50
+    needs:
+      hunger: 56
+      safety: 52
+      social: 38
+      rest: 45
+    items:
+      - templateId: iron_ore
+        quantity: 1
+      - templateId: sutra_copy
+        quantity: 1
+  - id: npc_bandit_lookout
+    name: 马贼暗哨
+    roomId: room_tiemen_pass
+    personality: 假扮成樵夫守在铁门关的马贼眼线，眼神飘忽，对所有路过的人都悄悄打量。背着的木柴里藏着弯刀。如果发现在意驼箱的行人，他会跟上去。
+    npcTier: background
+    role: bandit
+    traits:
+      - name: suspicious
+        value: 60
+      - name: pragmatic
+        value: 45
+    needs:
+      hunger: 58
+      safety: 40
+      social: 30
+      rest: 50
+    items:
+      - templateId: tang_dao
+        quantity: 1
+      - templateId: trinket
+        quantity: 1
+  - id: npc_khotan_king
+    name: 于阗王
+    roomId: room_khotan_palace
+    personality: 尉迟氏王室后裔，虔诚的佛弟子，也是精明的政治家。王座背后是一幅于阗王礼佛图，但他本人对玉石的价格比对佛经更敏感。天竺高僧滞留在他的领地，他不打算轻易放人。
+    npcTier: core
+    role: ruler
+    traits:
+      - name: pragmatic
+        value: 75
+      - name: spiritual
+        value: 40
+    needs:
+      hunger: 45
+      safety: 80
+      social: 65
+      rest: 60
+    items:
+      - templateId: trinket
+        quantity: 1
+      - templateId: sutra_copy
+        quantity: 1
+  - id: npc_khotan_prime_minister
+    name: 于阗相国
+    roomId: room_khotan_palace
+    personality: 年长的于阗相国，胡髭灰白，说话慢而精。对王上留住天竺高僧的做法不以为然，觉得这会给于阗招来祸患。如果有办法让高僧安全离开，他会暗中帮忙。
+    npcTier: regional
+    role: envoy
+    traits:
+      - name: cautious
+        value: 70
+      - name: kind
+        value: 45
+    needs:
+      hunger: 50
+      safety: 72
+      social: 58
+      rest: 56
+    items:
+      - templateId: trinket
+        quantity: 1
+      - templateId: trinket
+        quantity: 1
+  - id: npc_indian_monk
+    name: 般若陀罗
+    roomId: room_jade_river_ford
+    personality: 天竺那烂陀寺的高僧，须眉已白，目光却如童子般清澈。他携带着一部梵文经卷，声称是那烂陀寺失传百年的密宗要籍。被于阗王以"边境危险"为由软禁在渡口附近。但他并不慌张——似乎相信该发生的事总会发生。
+    npcTier: core
+    role: monk
+    traits:
+      - name: spiritual
+        value: 85
+      - name: kind
+        value: 70
+    needs:
+      hunger: 42
+      safety: 55
+      social: 50
+      rest: 60
+    items:
+      - templateId: sutra_copy
+        quantity: 1
+      - templateId: sutra_copy
+        quantity: 1
+  - id: npc_jade_merchant
+    name: 于阗玉商
+    roomId: room_jade_bazaar
+    personality: 祖传三代的玉石商人，手掌磨得如砂纸般粗糙。能从石皮的纹理判断内部玉质，准确率素来九成以上。最近收了一块奇石——石皮上隐约有天生的金色纹路，形似梵文。他不确定这是吉是凶。
+    npcTier: regional
+    role: merchant
+    traits:
+      - name: pragmatic
+        value: 60
+      - name: suspicious
+        value: 35
+    needs:
+      hunger: 60
+      safety: 62
+      social: 55
+      rest: 58
+    items:
+      - templateId: jade_rough
+        quantity: 1
+      - templateId: jade_rough
+        quantity: 1
+  - id: npc_silk_weaver
+    name: 织锦女
+    roomId: room_silk_workshop
+    personality: 于阗最出色的织锦女工，织出的联珠对狮纹锦远销长安。沉默而专注，手中梭子永不停歇。她知道于阗的丝绸技艺是从汉地秘密学来的——这是她自己家族的秘密。
+    npcTier: background
+    role: artisan
+    traits:
+      - name: diligent
+        value: 75
+      - name: cautious
+        value: 50
+    needs:
+      hunger: 54
+      safety: 55
+      social: 38
+      rest: 48
+    items:
+      - templateId: silk_bolt
+        quantity: 1
+      - templateId: camel_bell
+        quantity: 1
+  - id: npc_general_pei
+    name: 裴将军
+    roomId: room_kashgar_barracks
+    personality: 疏勒镇守将，疏勒裴氏出身，祖上三代戍边。眉头紧锁，几天没脱下皱巴巴的铠甲。吐蕃大军已在五十里外扎营，而他派去向安西都护求援的斥候一去不返。粮草不足十日，突厥部落的援军迟迟没有消息。
+    npcTier: core
+    role: guard
+    traits:
+      - name: courage
+        value: 80
+      - name: disciplined
+        value: 70
+    needs:
+      hunger: 48
+      safety: 35
+      social: 45
+      rest: 30
+    items:
+      - templateId: trinket
+        quantity: 1
+      - templateId: trinket
+        quantity: 1
+  - id: npc_du_canjun
+    name: 杜参军
+    roomId: room_kashgar_barracks
+    personality: 裴将军的行军参谋，瘦削的文吏，笔下算得清粮草和援军到达的最早时间。他不信神佛，只信数字。但最近几天的数字都指向同一个结论：守不住。
+    npcTier: regional
+    role: scholar
+    traits:
+      - name: pragmatic
+        value: 75
+      - name: pessimistic
+        value: 40
+    needs:
+      hunger: 52
+      safety: 38
+      social: 42
+      rest: 35
+    items:
+      - templateId: trinket
+        quantity: 1
+      - templateId: iron_ore
+        quantity: 1
+  - id: npc_zoroastrian_priest
+    name: 祆教祭司
+    roomId: room_zoroastrian_shrine
+    personality: 已到古稀之年的祆教祭司，面容如古木雕刻。祆教在疏勒只剩下最后一座祆祠和不到五十个信众。他守护的圣火已经燃烧了七十年，近来的风声告诉他——大食人的军队不会容忍异教之火继续燃烧。
+    npcTier: regional
+    role: priest
+    traits:
+      - name: spiritual
+        value: 80
+      - name: pessimistic
+        value: 30
+    needs:
+      hunger: 42
+      safety: 30
+      social: 42
+      rest: 48
+    items:
+      - templateId: trinket
+        quantity: 1
+      - templateId: sutra_copy
+        quantity: 1
+  - id: npc_border_merchant
+    name: 葱岭商贾
+    roomId: room_border_market
+    personality: 在疏勒边境市集摸爬滚打二十年的老商贾，胡汉语混杂，看见什么货都能立刻报出最低价。他知道裴将军缺粮——因为他的账本里记着军营最近赊的账目。
+    npcTier: regional
+    role: merchant
+    traits:
+      - name: pragmatic
+        value: 70
+      - name: social
+        value: 55
+    needs:
+      hunger: 60
+      safety: 48
+      social: 68
+      rest: 55
+    items:
+      - templateId: dried_meat
+        quantity: 1
+      - templateId: copper_coin
+        quantity: 1
+  - id: npc_kashgar_sentinel
+    name: 疏勒哨兵
+    roomId: room_congling_road
+    personality: 驻守葱岭驿道的年轻戍卒，脸上有高原晒伤的红痕。日夜眺望西方，眼神里有疲惫也有倔强。他知道吐蕃人迟早会出现，但他更怕自己先崩溃。
+    npcTier: background
+    role: guard
+    traits:
+      - name: disciplined
+        value: 50
+      - name: fearful
+        value: 40
+    needs:
+      hunger: 62
+      safety: 35
+      social: 30
+      rest: 42
+    items:
+      - templateId: tang_dao
+        quantity: 1
+      - templateId: dried_meat
+        quantity: 1
+  - id: npc_loulan_singer
+    name: 楼兰歌者
+    roomId: room_loulan_ruins
+    personality: 一个头发花白、眼神空灵的女人，站在废墟佛塔的残破顶层。她的歌声没有歌词，只有调子——像是风声、水声和百年前楼兰末代王后别离曲的混合物。没有人知道她从哪里来，也没人靠近过她。她似乎不是活人，但歌是活的。
+    npcTier: core
+    role: ghost
+    traits:
+      - name: spiritual
+        value: 90
+      - name: melancholic
+        value: 80
+    needs:
+      hunger: -1
+      safety: -1
+      social: -1
+      rest: -1
+    items:
+      - templateId: sutra_copy
+        quantity: 1
+  - id: npc_missing_monk
+    name: 失踪僧侣
+    roomId: room_loulan_ruins
+    personality: 从疏勒出发前往楼兰废墟考察古佛经的汉僧。他的营地还在废墟东边搭着，但人已经消失了两天。留下了一本手札，里面记录着废墟地下发现的祆教祭坛和他越来越恐惧的心境。他最后一行字写着："她唱的是阿维斯塔的古祷文。这不是佛的遗迹。"
+    npcTier: regional
+    role: monk
+    traits:
+      - name: spiritual
+        value: 65
+      - name: courageous
+        value: 45
+    needs:
+      hunger: 30
+      safety: 15
+      social: 25
+      rest: 20
+    items:
+      - templateId: sutra_copy
+        quantity: 1
+      - templateId: sutra_copy
+        quantity: 1
+  - id: npc_desert_hermit
+    name: 沙漠隐士
+    roomId: room_desert_oasis
+    personality: 独自住在沙漠绿洲土屋中的白发老人，自称曾是哪国的将军，如今只跟胡杨和风说话。他屋里有几把保养精良的唐刀，墙上挂着安西军旧旗——但他最珍视的，是一罐从疏勒带来的盐。
+    npcTier: core
+    role: hermit
+    traits:
+      - name: melancholic
+        value: 65
+      - name: disciplined
+        value: 60
+    needs:
+      hunger: 45
+      safety: 30
+      social: 20
+      rest: 55
+    items:
+      - templateId: tang_dao
+        quantity: 1
+      - templateId: silk_bolt
+        quantity: 1
+      - templateId: iron_ore
+        quantity: 1
+  - id: npc_caravan_leader
+    name: 驼队头领
+    roomId: room_caravan_camp
+    personality: 经验丰富的驼队老手，脸被风沙打磨得像胡杨树皮。走这条商路已经二十多年，对沿途水井位置和马贼出没路线的了解胜过任何地图。但对楼兰废墟方向有种本能的回避——"那边不干净"。
+    npcTier: regional
+    role: merchant
+    traits:
+      - name: pragmatic
+        value: 70
+      - name: cautious
+        value: 60
+    needs:
+      hunger: 60
+      safety: 52
+      social: 58
+      rest: 48
+    items:
+      - templateId: waterskin
+        quantity: 1
+      - templateId: camel_bell
+        quantity: 1
+      - templateId: tea_brick
+        quantity: 1
+  - id: npc_bandit_chief
+    name: 马贼首领
+    roomId: room_caravan_camp
+    personality: 脸上横着一道刀疤的女人，手下有二十几个亡命之徒。在龟兹到疏勒之间的大小路上打劫为生。但她也有自己的规矩——不动僧侣，不碰死人，不收来历太神秘的货。康老掌柜的驼箱，她盯了很久了。
+    npcTier: core
+    role: bandit
+    traits:
+      - name: courage
+        value: 75
+      - name: pragmatic
+        value: 50
+    needs:
+      hunger: 65
+      safety: 55
+      social: 42
+      rest: 52
+    items:
+      - templateId: tang_dao
+        quantity: 1
+      - templateId: trinket
+        quantity: 1
+graph:
+  layout:
+    region_dunhuang:
+      rows: 2
+      cols: 2
+      rooms:
+        - room_dunhuang_mogao
+        - room_yangguan_station
+        - room_dunhuang_bazaar
+        - room_yumen_beacon
+      defaultDistance: 1
+      defaultTerrain: desert
+    region_gaochang:
+      rows: 2
+      cols: 2
+      rooms:
+        - room_gaochang_gate
+        - room_sogdian_quarter
+        - room_grape_valley
+        - room_jiaohe_temple
+      defaultDistance: 1
+      defaultTerrain: oasis
+    region_kuche:
+      rows: 2
+      cols: 2
+      rooms:
+        - room_kuche_royal_city
+        - room_music_dance_hall
+        - room_kizil_caves
+        - room_tiemen_pass
+      defaultDistance: 1
+      defaultTerrain: oasis
+    region_khotan:
+      rows: 2
+      cols: 2
+      rooms:
+        - room_jade_river_ford
+        - room_khotan_palace
+        - room_jade_bazaar
+        - room_silk_workshop
+      defaultDistance: 1
+      defaultTerrain: oasis
+    region_kashgar:
+      rows: 2
+      cols: 2
+      rooms:
+        - room_kashgar_barracks
+        - room_congling_road
+        - room_zoroastrian_shrine
+        - room_border_market
+      defaultDistance: 1
+      defaultTerrain: mountain
+    region_taklamakan:
+      rows: 1
+      cols: 3
+      rooms:
+        - room_loulan_ruins
+        - room_desert_oasis
+        - room_caravan_camp
+      defaultDistance: 2
+      defaultTerrain: desert
+  regionLinks:
+    - fromRegion: region_dunhuang
+      toRegion: region_gaochang
+      direction: 西
+      distance: 3
+      terrain: desert
+    - fromRegion: region_gaochang
+      toRegion: region_kuche
+      direction: 西
+      distance: 3
+      terrain: desert
+    - fromRegion: region_kuche
+      toRegion: region_khotan
+      direction: 南
+      distance: 2
+      terrain: mountain
+    - fromRegion: region_khotan
+      toRegion: region_kashgar
+      direction: 西
+      distance: 3
+      terrain: mountain
+    - fromRegion: region_kuche
+      toRegion: region_taklamakan
+      direction: 南
+      distance: 4
+      terrain: desert
+    - fromRegion: region_gaochang
+      toRegion: region_khotan
+      direction: 南
+      distance: 4
+      terrain: desert

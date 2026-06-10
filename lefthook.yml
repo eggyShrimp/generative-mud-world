@@ -1,0 +1,10 @@
+pre-commit:
+  commands:
+    lint:
+      glob: "*.{ts,tsx,yaml,json,js}"
+      run: npx biome check --no-errors-on-unmatched {staged_files} && npx depcruise src --config .dependency-cruiser.js
+    hardcoded-description:
+      glob: "src/**/*.ts"
+      run: node scripts/check-hardcoded-description-boundary.mjs {staged_files}
+    test:
+      run: npx vitest run

@@ -1,0 +1,13 @@
+language js(typescript, jsx)
+
+file($name, $body) where {
+    not $filename <: r".*src/core/world\.ts.*",
+    not $filename <: r".*src/core/content-pool-loader\.ts.*",
+    not $filename <: r".*src/core/world-loader\.ts.*",
+    not $filename <: r".*src/__tests__/.*",
+    $body <: contains `createDefault$contentPool($args)` as $call,
+    register_diagnostic(
+        span = $call,
+        message = "createDefault*() 调用仅允许在 createDefaultContentPool() 内部。使用 world.contentPool.xxx。参考: docs/dev-guide/trap-tokens.md"
+    )
+}

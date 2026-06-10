@@ -1,0 +1,41 @@
+{
+  "name": "world",
+  "version": "0.1.0",
+  "description": "An open-source MUD game framework with LLM-driven NPC simulation",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "dev:tui": "bun src/client-tui/index.tsx",
+    "dev:web": "npm run dev --prefix web",
+    "start": "tsx src/index.ts",
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "npm run build -- --noEmit && biome check . && depcruise src --config .dependency-cruiser.js",
+    "format": "biome check --write .",
+    "world:generate": "tsx src/cli/generate-world.ts"
+  },
+  "dependencies": {
+    "@opentui/solid": "^0.3.1",
+    "dotenv": "^17.4.2",
+    "solid-js": "^1.9.12",
+    "ws": "^8.18.0",
+    "yaml": "^2.7.0",
+    "zod": "^3.24.0",
+    "zod-to-json-schema": "^3.25.2"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.16",
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.0",
+    "dependency-cruiser": "^17.4.3",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "unplugin-oxc": "^0.6.1",
+    "vitest": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

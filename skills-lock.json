@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "commit-discipline": {
+      "source": "eggyshrimp/commit-discipline",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "8dbeaa885728a60922d5af8ca781bccd4713e80b2b1e5c6dff1635137fd45bd8"
+    }
+  }
+}

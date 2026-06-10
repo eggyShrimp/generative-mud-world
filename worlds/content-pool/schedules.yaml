@@ -1,0 +1,75 @@
+# 角色调度模板
+# 丝路主题
+
+scheduleTemplates:
+  - role: blacksmith
+    schedule:
+      - { startHour: 6, endHour: 12, action: work_at_smithy, targetRoomId: null, priority: 8, deviationAllowed: true }
+      - { startHour: 12, endHour: 13, action: eat_at_tavern, targetRoomId: null, priority: 9, deviationAllowed: false }
+      - { startHour: 13, endHour: 18, action: work_at_smithy, targetRoomId: null, priority: 8, deviationAllowed: true }
+      - { startHour: 18, endHour: 19, action: eat_at_tavern, targetRoomId: null, priority: 9, deviationAllowed: false }
+      - { startHour: 19, endHour: 22, action: socialize, targetRoomId: null, priority: 5, deviationAllowed: true }
+      - { startHour: 22, endHour: 6, action: sleep_at_home, targetRoomId: null, priority: 10, deviationAllowed: false }
+
+  - role: guard
+    schedule:
+      - { startHour: 6, endHour: 14, action: guard_post, targetRoomId: null, priority: 9, deviationAllowed: false }
+      - { startHour: 14, endHour: 15, action: eat_at_tavern, targetRoomId: null, priority: 9, deviationAllowed: false }
+      - { startHour: 15, endHour: 22, action: patrol, targetRoomId: null, priority: 8, deviationAllowed: true }
+      - { startHour: 22, endHour: 6, action: sleep_at_home, targetRoomId: null, priority: 10, deviationAllowed: false }
+
+  - role: farmer
+    schedule:
+      - { startHour: 5, endHour: 12, action: work_at_farm, targetRoomId: null, priority: 8, deviationAllowed: true }
+      - { startHour: 12, endHour: 13, action: eat_at_home, targetRoomId: null, priority: 9, deviationAllowed: false }
+      - { startHour: 13, endHour: 18, action: work_at_farm, targetRoomId: null, priority: 8, deviationAllowed: true }
+      - { startHour: 18, endHour: 20, action: eat_at_home, targetRoomId: null, priority: 9, deviationAllowed: false }
+      - { startHour: 20, endHour: 5, action: sleep_at_home, targetRoomId: null, priority: 10, deviationAllowed: false }
+
+  - role: tavern_keeper
+    schedule:
+      - { startHour: 6, endHour: 12, action: prepare_tavern, targetRoomId: null, priority: 9, deviationAllowed: false }
+      - { startHour: 12, endHour: 14, action: serve_lunch, targetRoomId: null, priority: 9, deviationAllowed: false }
+      - { startHour: 14, endHour: 18, action: rest, targetRoomId: null, priority: 7, deviationAllowed: true }
+      - { startHour: 18, endHour: 23, action: serve_dinner, targetRoomId: null, priority: 9, deviationAllowed: false }
+      - { startHour: 23, endHour: 6, action: sleep_at_home, targetRoomId: null, priority: 10, deviationAllowed: false }
+
+  - role: merchant
+    schedule:
+      - { startHour: 7, endHour: 12, action: tend_stall, targetRoomId: null, priority: 9, deviationAllowed: true }
+      - { startHour: 12, endHour: 13, action: eat_at_tavern, targetRoomId: null, priority: 8, deviationAllowed: false }
+      - { startHour: 13, endHour: 18, action: tend_stall, targetRoomId: null, priority: 9, deviationAllowed: true }
+      - { startHour: 18, endHour: 19, action: eat_at_home, targetRoomId: null, priority: 8, deviationAllowed: false }
+      - { startHour: 19, endHour: 22, action: count_coins, targetRoomId: null, priority: 6, deviationAllowed: true }
+      - { startHour: 22, endHour: 7, action: sleep_at_home, targetRoomId: null, priority: 10, deviationAllowed: false }
+
+  - role: monk
+    schedule:
+      - { startHour: 5, endHour: 6, action: chant_sutras, targetRoomId: null, priority: 9, deviationAllowed: false }
+      - { startHour: 6, endHour: 8, action: meditate, targetRoomId: null, priority: 9, deviationAllowed: false }
+      - { startHour: 8, endHour: 12, action: chant_sutras, targetRoomId: null, priority: 8, deviationAllowed: true }
+      - { startHour: 12, endHour: 13, action: eat_at_home, targetRoomId: null, priority: 9, deviationAllowed: false }
+      - { startHour: 13, endHour: 18, action: meditate, targetRoomId: null, priority: 8, deviationAllowed: true }
+      - { startHour: 18, endHour: 19, action: eat_at_home, targetRoomId: null, priority: 9, deviationAllowed: false }
+      - { startHour: 19, endHour: 22, action: chant_sutras, targetRoomId: null, priority: 5, deviationAllowed: true }
+      - { startHour: 22, endHour: 5, action: sleep_at_home, targetRoomId: null, priority: 10, deviationAllowed: false }
+
+  - role: soldier
+    schedule:
+      - { startHour: 5, endHour: 7, action: train, targetRoomId: null, priority: 9, deviationAllowed: false }
+      - { startHour: 7, endHour: 12, action: guard_post, targetRoomId: null, priority: 9, deviationAllowed: false }
+      - { startHour: 12, endHour: 13, action: eat_at_home, targetRoomId: null, priority: 9, deviationAllowed: false }
+      - { startHour: 13, endHour: 18, action: guard_post, targetRoomId: null, priority: 9, deviationAllowed: false }
+      - { startHour: 18, endHour: 20, action: train, targetRoomId: null, priority: 7, deviationAllowed: true }
+      - { startHour: 20, endHour: 5, action: sleep_at_home, targetRoomId: null, priority: 10, deviationAllowed: false }
+
+  - role: artisan
+    schedule:
+      - { startHour: 7, endHour: 12, action: craft_goods, targetRoomId: null, priority: 8, deviationAllowed: true }
+      - { startHour: 12, endHour: 13, action: eat_at_home, targetRoomId: null, priority: 9, deviationAllowed: false }
+      - { startHour: 13, endHour: 18, action: craft_goods, targetRoomId: null, priority: 8, deviationAllowed: true }
+      - { startHour: 18, endHour: 20, action: eat_at_home, targetRoomId: null, priority: 9, deviationAllowed: false }
+      - { startHour: 20, endHour: 22, action: socialize, targetRoomId: null, priority: 5, deviationAllowed: true }
+      - { startHour: 22, endHour: 7, action: sleep_at_home, targetRoomId: null, priority: 10, deviationAllowed: false }
+
+behaviorAtoms: []
