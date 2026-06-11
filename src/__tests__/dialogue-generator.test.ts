@@ -845,3 +845,173 @@ describe("DialogueGenerator.handleOption — 边缘情况", () => {
     expect(result.delta).toEqual({});
   });
 });
+
+// ============================================================
+// handleOption — 连续对话 subOptions
+// ============================================================
+
+function mockAdapterWithTopics(
+  reply: string,
+  topics: string[],
+  toolCalls?: Array<{ id: string; function: { name: string; arguments: string } }>,
+) {
+  const baseToolCalls = toolCalls ?? [];
+  const allToolCalls = [
+    ...baseToolCalls,
+    {
+      id: "call_topics",
+      function: {
+        name: "suggest_followup_topics",
+        arguments: JSON.stringify({ topics }),
+      },
+    },
+  ];
+  return mockAdapter(reply, allToolCalls.length > 0 ? allToolCalls : undefined);
+}
+
+describe("DialogueGenerator.handleOption — 连续对话", () => {
+  it("idle_chat 返回 subOptions：LLM 话题全部转换 + 告别在末位", async () => {
+    const world = setupWorld();
+    const topics = ["最近有什么事？", "这酒馆开了多久？", "你认识镇上的人吗？"];
+    const adapter = mockAdapterWithTopics("今天酒馆很热闹。", topics);
+    const gen = new DialogueGenerator(adapter);
+    const result = await gen.handleOption(world, "p1", "npc1", "idle_chat", "menu:chat");
+
+    expect(result.delta.dialogues).toBeDefined();
+    expect(result.subOptions).toBeDefined();
+
+    // LLM 话题全部转换为 idle_chat 类型选项
+    const topicOptions = result.subOptions!.filter((o) => o.type === "idle_chat");
+    expect(topicOptions.length).toBe(topics.length);
+    expect(topicOptions.every((o) => topics.includes(o.label))).toBe(true);
+    // id 按 chat:followup_<index> 规则生成
+    for (let i = 0; i < topics.length; i++) {
+      expect(topicOptions[i].id).toBe(`chat:followup_${i}`);
+    }
+
+    // 末项是告别
+    const last = result.subOptions![result.subOptions!.length - 1];
+    expect(last.type).toBe("close");
+    expect(last.id).toBe("chat:goodbye");
+  });
+
+  it('idle_chat + "chat:goodbye" optionId → 不返回 subOptions', async () => {
+    const world = setupWorld();
+    const adapter = mockAdapterWithTopics("后会有期。", ["嗯，再见"]);
+    const gen = new DialogueGenerator(adapter);
+    const result = await gen.handleOption(world, "p1", "npc1", "idle_chat", "chat:goodbye");
+
+    expect(result.delta.dialogues).toBeDefined();
+    expect(result.subOptions).toBeUndefined();
+  });
+
+  it("LLM 未调用 suggest_followup_topics → 仅含系统注入 + 告别", async () => {
+    const world = setupWorld({ npcInventory: true });
+    const adapter = mockAdapter("今天没什么特别的。");
+    const gen = new DialogueGenerator(adapter);
+    const result = await gen.handleOption(world, "p1", "npc1", "idle_chat", "menu:chat");
+
+    expect(result.subOptions).toBeDefined();
+    const types = result.subOptions!.map((o) => o.type);
+    // 无 LLM 话题，但有 trade_menu（系统注入）和 close（告别）
+    expect(types).toContain("trade_menu");
+    expect(types).toContain("close");
+  });
+
+  it("subOptions 含系统注入选项（NPC 有 inventory）", async () => {
+    const world = setupWorld({ npcInventory: true });
+    const topics = ["看看你的货", "有什么好东西", "这些怎么卖"];
+    const adapter = mockAdapterWithTopics("需要买点什么？", topics);
+    const gen = new DialogueGenerator(adapter);
+    const result = await gen.handleOption(world, "p1", "npc1", "idle_chat", "menu:chat");
+
+    const types = result.subOptions!.map((o) => o.type);
+    // LLM 话题
+    expect(types.filter((t) => t === "idle_chat").length).toBe(topics.length);
+    // 系统注入
+    expect(types).toContain("trade_menu");
+    // 告别
+    expect(types).toContain("close");
+    // 顺序: LLM 话题 → 系统注入 → 告别
+    const firstSysIdx = types.findIndex((t) => t === "trade_menu");
+    const goodbyeIdx = types.findIndex((t) => t === "close");
+    expect(firstSysIdx).toBeGreaterThanOrEqual(topics.length);
+    expect(goodbyeIdx).toBeGreaterThan(firstSysIdx);
+  });
+
+  it("close 类型 → 返回告别 delta，不调 LLM", async () => {
+    const world = setupWorld();
+    const adapter = mockAdapter("");
+    const gen = new DialogueGenerator(adapter);
+    const result = await gen.handleOption(world, "p1", "npc1", "close", "chat:goodbye");
+
+    expect(result.delta.dialogues).toBeDefined();
+    expect(result.delta.dialogues![0].content).toContain("告别");
+    expect(result.subOptions).toBeUndefined();
+    // 验证未调用 LLM
+    expect(adapter.chat).not.toHaveBeenCalled();
+  });
+
+  it("conversation history 在连续对话中追加", async () => {
+    const world = setupWorld();
+    const gen = new DialogueGenerator(mockAdapterWithTopics("我是老马。", ["你在哪工作？"]));
+
+    // 第一轮
+    await gen.handleOption(world, "p1", "npc1", "idle_chat", "menu:chat", "你是谁？");
+    // 第二轮（验证不报错，prompt 内部应含历史）
+    const result2 = await gen.handleOption(
+      world,
+      "p1",
+      "npc1",
+      "idle_chat",
+      "chat:followup_0",
+      "你在哪工作？",
+    );
+    expect(result2.delta.dialogues).toBeDefined();
+  });
+
+  it("close 类型 → 清除对话历史", async () => {
+    const world = setupWorld();
+    const gen = new DialogueGenerator(mockAdapter("再见。"));
+    // 先建立一些历史
+    await gen.handleOption(world, "p1", "npc1", "idle_chat", "menu:chat", "你好");
+    // 告别 → 清除历史
+    await gen.handleOption(world, "p1", "npc1", "close", "chat:goodbye");
+    // 验证不报错（新的对话应该重新开始）
+    const result = await gen.handleOption(
+      world,
+      "p1",
+      "npc1",
+      "idle_chat",
+      "menu:chat",
+      "又见面了",
+    );
+    expect(result.delta.dialogues).toBeDefined();
+  });
+
+  it("suggest_followup_topics 参数校验失败 → 降级空话题", async () => {
+    const world = setupWorld();
+    const adapter = {
+      chat: vi.fn().mockResolvedValue({
+        text: "你好",
+        toolCalls: [
+          {
+            id: "call_1",
+            function: {
+              name: "suggest_followup_topics",
+              arguments: JSON.stringify({ topics: "not-array" }),
+            },
+          },
+        ],
+      }),
+      generate: vi.fn(),
+    } as unknown as LLMAdapter;
+    const gen = new DialogueGenerator(adapter);
+    const result = await gen.handleOption(world, "p1", "npc1", "idle_chat", "menu:chat");
+
+    // 降级：只有 告别（无系统注入因为没有 inventory/quests）
+    expect(result.subOptions).toBeDefined();
+    expect(result.subOptions!.length).toBe(1);
+    expect(result.subOptions![0].label).toBe("告别");
+  });
+});

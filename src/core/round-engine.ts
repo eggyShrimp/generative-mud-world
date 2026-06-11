@@ -160,6 +160,7 @@ export class RoundEngine {
         npcId,
         optionType,
         String(params.optionId),
+        params.optionLabel ? String(params.optionLabel) : undefined,
       );
       llmDelta = result.delta;
       dialogueSubOptions = result.subOptions;

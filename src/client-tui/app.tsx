@@ -1043,7 +1043,7 @@ function EventLog(props: {
   );
 }
 
-interface ModalMetrics {
+export interface ModalMetrics {
   width: number;
   height: number;
   top: number;
@@ -1207,8 +1207,10 @@ function PopupPanel(props: {
   );
 }
 
-function DialoguePanel(props: { client: GameClient; metrics: ModalMetrics }) {
+export function DialoguePanel(props: { client: GameClient; metrics: ModalMetrics }) {
   const dialogue = () => props.client.dialogue();
+  const isLoading = () => props.client.pending()?.kind === "dialogue_reply" && dialogue() !== null;
+
   return (
     <Show when={dialogue()}>
       {(current: () => NonNullable<ReturnType<GameClient["dialogue"]>>) => (
@@ -1223,20 +1225,38 @@ function DialoguePanel(props: { client: GameClient; metrics: ModalMetrics }) {
           footer="Esc 返回"
         >
           <scrollbox height={props.metrics.bodyHeight} scrollY>
-            <For each={current().options}>
-              {(option, index) => (
-                <KeyHint
-                  shortcut={index() + 1}
-                  label={option.label}
-                  color={THEME.dialogue}
-                  wrapMode="word"
-                />
+            <Show when={current().lastNpcReply}>
+              {(reply: () => string) => (
+                <text wrapMode="word" fg={THEME.dialogue}>
+                  {current().npcName}：{reply()}
+                </text>
               )}
-            </For>
-            <Show when={current().options.length === 0}>
-              <text selectable={false} fg={THEME.dim}>
-                没有可选回应。
-              </text>
+            </Show>
+            <Show
+              when={isLoading()}
+              fallback={
+                <Show
+                  when={current().options.length > 0}
+                  fallback={
+                    <text selectable={false} fg={THEME.dim}>
+                      没有可选回应。
+                    </text>
+                  }
+                >
+                  <For each={current().options}>
+                    {(option, index) => (
+                      <KeyHint
+                        shortcut={index() + 1}
+                        label={option.label}
+                        color={THEME.dialogue}
+                        wrapMode="word"
+                      />
+                    )}
+                  </For>
+                </Show>
+              }
+            >
+              <LoadingHint color={THEME.muted} text="正在等待回复..." />
             </Show>
           </scrollbox>
         </PopupPanel>

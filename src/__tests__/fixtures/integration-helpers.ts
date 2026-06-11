@@ -197,6 +197,16 @@ export function mockDialogueGenerator(delta: SimulationDelta): DialogueGenerator
   } as unknown as DialogueGenerator;
 }
 
+export function mockDialogueGeneratorWithSubOptions(
+  delta: SimulationDelta,
+  subOptions: Array<{ id: string; label: string; type: string }>,
+): DialogueGenerator {
+  return {
+    generateFixedMenu: vi.fn().mockReturnValue([]),
+    handleOption: vi.fn().mockResolvedValue({ delta, subOptions }),
+  } as unknown as DialogueGenerator;
+}
+
 // ============================================================
 // Engine 构建
 // ============================================================

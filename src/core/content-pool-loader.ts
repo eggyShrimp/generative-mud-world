@@ -8,6 +8,7 @@ import {
   CalendarConfigSchema,
   CombatConfigSchema,
   CombatSkillSchema,
+  ConversationDirectionSchema,
   DialogueEffectMappingSchema,
   EmotionLabelsSchema,
   EntityActionLabelsSchema,
@@ -54,6 +55,7 @@ const DOMAIN_FIELDS: Record<string, (keyof ContentPool)[]> = {
     "needLabels",
     "traitLabels",
     "itemPropertyLabels",
+    "conversationDirections",
   ],
   "culture-narrative": ["namePools", "narrativeTemplates", "calendar"],
   "room-templates": ["roomTemplates"],
@@ -83,6 +85,7 @@ const DOMAIN_SCHEMAS: Record<string, Record<string, unknown>> = {
     needLabels: NeedLabelsSchema,
     traitLabels: TraitLabelsSchema,
     itemPropertyLabels: ItemPropertyLabelsSchema,
+    conversationDirections: z.array(ConversationDirectionSchema),
   },
   "culture-narrative": {
     namePools: z.array(NamePoolSchema),

@@ -193,3 +193,13 @@ itemPropertyLabels:
   drinkable: 可饮用
   usable: 可使用
   lightSource: 光源
+
+conversationDirections:
+  - key: personal_story
+    instruction: 询问NPC背景或个人过往经历
+  - key: world_rumor
+    instruction: 打听当地流言或近期事件
+  - key: local_info
+    instruction: 询问附近地点或环境相关的情报
+  - key: request_advice
+    instruction: 向NPC征求意见或指引

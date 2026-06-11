@@ -501,6 +501,14 @@ export interface ContentPool {
 
   // 房间标签标签: 房间 tag → 中文显示名 (LLM 可演化)
   entityTagLabels: Record<string, string>;
+
+  // 对话方向池: 闲聊话题建议方向 (LLM 可演化)
+  conversationDirections: ConversationDirection[];
+}
+
+export interface ConversationDirection {
+  key: string;
+  instruction: string;
 }
 
 export interface RoomTemplatePool {

@@ -37,9 +37,18 @@ import {
   buildExpressEmotionArgs,
   ShareInformationSchema,
   ShiftRelationSchema,
+  SuggestFollowupTopicsSchema,
 } from "./dialogue-tools.ts";
 
 export type { DialogueOption, DialogueOptionType };
+
+interface ConversationEntry {
+  speaker: "player" | "npc";
+  content: string;
+  tick: number;
+}
+
+const MAX_HISTORY_ROUNDS = 10;
 
 /**
  * 对话生成器 — 固定菜单 + type-based 路由
@@ -52,6 +61,7 @@ export type { DialogueOption, DialogueOptionType };
  */
 export class DialogueGenerator {
   private adapter: LLMAdapter;
+  private conversationHistories: Map<string, ConversationEntry[]> = new Map();
 
   constructor(adapter: LLMAdapter) {
     this.adapter = adapter;
@@ -111,7 +121,7 @@ export class DialogueGenerator {
    *
    * _menu 类型 → 返回子菜单
    * _select 类型 → 执行确定性逻辑 + LLM 生成对话文本
-   * idle_chat → LLM 生成自由对话
+   * idle_chat → LLM 生成自由对话 + 连续对话选项
    */
   async handleOption(
     world: WorldState,
@@ -119,6 +129,7 @@ export class DialogueGenerator {
     npcId: EntityId,
     optionType: DialogueOptionType,
     optionId: string,
+    playerMessage?: string,
   ): Promise<{ delta: SimulationDelta; subOptions?: DialogueOption[] }> {
     const player = world.entities.get(playerId);
     const npc = world.entities.get(npcId);
@@ -178,8 +189,42 @@ export class DialogueGenerator {
           delta: await this.executeFunctional(world, player as PlayerEntity, npc, optionId),
         };
 
-      case "idle_chat":
-        return { delta: await this.generateIdleChatReply(world, player as PlayerEntity, npc) };
+      case "idle_chat": {
+        const { delta, followUpTopics } = await this.generateIdleChatReply(
+          world,
+          player as PlayerEntity,
+          npc,
+          playerMessage,
+        );
+        if (optionId !== "chat:goodbye") {
+          return {
+            delta,
+            subOptions: this.buildFollowUpOptions(
+              followUpTopics,
+              world,
+              player as PlayerEntity,
+              npc,
+            ),
+          };
+        }
+        this.conversationHistories.delete(this.getHistoryKey(playerId, npcId));
+        return { delta };
+      }
+
+      case "close":
+        this.conversationHistories.delete(this.getHistoryKey(playerId, npcId));
+        return {
+          delta: {
+            dialogues: [
+              {
+                speakerId: npcId,
+                content: `${npc.name}向你点头告别。`,
+                roomId: player.roomId ?? "",
+                tick: world.tick,
+              },
+            ],
+          },
+        };
 
       default:
         return { delta: this.getFallbackDelta(playerId, npcId, player.roomId ?? undefined) };
@@ -989,15 +1034,19 @@ export class DialogueGenerator {
 
   /**
    * 闲聊：LLM 生成自由对话 + 轻量 tool（shift_relation/affect_need/share_information/express_emotion）
+   * + suggest_followup_topics 生成连续对话话题
    * 不使用 exchange_item/activate_quest（已移除）
    */
   private async generateIdleChatReply(
     world: WorldState,
     player: PlayerEntity,
     npc: NPCEntity,
-  ): Promise<SimulationDelta> {
+    playerMessage?: string,
+  ): Promise<{ delta: SimulationDelta; followUpTopics: string[] }> {
     const context = this.buildContext(world, player, npc);
-    const prompt = this.buildIdleChatPrompt(context);
+    const historyKey = this.getHistoryKey(player.id, npc.id);
+    const history = this.conversationHistories.get(historyKey) ?? [];
+    const prompt = this.buildIdleChatPrompt(context, history, playerMessage, world);
 
     try {
       const response = await this.adapter.chat(
@@ -1009,8 +1058,12 @@ export class DialogueGenerator {
         true,
       );
       const replyText = this.extractReplyText(response.text, npc.name);
+      const followUpTopics = this.extractFollowUpTopics(response.toolCalls ?? []);
+      const filteredToolCalls = (response.toolCalls ?? []).filter(
+        (tc) => tc.function.name !== "suggest_followup_topics",
+      );
       const toolDelta = this.processToolCalls(
-        response.toolCalls ?? [],
+        filteredToolCalls,
         player.id,
         npc.id,
         npc.name,
@@ -1032,9 +1085,15 @@ export class DialogueGenerator {
           },
         ];
       }
-      return delta;
+
+      this.recordConversationHistory(historyKey, playerMessage ?? "", replyText ?? "", world.tick);
+
+      return { delta, followUpTopics };
     } catch {
-      return this.getFallbackDelta(player.id, npc.id, player.roomId ?? undefined);
+      return {
+        delta: this.getFallbackDelta(player.id, npc.id, player.roomId ?? undefined),
+        followUpTopics: [],
+      };
     }
   }
 
@@ -1103,30 +1162,144 @@ export class DialogueGenerator {
     };
   }
 
-  private buildIdleChatPrompt(context: ReturnType<typeof this.buildContext>) {
+  private buildIdleChatPrompt(
+    context: ReturnType<typeof this.buildContext>,
+    conversationHistory: ConversationEntry[],
+    playerMessage: string | undefined,
+    world: WorldState,
+  ) {
     const memorySection =
       context.npcMemories.length > 0
         ? `\nNPC 近期经历:\n${context.npcMemories.map((m, i) => `  ${i + 1}. ${m}`).join("\n")}`
         : "";
 
+    const directions = world.contentPool.conversationDirections ?? [];
+    const directionSection =
+      directions.length > 0
+        ? `\n对话方向参考:\n${directions.map((d) => `  - ${d.instruction}`).join("\n")}`
+        : "";
+
+    const historySection = this.formatConversationHistory(conversationHistory, context.npcName);
+
+    const userLine = playerMessage
+      ? `玩家刚才说: ${playerMessage}`
+      : `玩家向 ${context.npcName} 打了个招呼。`;
+
     return {
-      system: `你是 MUD 游戏的 NPC 对话系统。根据当前场景生成 NPC 的闲聊回复。
-NPC: ${context.npcName} (${context.npcRole}) — ${context.npcPersonality}
+      system: `你正在扮演 ${context.npcName}（${context.npcRole}，${context.npcPersonality}性格）。
+
 心情: ${context.npcMood}
 需求: ${context.npcNeeds}
 关系: ${context.relationshipLabel} (${context.relationshipLevel})
-场景: ${context.roomName}
-${memorySection}
+场景: ${context.roomName}${memorySection}${directionSection}
+${historySection}
+---
+${userLine}
 
+请生成 NPC 的回复和追问话题。
 要求:
-- 回复要符合 NPC 的记忆、性格和当前心情
-- 2-3 句话，自然可信
-- 用中文
-- 调用合适的工具来描述对话带来的副作用（关系变化、需求影响、信息分享、情绪表达）
+- 回复 2-3 句话，自然可信，用中文
+- 调用 suggest_followup_topics 生成 3-4 个玩家可追问的话题
+- 话题为自然中文句子，与 NPC 回复内容形成追问关系
+- 结合 NPC 的性格和身份自然延伸对话，避免重复已聊内容
+- 根据对话效果调用 shift_relation/affect_need/share_information/express_emotion
 - 只在有明确的副作用时才调用工具，不必每次对话都调用
 - 不要调用 exchange_item 或 activate_quest`,
-      user: `玩家对 ${context.npcName} 说了一句话，请生成 NPC 的闲聊回复。`,
+      user: userLine,
     };
+  }
+
+  // --- Conversation history helpers ---
+
+  private getHistoryKey(playerId: EntityId, npcId: EntityId): string {
+    return `${playerId}:${npcId}`;
+  }
+
+  private recordConversationHistory(
+    key: string,
+    playerMessage: string,
+    npcReply: string,
+    tick: number,
+  ): void {
+    if (!playerMessage && !npcReply) return;
+    const entries = this.conversationHistories.get(key) ?? [];
+    if (playerMessage) {
+      entries.push({ speaker: "player", content: playerMessage, tick });
+    }
+    if (npcReply) {
+      entries.push({ speaker: "npc", content: npcReply, tick });
+    }
+    // 只保留最近 N 轮
+    if (entries.length > MAX_HISTORY_ROUNDS * 2) {
+      this.conversationHistories.set(key, entries.slice(-MAX_HISTORY_ROUNDS * 2));
+      return;
+    }
+    this.conversationHistories.set(key, entries);
+  }
+
+  private formatConversationHistory(history: ConversationEntry[], npcName: string): string {
+    if (history.length === 0) return "";
+    const lines = history.map((entry) => {
+      const speaker = entry.speaker === "player" ? "玩家" : npcName;
+      return `${speaker}: ${entry.content}`;
+    });
+    return `对话历史:\n${lines.join("\n")}`;
+  }
+
+  // --- Follow-up topics helpers ---
+
+  private extractFollowUpTopics(toolCalls: ToolCallResult[]): string[] {
+    const call = toolCalls.find((tc) => tc.function.name === "suggest_followup_topics");
+    if (!call) return [];
+    let args: unknown;
+    try {
+      args =
+        typeof call.function.arguments === "string"
+          ? JSON.parse(call.function.arguments)
+          : call.function.arguments;
+    } catch {
+      return [];
+    }
+    const parsed = SuggestFollowupTopicsSchema.safeParse(args);
+    return parsed.success ? parsed.data.topics : [];
+  }
+
+  private buildFollowUpOptions(
+    topics: string[],
+    world: WorldState,
+    player: PlayerEntity,
+    npc: NPCEntity,
+  ): DialogueOption[] {
+    const seen = new Set<string>();
+    const options: DialogueOption[] = [];
+
+    const add = (opt: DialogueOption) => {
+      if (!seen.has(opt.id)) {
+        seen.add(opt.id);
+        options.push(opt);
+      }
+    };
+
+    // 1. LLM 话题
+    for (let i = 0; i < topics.length; i++) {
+      add({ id: `chat:followup_${i}`, label: topics[i], type: "idle_chat" });
+    }
+
+    // 2. 系统注入 — 从闲聊衔接游戏交互
+    if (npc.inventory.length > 0) {
+      add({ id: "sys:trade", label: "看看你的货物", type: "trade_menu" });
+    }
+    if (this.getEligibleStorylines(world, player, npc).length > 0) {
+      add({ id: "sys:quest", label: "需要帮忙吗？", type: "quest_trigger_menu" });
+    }
+    if (this.hasCompletableQuests(world, player, npc.id)) {
+      add({ id: "sys:deliver", label: "关于之前的任务...", type: "quest_deliver_menu" });
+    }
+
+    // 3. 告别
+    add({ id: "chat:goodbye", label: "告别", type: "close" });
+
+    return options;
   }
 
   // --- Tool call processing ---

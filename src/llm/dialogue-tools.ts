@@ -8,6 +8,10 @@ const ShiftRelationArgs = z.object({
   magnitude: z.enum(["slight", "moderate", "strong"]),
 });
 
+export const SuggestFollowupTopicsArgs = z.object({
+  topics: z.array(z.string().min(1)).min(3).max(4),
+});
+
 const ShareInformationArgs = z.object({
   info_type: z.enum(["rumor", "warning", "gossip", "lore", "quest_hint"]),
   summary: z.string().min(1),
@@ -99,16 +103,27 @@ export function buildDialogueTools(pool: ContentPool): ToolDefinition[] {
         parameters: zodSchemaToOpenAiParams(buildExpressEmotionArgs(emotions)),
       },
     },
+    {
+      type: "function",
+      function: {
+        name: "suggest_followup_topics",
+        description:
+          "为当前闲聊对话生成玩家可追问的话题。话题为自然中文句子，与NPC刚说的内容形成追问关系。数量3-4个。",
+        parameters: zodSchemaToOpenAiParams(SuggestFollowupTopicsArgs),
+      },
+    },
   ];
 }
 
 export type { ShareInformationArgs, ShiftRelationArgs };
 export type AffectNeedArgs = z.infer<ReturnType<typeof buildAffectNeedArgs>>;
 export type ExpressEmotionArgs = z.infer<ReturnType<typeof buildExpressEmotionArgs>>;
+export type SuggestFollowupTopicsArgs = z.infer<typeof SuggestFollowupTopicsArgs>;
 
 export {
   buildAffectNeedArgs,
   buildExpressEmotionArgs,
   ShareInformationArgs as ShareInformationSchema,
   ShiftRelationArgs as ShiftRelationSchema,
+  SuggestFollowupTopicsArgs as SuggestFollowupTopicsSchema,
 };

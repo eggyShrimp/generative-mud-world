@@ -228,6 +228,12 @@ export const EntityActionLabelsSchema = z.record(z.string(), z.string());
 // entityTagLabels — tag → 中文显示名
 export const EntityTagLabelsSchema = z.record(z.string(), z.string());
 
+// conversationDirections — 闲聊话题方向指导
+export const ConversationDirectionSchema = z.object({
+  key: z.string().min(1),
+  instruction: z.string().min(1),
+});
+
 // questTemplates
 export const QuestObjectiveSchema = z.object({
   groupId: z.number().int().min(0),

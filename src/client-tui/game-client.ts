@@ -28,6 +28,20 @@ export interface DialogueState {
   npcId: string;
   npcName: string;
   options: DialogueOption[];
+  lastNpcReply?: string;
+}
+
+export function shouldKeepPopupOpen(optionType: string): boolean {
+  return optionType !== "close";
+}
+
+export function buildLoadingDialogueState(current: DialogueState): DialogueState {
+  return { npcId: current.npcId, npcName: current.npcName, options: [] };
+}
+
+export function extractNpcReply(events: CommandEvent[]): string | undefined {
+  const dialogueEvent = events.find((e) => e.type === "dialogue");
+  return dialogueEvent?.description;
 }
 
 export interface PendingInteraction {
@@ -314,6 +328,20 @@ export function createGameClient(url: string): GameClient {
         }
         break;
       case "command_result":
+        if (pending()?.kind === "dialogue_reply") {
+          const npcReplyText = extractNpcReply(message.events);
+          if (npcReplyText) {
+            const dlg = dialogue();
+            if (dlg) {
+              setDialogue({
+                npcId: dlg.npcId,
+                npcName: dlg.npcName,
+                options: [],
+                lastNpcReply: npcReplyText,
+              });
+            }
+          }
+        }
         setPending(null);
         pushEvents(message.events);
         if (hasLayer("combat")) {
@@ -351,10 +379,12 @@ export function createGameClient(url: string): GameClient {
             pushLayer("entity-selected");
           }
         } else {
+          const dlg = dialogue();
           showDialogue({
             npcId: message.npcId,
             npcName: message.npcName,
             options: message.options,
+            lastNpcReply: dlg?.lastNpcReply,
           });
         }
         break;
@@ -451,7 +481,6 @@ export function createGameClient(url: string): GameClient {
     }
     const current = dialogue();
     if (!current) return;
-    // 立即记录玩家选择的对话行到事件日志
     pushEvents([{ type: "say", description: `你：${option.label}` }]);
     if (
       send({
@@ -462,7 +491,11 @@ export function createGameClient(url: string): GameClient {
         optionType: option.type,
       })
     ) {
-      hideDialogue();
+      if (shouldKeepPopupOpen(option.type)) {
+        setDialogue(buildLoadingDialogueState(current));
+      } else {
+        hideDialogue();
+      }
       setPending({ kind: "dialogue_reply", description: "正在等待 NPC 回复" });
     }
   };

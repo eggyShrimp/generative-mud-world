@@ -156,6 +156,16 @@ function mockDialogueGenerator(delta: SimulationDelta): DialogueGenerator {
   } as unknown as DialogueGenerator;
 }
 
+function mockDialogueGeneratorWithSubOptions(
+  delta: SimulationDelta,
+  subOptions: Array<{ id: string; label: string; type: string }>,
+): DialogueGenerator {
+  return {
+    generateFixedMenu: vi.fn().mockReturnValue([]),
+    handleOption: vi.fn().mockResolvedValue({ delta, subOptions }),
+  } as unknown as DialogueGenerator;
+}
+
 describe("RoundEngine — 基础命令", () => {
   it("should end day on end_day command", async () => {
     const world = setupWorld();
@@ -698,6 +708,33 @@ describe("RoundEngine — 完整对话链路 (LLM + ContentPool + Ripple)", () =
 
     const dialogueEvents = result.events.filter((e) => e.type === "dialogue");
     expect(dialogueEvents).toHaveLength(1);
+  });
+
+  it("talk + subOptions → 返回 needsDialogueOptions + dialogueOptions", async () => {
+    const world = setupWorldWithNPC();
+    const subOptions = [
+      { id: "chat:followup_0", label: "继续聊", type: "idle_chat" },
+      { id: "chat:goodbye", label: "告别", type: "close" },
+    ];
+    const delta: SimulationDelta = {
+      dialogues: [{ speakerId: "npc1", content: "今天酒馆很热闹。", roomId: "tavern", tick: 0 }],
+    };
+    const gen = mockDialogueGeneratorWithSubOptions(delta, subOptions);
+    const engine = new RoundEngine(world, new EventBus(), stubDispatcher(), stubSimulation());
+    engine.setDialogueGenerator(gen);
+
+    const result = await engine.executeStructuredCommand("p1", "talk", {
+      npcId: "npc1",
+      optionId: "chat:followup_0",
+      optionLabel: "继续聊",
+      optionType: "idle_chat",
+    });
+
+    expect(result.needsDialogueOptions).toBeDefined();
+    expect(result.needsDialogueOptions!.npcId).toBe("npc1");
+    expect(result.dialogueOptions!.length).toBe(2);
+    expect(result.dialogueOptions![0].label).toBe("继续聊");
+    expect(result.dialogueOptions![1].label).toBe("告别");
   });
 });
 

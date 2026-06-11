@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 import type { NPCEntity, SimulationDelta } from "../../core/types.ts";
 import {
   createTestEngine,
+  mockDialogueGeneratorWithSubOptions,
   setupWorldWithNPC,
   setupWorldWithObserver,
 } from "../fixtures/integration-helpers.ts";
@@ -263,5 +264,31 @@ describe("集成: 对话全链路", () => {
     expect(player.inventory).toHaveLength(playerItemCountBefore + 1);
     expect(player.inventory.some((i: any) => i.id === "herb_01")).toBe(true);
     expect(herb.ownerId).toBe("p1");
+  });
+
+  it("idle_chat 续对话: handleOption 返回 subOptions → needsDialogueOptions 含完整结构", async () => {
+    const world = setupWorldWithNPC();
+    const subOptions = [
+      { id: "chat:followup_0", label: "打听传闻", type: "idle_chat" },
+      { id: "chat:followup_1", label: "请求建议", type: "idle_chat" },
+      { id: "chat:goodbye", label: "告别", type: "close" },
+    ];
+    const delta: SimulationDelta = {
+      dialogues: [{ speakerId: "npc1", content: "东山有兽人出没。", roomId: "tavern", tick: 0 }],
+    };
+    const gen = mockDialogueGeneratorWithSubOptions(delta, subOptions);
+    const engine = createTestEngine(world);
+    engine.setDialogueGenerator(gen);
+
+    const result = await engine.executeStructuredCommand("p1", "talk", {
+      npcId: "npc1",
+      optionId: "opt_1",
+      optionLabel: "最近有什么传闻？",
+      optionType: "idle_chat",
+    });
+
+    expect(result.needsDialogueOptions).toBeDefined();
+    expect(result.dialogueOptions).toHaveLength(3);
+    expect(result.dialogueOptions![2].type).toBe("close");
   });
 });

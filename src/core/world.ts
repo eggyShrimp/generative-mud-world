@@ -1281,5 +1281,7 @@ export function createDefaultContentPool(): ContentPool {
     entityActionsByTag: {},
     entityActionLabels: {},
     entityTagLabels: {},
+
+    conversationDirections: [],
   };
 }
