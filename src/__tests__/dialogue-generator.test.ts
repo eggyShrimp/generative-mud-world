@@ -933,8 +933,8 @@ describe("DialogueGenerator.handleOption — 连续对话", () => {
     // 告别
     expect(types).toContain("close");
     // 顺序: LLM 话题 → 系统注入 → 告别
-    const firstSysIdx = types.findIndex((t) => t === "trade_menu");
-    const goodbyeIdx = types.findIndex((t) => t === "close");
+    const firstSysIdx = types.indexOf("trade_menu");
+    const goodbyeIdx = types.indexOf("close");
     expect(firstSysIdx).toBeGreaterThanOrEqual(topics.length);
     expect(goodbyeIdx).toBeGreaterThan(firstSysIdx);
   });
