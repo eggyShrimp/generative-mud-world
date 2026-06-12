@@ -5,8 +5,49 @@ export default {
       name: "tui-no-direct-engine-import",
       comment: "TUI should not import from engine/combat/simulation/llm/core (use shared/protocol)",
       severity: "error",
-      from: { path: "src/client-tui" },
+      from: { path: "src/(client-tui|tui)" },
       to: { path: "src/(engine|combat|simulation|llm|core)", pathNot: "src/shared" },
+    },
+    {
+      name: "tui-panels-no-cross-import",
+      comment: "src/tui/panels/ must not cross-import between subdirectories",
+      severity: "error",
+      from: { path: "src/tui/panels" },
+      to: {
+        path: "src/tui/panels",
+        pathNot: [
+          // trade-detail is internal to dialogue-panel
+          "src/tui/panels/dialogue/trade-detail\\.tsx",
+        ],
+      },
+    },
+    {
+      name: "tui-layout-no-panels",
+      comment: "Layout must not import panels",
+      severity: "error",
+      from: { path: "src/tui/layout" },
+      to: { path: "src/tui/panels" },
+    },
+    {
+      name: "tui-theme-no-client",
+      comment: "src/tui/theme/ must not import client/game-client or key-layer",
+      severity: "error",
+      from: { path: "src/tui/theme" },
+      to: { path: "src/tui/(client|key-layer)" },
+    },
+    {
+      name: "tui-features-no-panels",
+      comment: "Features must not import panels",
+      severity: "error",
+      from: { path: "src/tui/features" },
+      to: { path: "src/tui/panels" },
+    },
+    {
+      name: "tui-no-old-client-tui-import",
+      comment: "New TUI must not import from old client-tui",
+      severity: "error",
+      from: { path: "src/tui" },
+      to: { path: "src/client-tui" },
     },
     {
       name: "prompts-no-engine-import",

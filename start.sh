@@ -95,8 +95,8 @@ cleanup_server() {
 
 cleanup_client() {
   kill_processes "客户端进程" \
-    "bun .*src/client-tui/index.tsx" \
-    "bun src/client-tui/index.tsx"
+    "bun .*src/tui/index.tsx" \
+    "bun src/tui/index.tsx"
 }
 
 start_server() {

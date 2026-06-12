@@ -43,7 +43,7 @@
       }
     },
     {
-      "includes": ["**/src/client-tui/**"],
+      "includes": ["**/src/client-tui/**", "**/src/tui/**"],
       "linter": {
         "rules": {
           "a11y": { "noStaticElementInteractions": "off" }

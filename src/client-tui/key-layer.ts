@@ -1,5 +1,5 @@
 import { createSignal, untrack } from "solid-js";
-import type { Capability, DialogueOption, InventoryItem, RoomEntity } from "../shared/protocol";
+import type { Capability, InventoryItem, RoomEntity } from "../shared/protocol";
 import { getEventStyle } from "./event-style";
 import type { GameClient } from "./game-client";
 
@@ -100,13 +100,12 @@ function handleEntitySelect(client: GameClient, keyName: string) {
 function handleEntityAction(client: GameClient, keyName: string) {
   const entityId = client.selectedEntityId();
   if (!entityId) return;
-  if (client.pending()?.kind === "entity_dialogue_options") return;
   const player = client.entity();
   const entities = (client.room()?.entities ?? []).filter((e) => e.id !== player?.id);
   const entity = entities.find((e) => e.id === entityId);
   if (!entity) return;
   const idx = Number(keyName) - 1;
-  const actions = getEntityActions(entity, client.capabilities(), client.entityDialogueOptions());
+  const actions = getEntityActions(entity, client.capabilities());
   const action = actions[idx];
   if (action) {
     action.run(client, entity);
@@ -158,6 +157,23 @@ function handleDialogueOption(client: GameClient, keyName: string) {
   }
 }
 
+function handleDialogueTabLeft(client: GameClient) {
+  client.switchDialogueTab(-1);
+}
+
+function handleDialogueTabRight(client: GameClient) {
+  client.switchDialogueTab(1);
+}
+
+function handleDialogueEscape(client: GameClient) {
+  const dlg = client.dialogue();
+  if (dlg?.activeTab === "trade" && dlg.tradeSelection) {
+    client.clearTradeSelection();
+    return;
+  }
+  client.closeDialogue();
+}
+
 export function groupInventory(items: InventoryItem[]): GroupedItem[] {
   const map = new Map<string, InventoryItem[]>();
   for (const item of items) {
@@ -195,30 +211,11 @@ function actionColor(action: string): string {
 export function getEntityActions(
   entity: RoomEntity,
   capabilities: Capability[] = [],
-  dialogueOptions?: DialogueOption[] | null,
 ): Array<{
   label: string;
   color?: string;
   run: (client: GameClient, entity: RoomEntity) => void;
 }> {
-  const dialogueActions: Array<{
-    label: string;
-    color?: string;
-    run: (client: GameClient, entity: RoomEntity) => void;
-  }> = [];
-  if (dialogueOptions && dialogueOptions.length > 0) {
-    for (const opt of dialogueOptions) {
-      dialogueActions.push({
-        label: opt.label,
-        color: actionColor("dialogue"),
-        run: (client, target) => {
-          client.startDialogueDirect(target.id, opt);
-          client.setSelectedEntityId(null);
-        },
-      });
-    }
-  }
-
   const entityActions: Array<{
     label: string;
     color?: string;
@@ -232,14 +229,12 @@ export function getEntityActions(
       run: (client, target) => client.execute("take", { itemId: target.id }),
     });
   }
-  if (!dialogueOptions || dialogueOptions.length === 0) {
-    if (capabilityTargets(capabilities, "talk").includes(entity.id)) {
-      entityActions.push({
-        label: capabilityLabel(capabilities, "talk", "交谈"),
-        color: actionColor("dialogue"),
-        run: (client, target) => client.requestDialogueOptions(target.id),
-      });
-    }
+  if (capabilityTargets(capabilities, "talk").includes(entity.id)) {
+    entityActions.push({
+      label: capabilityLabel(capabilities, "talk", "交谈"),
+      color: actionColor("dialogue"),
+      run: (client, target) => client.requestDialogueOptions(target.id),
+    });
   }
   entityActions.push({
     label: capabilityLabel(capabilities, "look", "观察"),
@@ -264,7 +259,7 @@ export function getEntityActions(
     });
   }
 
-  return [...dialogueActions, ...entityActions];
+  return entityActions;
 }
 
 export function getInventoryActions(
@@ -693,8 +688,10 @@ const DIALOGUE_LAYER: KeyLayer = {
   id: "dialogue",
   priority: 60,
   bindings: [
-    { key: "escape", handler: (c) => c.closeDialogue(), label: "关闭" },
+    { key: "left", handler: handleDialogueTabLeft, label: "" },
+    { key: "right", handler: handleDialogueTabRight, label: "" },
     { key: "1-9", handler: handleDialogueOption, label: "" },
+    { key: "escape", handler: handleDialogueEscape, label: "关闭" },
   ],
 };
 
@@ -826,9 +823,14 @@ export function dispatchKey(
   client: GameClient,
 ): void {
   if (key.meta && key.name.toLowerCase() === "c") return;
-  if (client.pending() || client.settlementPending()) {
-    key.preventDefault();
-    return;
+  if (client.hasActiveRequest() || client.settlementPending()) {
+    const currentLayer = activeLayer();
+    const name = key.name.toLowerCase();
+    if (currentLayer.id === "dialogue" && (name === "left" || name === "right")) {
+    } else {
+      key.preventDefault();
+      return;
+    }
   }
 
   const name = key.name.toLowerCase();

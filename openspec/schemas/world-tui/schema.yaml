@@ -1,0 +1,45 @@
+name: world-tui
+version: 1
+description: |
+  TUI 客户端变更。src/client-tui/ only.
+  No ContentPool changes. No engine logic changes.
+  Key constraints: no imports from engine/combat/simulation (use shared/protocol),
+  no hardcoded Chinese display text (must come from server ContentPool labels).
+
+artifacts:
+  - id: proposal
+    generates: proposal.md
+    description: 变更动机和组件影响
+    template: proposal.md
+    instruction: |
+      Create a proposal for this TUI change. You MUST:
+      1. List which TUI component files are being changed
+      2. State if shared/protocol.ts needs changes
+      3. Confirm boundary: no imports from src/engine/, src/combat/, src/simulation/, src/llm/, src/core/ (except shared/)
+      4. Confirm all Chinese display text comes from server ContentPool labels (not hardcoded)
+    requires: []
+
+  - id: design
+    generates: design.md
+    description: 组件树 + protocol surface + 边界检查
+    template: design.md
+    instruction: |
+      1. Show component hierarchy affected
+      2. Show protocol message types involved
+      3. Verify depcruise boundary rules are not violated
+    requires:
+      - proposal
+
+  - id: tasks
+    generates: tasks.md
+    description: 实现任务（按组件分组）
+    template: tasks.md
+    instruction: |
+      Generate tasks grouped by component file.
+      Include verification: npm run lint, vitest, depcruise src.
+    requires:
+      - design
+
+apply:
+  requires: [tasks]
+  tracks: tasks.md

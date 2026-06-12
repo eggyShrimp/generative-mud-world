@@ -1,4 +1,5 @@
 import { createSignal } from "solid-js";
+import { logWrite } from "../shared/log.ts";
 import type {
   Capability,
   CommandEvent,
@@ -24,11 +25,32 @@ export interface LogEntry {
   description: string;
 }
 
+export type DialogueTab = "chat" | "trade";
+
+export interface DialogueHistoryEntry {
+  speaker: "player" | "npc";
+  content: string;
+}
+
+export interface TradeItemDisplay {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  currencyName: string;
+  mode: "buy" | "sell";
+}
+
 export interface DialogueState {
   npcId: string;
   npcName: string;
   options: DialogueOption[];
-  lastNpcReply?: string;
+  history: DialogueHistoryEntry[];
+  activeTab: DialogueTab;
+  availableTabs: DialogueTab[];
+  savedTabOptions: Record<string, DialogueOption[]>;
+  npcDescription?: string;
+  tradeSelection?: { option: DialogueOption; detail?: string; fullOptions: DialogueOption[] };
 }
 
 export function shouldKeepPopupOpen(optionType: string): boolean {
@@ -36,7 +58,17 @@ export function shouldKeepPopupOpen(optionType: string): boolean {
 }
 
 export function buildLoadingDialogueState(current: DialogueState): DialogueState {
-  return { npcId: current.npcId, npcName: current.npcName, options: [] };
+  return {
+    npcId: current.npcId,
+    npcName: current.npcName,
+    options: [],
+    history: current.history,
+    activeTab: current.activeTab,
+    availableTabs: current.availableTabs,
+    savedTabOptions: current.savedTabOptions,
+    npcDescription: current.npcDescription,
+    tradeSelection: current.tradeSelection,
+  };
 }
 
 export function extractNpcReply(events: CommandEvent[]): string | undefined {
@@ -44,9 +76,67 @@ export function extractNpcReply(events: CommandEvent[]): string | undefined {
   return dialogueEvent?.description;
 }
 
-export interface PendingInteraction {
-  kind: "dialogue_options" | "dialogue_reply" | "command" | "entity_dialogue_options";
-  description: string;
+export function appendToHistory(
+  state: DialogueState,
+  speaker: "player" | "npc",
+  content: string,
+): DialogueHistoryEntry[] {
+  return [...state.history, { speaker, content }];
+}
+
+export function computeContentHeight(bodyHeight: number, interactionHeight: number): number {
+  return Math.max(1, bodyHeight - interactionHeight);
+}
+
+export function computeTabSwitch(state: DialogueState, direction: -1 | 1): DialogueState {
+  const saved = { ...state.savedTabOptions, [state.activeTab]: state.options };
+  const tabs = state.availableTabs;
+  const idx = tabs.indexOf(state.activeTab);
+  const nextIdx = (idx + direction + tabs.length) % tabs.length;
+  const nextTab = tabs[nextIdx];
+  return {
+    ...state,
+    activeTab: nextTab,
+    options: saved[nextTab] ?? [],
+    savedTabOptions: saved,
+  };
+}
+
+export function applyNpcReply(state: DialogueState, npcReplyText: string): DialogueState {
+  return {
+    ...state,
+    history: [...state.history, { speaker: "npc" as const, content: npcReplyText }],
+  };
+}
+
+export function applyDialogueOptionsToTab(
+  state: DialogueState,
+  tab: DialogueTab,
+  options: DialogueOption[],
+  npc: { id: string; name: string },
+): DialogueState {
+  const savedTabOptions = { ...state.savedTabOptions };
+  if (state.activeTab !== tab) {
+    savedTabOptions[tab] = options;
+  }
+
+  return {
+    ...state,
+    npcId: npc.id,
+    npcName: npc.name,
+    options: state.activeTab === tab ? options : state.options,
+    savedTabOptions,
+  };
+}
+
+export function responseTabForOptionType(optionType: string): DialogueTab {
+  return optionType.startsWith("trade_") ? "trade" : "chat";
+}
+
+export interface ActiveRequest {
+  onCommandResult?: (msg: ServerMessage & { type: "command_result" }) => void;
+  onDialogueOptions?: (msg: ServerMessage & { type: "dialogue_options" }) => void;
+  onError?: () => void;
 }
 
 export interface CombatLogEntry {
@@ -84,8 +174,7 @@ export interface GameClient {
   capabilities: () => Capability[];
   events: () => LogEntry[];
   dialogue: () => DialogueState | null;
-  entityDialogueOptions: () => DialogueOption[] | null;
-  pending: () => PendingInteraction | null;
+  hasActiveRequest: () => boolean;
   status: () => StatusMessage | null;
   selectedEntityId: () => string | null;
   selectedInventoryItemId: () => string | null;
@@ -113,8 +202,10 @@ export interface GameClient {
   execute: (action: string, params?: Record<string, unknown>) => void;
   requestDialogueOptions: (npcId: string) => void;
   chooseDialogueOption: (option: DialogueOption) => void;
+  clearTradeSelection: () => void;
   closeDialogue: () => void;
-  startDialogueDirect: (npcId: string, option: DialogueOption) => void;
+  switchDialogueTab: (direction: -1 | 1) => void;
+  requestTrade: (npcId: string) => void;
   startCombat: (targetId: string, targetName: string) => void;
   endCombat: () => void;
   trackedQuestIds: () => Set<string>;
@@ -163,20 +254,87 @@ export function createGameClient(url: string): GameClient {
   const [capabilities, setCapabilities] = createSignal<Capability[]>([]);
   const [events, setEvents] = createSignal<LogEntry[]>([]);
   const [dialogue, setDialogue] = createSignal<DialogueState | null>(null);
-  const [entityDialogueOptions, setEntityDialogueOptions] = createSignal<DialogueOption[] | null>(
-    null,
-  );
   const showDialogue = (state: DialogueState) => {
     setDialogue(state);
     pushLayer("dialogue");
   };
-  const hideDialogue = () => {
-    setDialogue(null);
-    popLayer("dialogue");
+  const [activeRequest, setActiveRequest] = createSignal<ActiveRequest | null>(null);
+
+  const hasActiveRequest = (): boolean => activeRequest() !== null;
+
+  const sendRequest = (
+    msg: Record<string, unknown>,
+    build: (req: ActiveRequest) => void,
+  ): boolean => {
+    if (hasActiveRequest()) {
+      pushBlockedEvent();
+      return false;
+    }
+    if (!send(msg)) return false;
+    const req: ActiveRequest = {};
+    build(req);
+    setActiveRequest(req);
+    return true;
   };
-  const [pending, setPending] = createSignal<PendingInteraction | null>(null);
+
+  const [pendingTradeNpcId, setPendingTradeNpcId] = createSignal<string | null>(null);
+
+  const completeActiveRequest = (): void => {
+    setActiveRequest(null);
+    const npcId = pendingTradeNpcId();
+    if (!npcId) return;
+    setPendingTradeNpcId(null);
+    queueMicrotask(() => requestTrade(npcId));
+  };
+
+  const buildTalkHandlers = (
+    req: ActiveRequest,
+    expectOptions: boolean,
+    responseTab: DialogueTab,
+  ): void => {
+    req.onCommandResult = (msg) => {
+      const npcReplyText = extractNpcReply(msg.events);
+      if (npcReplyText) {
+        setDialogue((prev) => {
+          if (!prev) return prev;
+          return applyNpcReply(prev, npcReplyText);
+        });
+      }
+    };
+    if (expectOptions) {
+      req.onDialogueOptions = (msg) => {
+        logWrite(
+          "cli",
+          "dbg",
+          `[DIAG] onDialogueOptions msg.options=${msg.options?.length} prev?=${!!dialogue()}`,
+        );
+        setDialogue((prev) => {
+          if (!prev) {
+            return {
+              npcId: msg.npcId,
+              npcName: msg.npcName,
+              options: msg.options,
+              history: [],
+              activeTab: responseTab,
+              availableTabs: ["chat", "trade"] as DialogueTab[],
+              savedTabOptions: {},
+            };
+          }
+          return applyDialogueOptionsToTab(prev, responseTab, msg.options, {
+            id: msg.npcId,
+            name: msg.npcName,
+          });
+        });
+      };
+    }
+  };
   const [status, setStatus] = createSignal<StatusMessage | null>(null);
   const [selectedEntityId, setSelectedEntityId] = createSignal<string | null>(null);
+  const hideDialogue = () => {
+    setDialogue(null);
+    setSelectedEntityId(null);
+    popLayer("dialogue");
+  };
   const [selectedQuestIndex, setSelectedQuestIndex] = createSignal<number | null>(null);
   const [mapGranularity, setMapGranularity] = createSignal<MapGranularity>("world");
   const [mapCursor, setMapCursor] = createSignal<MapCursor>({ x: 0, y: 0 });
@@ -281,7 +439,7 @@ export function createGameClient(url: string): GameClient {
   };
 
   const sendAutoAttack = () => {
-    if (!combatTargetId || pending()) return;
+    if (!combatTargetId || hasActiveRequest()) return;
     const ent = entity();
     if (!ent?.combatState) return;
     if (ent.combatState.isIncapacitated || !ent.combatState.combatTarget) {
@@ -293,9 +451,8 @@ export function createGameClient(url: string): GameClient {
   };
 
   const pushBlockedEvent = () => {
-    const current = pending();
-    if (!current) return;
-    pushEvents([{ type: "system", description: `${current.description}，请稍候。` }]);
+    if (!hasActiveRequest()) return;
+    pushEvents([{ type: "system", description: "正在处理操作，请稍候。" }]);
   };
 
   const send = (data: unknown): boolean => {
@@ -327,22 +484,7 @@ export function createGameClient(url: string): GameClient {
           }
         }
         break;
-      case "command_result":
-        if (pending()?.kind === "dialogue_reply") {
-          const npcReplyText = extractNpcReply(message.events);
-          if (npcReplyText) {
-            const dlg = dialogue();
-            if (dlg) {
-              setDialogue({
-                npcId: dlg.npcId,
-                npcName: dlg.npcName,
-                options: [],
-                lastNpcReply: npcReplyText,
-              });
-            }
-          }
-        }
-        setPending(null);
+      case "command_result": {
         pushEvents(message.events);
         if (hasLayer("combat")) {
           pushCombatLog(message.events, combatRound());
@@ -369,23 +511,28 @@ export function createGameClient(url: string): GameClient {
           pushEvents([{ type: "system", description: "今天已经结束，等待结算。" }]);
           setSettlementPending(true);
         }
+        const req = activeRequest();
+        req?.onCommandResult?.(message);
+        if (req && !req.onDialogueOptions) {
+          completeActiveRequest();
+        }
         break;
+      }
       case "dialogue_options": {
-        const wasEntityFetch = pending()?.kind === "entity_dialogue_options";
-        setPending(null);
-        if (wasEntityFetch) {
-          if (message.npcId === selectedEntityId()) {
-            setEntityDialogueOptions(message.options);
-            pushLayer("entity-selected");
-          }
-        } else {
-          const dlg = dialogue();
-          showDialogue({
-            npcId: message.npcId,
-            npcName: message.npcName,
-            options: message.options,
-            lastNpcReply: dlg?.lastNpcReply,
-          });
+        const req = activeRequest();
+        logWrite(
+          "cli",
+          "dbg",
+          `[DIAG] recv dialogue_options options=${message.options?.length} hasCallback=${!!req?.onDialogueOptions} activeTab=${dialogue()?.activeTab}`,
+        );
+        if (req?.onDialogueOptions) {
+          req.onDialogueOptions(message);
+          logWrite(
+            "cli",
+            "dbg",
+            `[DIAG] onDialogueOptions done options=${dialogue()?.options?.length}`,
+          );
+          completeActiveRequest();
         }
         break;
       }
@@ -411,12 +558,9 @@ export function createGameClient(url: string): GameClient {
         setStatus(message);
         break;
       case "error": {
-        const wasEntityFetch = pending()?.kind === "entity_dialogue_options";
-        setPending(null);
         pushEvents([{ type: "error", description: message.message }]);
-        if (wasEntityFetch) {
-          pushLayer("entity-selected");
-        }
+        activeRequest()?.onError?.();
+        completeActiveRequest();
         break;
       }
     }
@@ -454,69 +598,149 @@ export function createGameClient(url: string): GameClient {
   };
 
   const execute = (action: string, params: Record<string, unknown> = {}) => {
-    if (pending()) {
-      pushBlockedEvent();
-      return;
-    }
-    if (send({ type: "execute", action, params })) {
-      setPending({ kind: "command", description: "正在处理操作" });
-    }
+    sendRequest({ type: "execute", action, params }, (req) => {
+      req.onCommandResult = () => "complete";
+    });
+  };
+
+  const handleTradeSelection = (option: DialogueOption) => {
+    const current = dialogue();
+    if (!current) return;
+    const itemName = (option.meta?.itemName as string) ?? option.label;
+    setDialogue({
+      ...current,
+      tradeSelection: { option, fullOptions: current.options },
+      options: [{ id: option.id, label: "购买", type: "trade_select" as const }],
+    });
+    sendRequest({ type: "execute", action: "look", params: { target: itemName } }, (req) => {
+      req.onCommandResult = (msg) => {
+        const detail = msg.events
+          .map((e) => e.description)
+          .filter(Boolean)
+          .join("\n");
+        setDialogue((prev) =>
+          prev?.tradeSelection
+            ? { ...prev, tradeSelection: { ...prev.tradeSelection, detail } }
+            : prev,
+        );
+      };
+    });
+  };
+
+  const clearTradeSelection = () => {
+    setDialogue((prev) => {
+      if (!prev?.tradeSelection) return prev;
+      return {
+        ...prev,
+        tradeSelection: undefined,
+        options: prev.tradeSelection.fullOptions,
+      };
+    });
   };
 
   const requestDialogueOptions = (npcId: string) => {
-    if (pending()) {
-      pushBlockedEvent();
-      return;
-    }
     hideDialogue();
-    if (send({ type: "request_dialogue_options", npcId })) {
-      setPending({ kind: "dialogue_options", description: "正在等待对话选项" });
-    }
+    sendRequest({ type: "request_dialogue_options", npcId }, (req) => {
+      req.onDialogueOptions = (msg) => {
+        showDialogue({
+          npcId: msg.npcId,
+          npcName: msg.npcName,
+          options: msg.options,
+          history: [],
+          activeTab: "chat",
+          availableTabs: ["chat", "trade"],
+          savedTabOptions: {},
+        });
+      };
+    });
   };
 
   const chooseDialogueOption = (option: DialogueOption) => {
-    if (pending()) {
-      pushBlockedEvent();
-      return;
-    }
     const current = dialogue();
     if (!current) return;
-    pushEvents([{ type: "say", description: `你：${option.label}` }]);
+
     if (
-      send({
+      current.activeTab === "trade" &&
+      option.type === "trade_select" &&
+      !current.tradeSelection
+    ) {
+      handleTradeSelection(option);
+      return;
+    }
+
+    if (current.activeTab === "trade" && option.type === "trade_select" && current.tradeSelection) {
+      if (hasActiveRequest()) return;
+      clearTradeSelection();
+      handleTradeSelection(option);
+      return;
+    }
+
+    pushEvents([{ type: "say", description: `你：${option.label}` }]);
+    const responseTab = responseTabForOptionType(option.type);
+    if (shouldKeepPopupOpen(option.type)) {
+      const activeState =
+        responseTab === current.activeTab
+          ? current
+          : {
+              ...current,
+              activeTab: responseTab,
+              options: current.savedTabOptions[responseTab] ?? [],
+              savedTabOptions: {
+                ...current.savedTabOptions,
+                [current.activeTab]: current.options,
+              },
+            };
+      const withPlayerEntry = {
+        ...activeState,
+        history: appendToHistory(activeState, "player", option.label),
+        tradeSelection: undefined,
+      };
+      setDialogue(buildLoadingDialogueState(withPlayerEntry));
+    } else {
+      hideDialogue();
+    }
+    sendRequest(
+      {
         type: "talk",
         npcId: current.npcId,
         optionId: option.id,
         label: option.label,
         optionType: option.type,
-      })
-    ) {
-      if (shouldKeepPopupOpen(option.type)) {
-        setDialogue(buildLoadingDialogueState(current));
-      } else {
-        hideDialogue();
-      }
-      setPending({ kind: "dialogue_reply", description: "正在等待 NPC 回复" });
-    }
+      },
+      (req) => buildTalkHandlers(req, shouldKeepPopupOpen(option.type), responseTab),
+    );
   };
 
-  const startDialogueDirect = (npcId: string, option: DialogueOption) => {
-    if (pending()) {
-      pushBlockedEvent();
+  const switchDialogueTab = (direction: -1 | 1) => {
+    setDialogue((prev) => {
+      if (!prev) return prev;
+      return computeTabSwitch(prev, direction);
+    });
+    setTimeout(() => {
+      const dlg = dialogue();
+      if (dlg?.activeTab === "trade" && (dlg.savedTabOptions.trade?.length ?? 0) === 0) {
+        requestTrade(dlg.npcId);
+      }
+    }, 50);
+  };
+
+  const requestTrade = (npcId: string) => {
+    if (hasActiveRequest()) {
+      setPendingTradeNpcId(npcId);
+      logWrite("cli", "dbg", "[DIAG] requestTrade QUEUED hasActiveRequest=true");
       return;
     }
-    pushEvents([{ type: "say", description: `你：${option.label}` }]);
-    if (
-      send({
+    logWrite("cli", "dbg", `[DIAG] requestTrade npc=${npcId}`);
+    sendRequest(
+      {
         type: "talk",
         npcId,
-        optionId: option.id,
-        label: option.label,
-        optionType: option.type,
-      })
-    ) {
-      setPending({ kind: "dialogue_reply", description: "正在等待 NPC 回复" });
-    }
+        optionId: "menu:trade",
+        optionType: "trade_menu",
+        label: "交易",
+      },
+      (req) => buildTalkHandlers(req, true, "trade"),
+    );
   };
 
   return {
@@ -526,8 +750,7 @@ export function createGameClient(url: string): GameClient {
     capabilities,
     events,
     dialogue,
-    entityDialogueOptions,
-    pending,
+    hasActiveRequest,
     status,
     selectedEntityId,
     selectedQuestIndex,
@@ -546,17 +769,32 @@ export function createGameClient(url: string): GameClient {
           (c) => c.action === "talk" && (c.params?.values ?? []).includes(id),
         );
         if (targetEntity?.type === "npc" && hasTalk) {
-          if (send({ type: "request_dialogue_options", npcId: id })) {
-            setPending({ kind: "entity_dialogue_options", description: "正在加载对话选项" });
-          } else {
-            pushLayer("entity-selected");
-          }
+          const npcName = targetEntity.name;
+          showDialogue({
+            npcId: id,
+            npcName,
+            options: [],
+            history: [],
+            activeTab: "chat",
+            availableTabs: ["chat", "trade"],
+            savedTabOptions: {},
+            npcDescription: targetEntity.typeLabel ?? "人物",
+          });
+          sendRequest(
+            {
+              type: "talk",
+              npcId: id,
+              optionId: "menu:chat",
+              optionType: "idle_chat",
+              label: "闲聊",
+            },
+            (req) => buildTalkHandlers(req, true, "chat"),
+          );
         } else {
           pushLayer("entity-selected");
         }
       } else {
         if (hasLayer("entity-selected")) popLayer("entity-selected");
-        setEntityDialogueOptions(null);
       }
     },
     openInventory: () => {
@@ -622,8 +860,10 @@ export function createGameClient(url: string): GameClient {
     execute,
     requestDialogueOptions,
     chooseDialogueOption,
+    clearTradeSelection,
     closeDialogue: () => hideDialogue(),
-    startDialogueDirect,
+    switchDialogueTab,
+    requestTrade,
     trackedQuestIds,
     toggleTrackQuest: (templateId: string) => {
       setTrackedQuestIds((prev) => {

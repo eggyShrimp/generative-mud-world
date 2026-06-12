@@ -23,7 +23,7 @@ function cap(action: string, params?: Capability["params"], label = action): Cap
 
 function mockClient(overrides: Partial<GameClient> = {}): GameClient {
   return {
-    pending: () => null,
+    hasActiveRequest: () => false,
     execute: vi.fn(),
     capabilities: () => [],
     room: () => null,
@@ -32,7 +32,6 @@ function mockClient(overrides: Partial<GameClient> = {}): GameClient {
     selectedInventoryItemId: () => null,
     selectedQuestIndex: () => null,
     dialogue: () => null,
-    entityDialogueOptions: () => null,
     mapGranularity: () => "region",
     mapCursor: () => ({ x: 0, y: 0 }),
     setSelectedEntityId: vi.fn(),
@@ -46,8 +45,8 @@ function mockClient(overrides: Partial<GameClient> = {}): GameClient {
     setMapCursor: vi.fn(),
     requestDialogueOptions: vi.fn(),
     chooseDialogueOption: vi.fn(),
-    startDialogueDirect: vi.fn(),
-    startCombat: vi.fn(),
+    switchDialogueTab: vi.fn(),
+    requestTrade: vi.fn(),
     endCombat: vi.fn(),
     questNotification: () => null,
     showQuestNotification: vi.fn(),
@@ -188,7 +187,7 @@ describe("layer stack", () => {
 
 describe("dispatchKey", () => {
   it("pending 状态拦截所有按键", () => {
-    const client = mockClient({ pending: () => ({ kind: "command", description: "处理中" }) });
+    const client = mockClient({ hasActiveRequest: () => true });
     const key = mockKey("r");
     dispatchKey(key, client);
     expect(key.wasPrevented).toBe(true);
@@ -339,11 +338,61 @@ describe("dispatchKey", () => {
     ];
     pushLayer("dialogue");
     const client = mockClient({
-      dialogue: () => ({ npcId: "npc1", npcName: "老马", options }),
+      dialogue: () => ({
+        npcId: "npc1",
+        npcName: "老马",
+        options,
+        history: [],
+        activeTab: "chat" as const,
+        availableTabs: ["chat" as const, "trade" as const],
+        savedTabOptions: {},
+      }),
     });
     const key = mockKey("2");
     dispatchKey(key, client);
     expect(client.chooseDialogueOption).toHaveBeenCalledWith(options[1]);
+  });
+
+  it("dialogue 层: left → switchDialogueTab(-1)", () => {
+    const client = mockClient();
+    pushLayer("dialogue");
+    dispatchKey(mockKey("left"), client);
+    expect(client.switchDialogueTab).toHaveBeenCalledWith(-1);
+  });
+
+  it("dialogue 层: right → switchDialogueTab(1)", () => {
+    const client = mockClient();
+    pushLayer("dialogue");
+    dispatchKey(mockKey("right"), client);
+    expect(client.switchDialogueTab).toHaveBeenCalledWith(1);
+  });
+
+  it("非 dialogue 层时 left/right 不触发 switchDialogueTab", () => {
+    const client = mockClient();
+    dispatchKey(mockKey("left"), client);
+    expect(client.switchDialogueTab).not.toHaveBeenCalled();
+    dispatchKey(mockKey("right"), client);
+    expect(client.switchDialogueTab).not.toHaveBeenCalled();
+  });
+
+  it("dialogue 层 left, hasActiveRequest=true 仍放行", () => {
+    const client = mockClient({
+      hasActiveRequest: () => true,
+    });
+    pushLayer("dialogue");
+    const key = mockKey("left");
+    dispatchKey(key, client);
+    expect(client.switchDialogueTab).toHaveBeenCalledWith(-1);
+  });
+
+  it("dialogue 层 right, hasActiveRequest=true 仍放行", () => {
+    const client = mockClient({
+      hasActiveRequest: () => true,
+    });
+    pushLayer("dialogue");
+    const key = mockKey("right");
+    dispatchKey(key, client);
+    expect(client.switchDialogueTab).toHaveBeenCalledWith(1);
   });
 
   it("status 层: q 关闭状态", () => {
@@ -790,7 +839,7 @@ describe("entity selection flow (integration)", () => {
       else if (hasLayer("entity-selected")) popLayer("entity-selected");
     });
     return {
-      pending: () => null,
+      hasActiveRequest: () => false,
       execute: vi.fn(),
       capabilities: () => [],
       room: () => null,
@@ -799,7 +848,6 @@ describe("entity selection flow (integration)", () => {
       selectedInventoryItemId: () => null,
       selectedQuestIndex: () => null,
       dialogue: () => null,
-      entityDialogueOptions: () => null,
       mapGranularity: () => "region",
       mapCursor: () => ({ x: 0, y: 0 }),
       setSelectedEntityId,
@@ -813,8 +861,8 @@ describe("entity selection flow (integration)", () => {
       setMapCursor: vi.fn(),
       requestDialogueOptions: vi.fn(),
       chooseDialogueOption: vi.fn(),
-      startDialogueDirect: vi.fn(),
-      startCombat: vi.fn(),
+      switchDialogueTab: vi.fn(),
+      requestTrade: vi.fn(),
       endCombat: vi.fn(),
       openInventory: vi.fn(() => {
         setSelectedEntityId(null);

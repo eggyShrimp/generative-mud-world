@@ -1,0 +1,46 @@
+schema: world-engine
+
+context: |
+  This is World Framework — an LLM-driven MUD game engine (TypeScript, Node.js server, Bun TUI client).
+  
+  Core architecture constraint: DATA in ContentPool, LOGIC in engine. Hard boundary between them.
+  
+  ContentPool has 26 fields defined in src/core/types.ts. Adding any field requires a 12-step checklist
+  (see docs/dev-guide/add-contentpool-field.md). Consumer code reads from world.contentPool.xxx ONLY,
+  never calls createDefaultXxx() outside createDefaultContentPool().
+  
+  Three change types define three custom OpenSpec schemas:
+  - world-yaml: Pure ContentPool field / YAML data changes. No engine logic, no TUI.
+  - world-engine: Engine/combat/simulation/llm/core logic changes. No ContentPool schema changes, no TUI.
+  - world-tui: Client-side TUI changes (src/client-tui/). No ContentPool, no engine.
+  
+  Cross-cutting features: break into separate changes, each using the appropriate schema.
+  
+  Guardrails enforced by pre-commit:
+  - Biome Grit plugins (src/plugins/): no-empty-catch, no-hardcoded-labels (Record<string,string>),
+    no-create-default-outside-world, no-direct-world-mutation, no-hardcoded-description-text
+  - dependency-cruiser: tui-no-direct-engine-import, prompts-no-engine-import,
+    combat-config-only-via-contentpool, delta-registry-no-runtime-import
+  - lefthook pre-commit: biome check + depcruise src + vitest run
+  
+  Key project files:
+  - ContentPool interface: src/core/types.ts
+  - ContentPool schema: src/core/schemas/content-pool.ts
+  - ContentPool loader: src/core/content-pool-loader.ts
+  - ContentPool materializer: src/simulation/content-pool-materializer.ts
+  - YAML data: worlds/content-pool/*.yaml
+  - Engine: src/engine/command-executor.ts, src/core/round-engine.ts
+  - Combat: src/combat/*.ts
+  - TUI: src/client-tui/components/*.tsx, src/client-tui/game-client.ts
+  - Protocol: src/shared/protocol.ts
+  - Trap token guide: docs/dev-guide/trap-tokens.md
+  - Add ContentPool field: docs/dev-guide/add-contentpool-field.md
+
+rules:
+  proposal:
+    - If the change is cross-cutting (touching BOTH ContentPool AND engine), split into separate changes
+    - State which OpenSpec schema this change uses (world-yaml, world-engine, or world-tui)
+    - Proposals must be single-type: pick ONE schema per change
+  tasks:
+    - Each task must include the exact file path
+    - The last task must be verification: npm run lint && npx vitest run && npx depcruise src

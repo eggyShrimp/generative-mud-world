@@ -1,0 +1,47 @@
+name: world-yaml
+version: 1
+description: |
+  ContentPool 字段 / YAML 世界观文件变更。
+  Pure data changes: adding or modifying ContentPool fields, YAML data files.
+  No engine logic changes. No TUI changes.
+
+artifacts:
+  - id: proposal
+    generates: proposal.md
+    description: 变更动机和影响范围
+    template: proposal.md
+    instruction: |
+      Create a proposal for this ContentPool/YAML change. You MUST:
+      1. State which ContentPool field(s) are added or modified
+      2. State the YAML domain (social-dialogue, combat, culture-narrative, etc.)
+      3. State whether the field is LLM-evolvable (needs mutation + materializer + write-back)
+      4. Run `rg "<field>" src/ --type ts | grep -v __tests__` to find all existing consumers
+      Do NOT propose engine or TUI code changes.
+    requires: []
+
+  - id: design
+    generates: design.md
+    description: 12 步 ContentPool checklist 逐条映射
+    template: design.md
+    instruction: |
+      Map the change to the 12-step ContentPool checklist (docs/dev-guide/add-contentpool-field.md).
+      For each step, state the file to change and whether it applies.
+      If LLM-evolvable: steps 7-9 apply. If not: skip 7-9.
+      Include consumer analysis from the `rg` search.
+    requires:
+      - proposal
+
+  - id: tasks
+    generates: tasks.md
+    description: 实现任务列表（按 12 步 checklist 分组）
+    template: tasks.md
+    instruction: |
+      Generate tasks from the design. Each task must include the exact file path.
+      Group tasks by step in the 12-step checklist.
+      Include a verification task that runs lint, tests, and consumer check.
+    requires:
+      - design
+
+apply:
+  requires: [tasks]
+  tracks: tasks.md

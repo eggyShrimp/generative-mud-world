@@ -65,7 +65,7 @@ function mockKey(name: string, meta = false) {
 
 function mockClient(overrides: Partial<GameClient> = {}): GameClient {
   return {
-    pending: () => null,
+    hasActiveRequest: () => false,
     execute: vi.fn(),
     capabilities: () => [],
     room: () => null,
@@ -74,7 +74,6 @@ function mockClient(overrides: Partial<GameClient> = {}): GameClient {
     selectedInventoryItemId: () => null,
     selectedQuestIndex: () => null,
     dialogue: () => null,
-    entityDialogueOptions: () => null,
     mapGranularity: () => "region",
     mapCursor: () => ({ x: 0, y: 0 }),
     setSelectedEntityId: vi.fn(),
@@ -88,8 +87,8 @@ function mockClient(overrides: Partial<GameClient> = {}): GameClient {
     setMapCursor: vi.fn(),
     requestDialogueOptions: vi.fn(),
     chooseDialogueOption: vi.fn(),
-    startDialogueDirect: vi.fn(),
-    startCombat: vi.fn(),
+    switchDialogueTab: vi.fn(),
+    requestTrade: vi.fn(),
     endCombat: vi.fn(),
     questNotification: () => null,
     showQuestNotification: vi.fn(),

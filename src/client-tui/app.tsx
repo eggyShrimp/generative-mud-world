@@ -8,7 +8,7 @@ import {
   ENTITY_LIST_COLUMNS,
 } from "./entity-list-layout.ts";
 import { getEventStyle } from "./event-style.ts";
-import type { GameClient, LogEntry } from "./game-client.ts";
+import { computeContentHeight, type GameClient, type LogEntry } from "./game-client.ts";
 import type { GroupedItem } from "./key-layer.ts";
 import {
   bindingLabel,
@@ -95,9 +95,10 @@ export function App(props: { client: GameClient }) {
     return selectedId ? findGroupForItem(selectedId, inventoryGroups()) : null;
   });
   const pendingEvent = createMemo(() => {
-    const p = props.client.pending();
-    if (!p || p.kind === "entity_dialogue_options") return null;
-    return { type: "system", description: p.description };
+    if (props.client.hasActiveRequest()) {
+      return { type: "system", description: "正在处理..." };
+    }
+    return null;
   });
 
   onMount(() => props.client.connect());
@@ -418,8 +419,7 @@ function TargetActionPopup(props: {
   entity: RoomEntity | null;
   narrow: boolean;
 }) {
-  const dialogueOpts = () => props.client.entityDialogueOptions();
-  const isLoadingDialogue = () => props.client.pending()?.kind === "entity_dialogue_options";
+  const isLoadingDialogue = () => props.client.hasActiveRequest();
 
   return (
     <Show when={props.entity}>
@@ -434,7 +434,7 @@ function TargetActionPopup(props: {
             when={!isLoadingDialogue()}
             fallback={<LoadingHint color={THEME.muted} text="加载中..." />}
           >
-            <For each={getEntityActions(entity(), props.client.capabilities(), dialogueOpts())}>
+            <For each={getEntityActions(entity(), props.client.capabilities())}>
               {(action, index) => (
                 <KeyHint
                   shortcut={index() + 1}
@@ -459,7 +459,7 @@ function Sidebar(props: { client: GameClient; height?: number; narrow?: boolean 
   const needs = () => props.client.entity()?.needs ?? [];
   const topLayer = createMemo(() => props.client.activeLayer());
   const disabled = createMemo(
-    () => Boolean(props.client.pending()) || (topLayer().id !== "base" && !topLayer().passthrough),
+    () => props.client.hasActiveRequest() || (topLayer().id !== "base" && !topLayer().passthrough),
   );
 
   if (props.narrow) {
@@ -1207,60 +1207,265 @@ function PopupPanel(props: {
   );
 }
 
+// ============================================================
+// Interaction Panel (通用布局：内容区 + 交互区)
+// ============================================================
+
+function InteractionPanel(props: {
+  title: string;
+  borderColor: string;
+  backgroundColor?: string;
+  metrics: ModalMetrics;
+  interactionHeight: number;
+  content: unknown;
+  interaction: unknown;
+}) {
+  const contentHeight = () =>
+    computeContentHeight(props.metrics.bodyHeight, props.interactionHeight);
+
+  return (
+    <PopupPanel
+      title={props.title}
+      borderColor={props.borderColor}
+      backgroundColor={props.backgroundColor}
+      width={props.metrics.width}
+      height={props.metrics.height}
+      top={props.metrics.top}
+      left={props.metrics.left}
+      showFooter={false}
+    >
+      <scrollbox height={contentHeight()} scrollY stickyScroll stickyStart="bottom">
+        {props.content}
+      </scrollbox>
+      <box
+        border={["top"]}
+        borderColor={THEME.borderMuted}
+        paddingTop={1}
+        flexDirection="column"
+        flexGrow={1}
+      >
+        {props.interaction}
+      </box>
+    </PopupPanel>
+  );
+}
+
+const TAB_LABELS: Record<string, string> = {
+  chat: "对话",
+  trade: "交易",
+};
+
+function TabBar(props: { tabs: string[]; active: string }) {
+  return (
+    <box flexDirection="row">
+      <text selectable={false} fg={THEME.dim}>
+        {"\u2501\u2501 "}
+      </text>
+      {props.tabs.map((tab, i) => (
+        <>
+          {i > 0 ? <text fg={THEME.borderMuted}> │ </text> : null}
+          <text fg={tab === props.active ? THEME.focus : THEME.dim}>{TAB_LABELS[tab] ?? tab}</text>
+        </>
+      ))}
+      <text selectable={false} fg={THEME.dim}>
+        {" \u2501\u2501"}
+      </text>
+    </box>
+  );
+}
+
+function TradeDetail(props: {
+  selection: {
+    option: { id: string; label: string; meta?: Record<string, unknown> };
+    detail?: string;
+  };
+  playerCopper: number;
+  npcName: string;
+}) {
+  const price = () => (props.selection.option.meta?.price as number) ?? 0;
+  const currencyName = () => (props.selection.option.meta?.currencyName as string) ?? "铜钱";
+  return (
+    <box flexDirection="column">
+      <text fg={THEME.title} wrapMode="word">
+        {props.selection.option.meta?.itemName ?? props.selection.option.label}
+      </text>
+      {props.selection.detail === undefined ? (
+        <text fg={THEME.dim}>正在查看...</text>
+      ) : (
+        <>
+          <text fg={THEME.text} wrapMode="word">
+            {props.selection.detail}
+          </text>
+          {price() > 0 ? (
+            <>
+              <text fg={THEME.muted}>
+                售价：{price()} {currencyName()}
+              </text>
+              <text fg={props.playerCopper >= price() ? THEME.dialogue : THEME.danger}>
+                持有：{props.playerCopper} {currencyName()}
+              </text>
+            </>
+          ) : undefined}
+          <text fg={THEME.muted} marginTop={1}>
+            [1] 购买 [Esc] 返回
+          </text>
+        </>
+      )}
+    </box>
+  );
+}
+
 export function DialoguePanel(props: { client: GameClient; metrics: ModalMetrics }) {
   const dialogue = () => props.client.dialogue();
-  const isLoading = () => props.client.pending()?.kind === "dialogue_reply" && dialogue() !== null;
+  const isLoading = () => dialogue() !== null && dialogue()?.options.length === 0;
+  const entity = () => props.client.entity();
+
+  const title = () => {
+    const d = dialogue();
+    if (!d) return "";
+    if (d.activeTab === "trade") return `交易：${d.npcName}`;
+    return `对话：${d.npcName}`;
+  };
+
+  const _playerCopper = () => {
+    const inv = entity()?.inventory ?? [];
+    return inv.filter((i) => i.templateId === "copper_coin").length;
+  };
 
   return (
     <Show when={dialogue()}>
-      {(current: () => NonNullable<ReturnType<GameClient["dialogue"]>>) => (
-        <PopupPanel
-          title={`对话：${current().npcName}`}
-          borderColor={THEME.focus}
-          backgroundColor={THEME.popup}
-          width={props.metrics.width}
-          height={props.metrics.height}
-          top={props.metrics.top}
-          left={props.metrics.left}
-          footer="Esc 返回"
-        >
-          <scrollbox height={props.metrics.bodyHeight} scrollY>
-            <Show when={current().lastNpcReply}>
-              {(reply: () => string) => (
-                <text wrapMode="word" fg={THEME.dialogue}>
-                  {current().npcName}：{reply()}
-                </text>
-              )}
-            </Show>
-            <Show
-              when={isLoading()}
-              fallback={
-                <Show
-                  when={current().options.length > 0}
-                  fallback={
-                    <text selectable={false} fg={THEME.dim}>
-                      没有可选回应。
-                    </text>
-                  }
-                >
-                  <For each={current().options}>
-                    {(option, index) => (
-                      <KeyHint
-                        shortcut={index() + 1}
-                        label={option.label}
-                        color={THEME.dialogue}
-                        wrapMode="word"
+      {(current: () => NonNullable<ReturnType<GameClient["dialogue"]>>) => {
+        const cur = current();
+
+        if (cur.activeTab === "trade") {
+          const sel = cur.tradeSelection;
+          const listWidth = sel
+            ? Math.max(16, Math.floor(props.metrics.width * 0.35))
+            : props.metrics.width - 2;
+          const contentH = computeContentHeight(props.metrics.bodyHeight, 2);
+          return (
+            <InteractionPanel
+              title={title()}
+              borderColor={THEME.focus}
+              backgroundColor={THEME.popup}
+              metrics={props.metrics}
+              interactionHeight={2}
+              content={
+                <box flexDirection="row" height={contentH}>
+                  <scrollbox height={contentH} width={listWidth} scrollY>
+                    <Show
+                      when={isLoading()}
+                      fallback={
+                        <Show
+                          when={cur.options.length > 0}
+                          fallback={
+                            <text selectable={false} fg={THEME.dim}>
+                              没有可交易的物品。
+                            </text>
+                          }
+                        >
+                          {cur.options.map((opt, i) => (
+                            <KeyHint
+                              shortcut={i + 1}
+                              label={opt.label}
+                              color={THEME.dialogue}
+                              wrapMode="word"
+                            />
+                          ))}
+                        </Show>
+                      }
+                    >
+                      <LoadingHint color={THEME.muted} text="正在思考中..." />
+                    </Show>
+                  </scrollbox>
+                  {sel ? (
+                    <scrollbox
+                      border={["left"]}
+                      borderColor={THEME.borderMuted}
+                      paddingLeft={1}
+                      marginLeft={1}
+                      height={contentH}
+                      flexGrow={1}
+                      scrollY
+                    >
+                      <TradeDetail
+                        selection={sel}
+                        playerCopper={_playerCopper()}
+                        npcName={cur.npcName}
                       />
-                    )}
-                  </For>
-                </Show>
+                    </scrollbox>
+                  ) : undefined}
+                </box>
               }
-            >
-              <LoadingHint color={THEME.muted} text="正在等待回复..." />
-            </Show>
-          </scrollbox>
-        </PopupPanel>
-      )}
+              interaction={<TabBar tabs={cur.availableTabs} active={cur.activeTab} />}
+            />
+          );
+        }
+
+        return (
+          <InteractionPanel
+            title={title()}
+            borderColor={THEME.focus}
+            backgroundColor={THEME.popup}
+            metrics={props.metrics}
+            interactionHeight={6}
+            content={
+              cur.history.length === 0 ? (
+                <box flexDirection="column">
+                  <text fg={THEME.title}>{cur.npcName}</text>
+                  <text fg={THEME.muted}>{cur.npcDescription ?? "人物"}</text>
+                </box>
+              ) : (
+                <For each={cur.history}>
+                  {(entry) => (
+                    <text
+                      wrapMode="word"
+                      fg={entry.speaker === "player" ? "#6fc3bd" : THEME.dialogue}
+                    >
+                      {entry.speaker === "player" ? "你" : cur.npcName}：{entry.content}
+                    </text>
+                  )}
+                </For>
+              )
+            }
+            interaction={
+              <box flexDirection="column" flexGrow={1}>
+                <box flexGrow={1}>
+                  <Show
+                    when={isLoading()}
+                    fallback={
+                      <Show
+                        when={cur.options.length > 0}
+                        fallback={
+                          <text selectable={false} fg={THEME.dim}>
+                            没有可选回应。
+                          </text>
+                        }
+                      >
+                        <For each={cur.options}>
+                          {(option, index) => (
+                            <KeyHint
+                              shortcut={index() + 1}
+                              label={option.label}
+                              color={THEME.dialogue}
+                              wrapMode="word"
+                            />
+                          )}
+                        </For>
+                      </Show>
+                    }
+                  >
+                    <LoadingHint color={THEME.muted} text="正在思考中..." />
+                  </Show>
+                </box>
+                <box marginTop={1}>
+                  <TabBar tabs={cur.availableTabs} active={cur.activeTab} />
+                </box>
+              </box>
+            }
+          />
+        );
+      }}
     </Show>
   );
 }

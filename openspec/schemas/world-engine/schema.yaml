@@ -1,0 +1,48 @@
+name: world-engine
+version: 1
+description: |
+  引擎逻辑变更。Engine/combat/simulation/llm/core logic changes.
+  No ContentPool schema changes. No TUI changes.
+  Key constraints: no hardcoded labels/maps, no direct world state mutation bypassing delta pipeline,
+  read config from world.contentPool (never createDefaultXxx).
+
+artifacts:
+  - id: proposal
+    generates: proposal.md
+    description: 变更动机和影响模块
+    template: proposal.md
+    instruction: |
+      Create a proposal for this engine logic change. You MUST:
+      1. List which engine modules (files with paths) are being changed
+      2. Classify: new-feature | bug-fix | refactor | config-migration
+      3. State any new ContentPool reads needed (from world.contentPool.xxx)
+      4. Check each trap token from docs/dev-guide/trap-tokens.md and mark applies/does-not-apply
+      Do NOT propose ContentPool schema changes or TUI changes.
+    requires: []
+
+  - id: design
+    generates: design.md
+    description: 数据流 + ContentPool 集成 + 状态写入路径
+    template: design.md
+    instruction: |
+      Create a design document:
+      1. Data flow: input → processing → output/state change
+      2. ContentPool read points: which pool.xxx fields consumed
+      3. State mutation path: must go through delta pipeline or existing write paths
+      4. Trap token verification: confirm each relevant trap is handled
+    requires:
+      - proposal
+
+  - id: tasks
+    generates: tasks.md
+    description: 实现任务列表（按模块分组）
+    template: tasks.md
+    instruction: |
+      Generate tasks from the design. Each task must include the exact file path.
+      Group tasks by module. Include verification task at the end.
+    requires:
+      - design
+
+apply:
+  requires: [tasks]
+  tracks: tasks.md
