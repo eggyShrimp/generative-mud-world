@@ -287,8 +287,8 @@ describe("集成: 对话全链路", () => {
       optionType: "idle_chat",
     });
 
-    expect(result.needsDialogueOptions).toBeDefined();
-    expect(result.dialogueOptions).toHaveLength(3);
-    expect(result.dialogueOptions![2].type).toBe("close");
+    expect(result.needsChatOptions).toBeDefined();
+    expect(result.chatSubOptions).toHaveLength(3);
+    expect(result.chatSubOptions![2].type).toBe("close");
   });
 });

@@ -25,6 +25,7 @@ import type {
   WorldState,
 } from "../core/types.ts";
 import { getEntity, getRoomEntities, moveEntity } from "../core/world.ts";
+import { formatItemProperties } from "../shared/item-format.ts";
 import { logWrite } from "../shared/log.ts";
 import type { CommandEvent } from "../shared/protocol.ts";
 
@@ -34,6 +35,10 @@ export interface CommandResult {
   ended: boolean;
   needsDialogueOptions?: { npcId: string; npcName: string };
   dialogueOptions?: import("../shared/protocol.ts").DialogueOption[];
+  needsChatOptions?: { npcId: string; npcName: string };
+  chatSubOptions?: import("../shared/protocol.ts").DialogueOption[];
+  needsTradeOptions?: { npcId: string; npcName: string };
+  tradeSubOptions?: import("../shared/protocol.ts").TradeOption[];
   operateOptions?: Array<{ actionId: string; label: string }>;
 }
 
@@ -1393,18 +1398,5 @@ function getItemNeedDeltas(properties: Record<string, unknown>): Record<string, 
 function formatNeedDeltas(deltas: Record<string, number>, labels: Record<string, string>): string {
   return Object.entries(deltas)
     .map(([needType, delta]) => `${labels[needType] ?? needType} ${delta > 0 ? "+" : ""}${delta}`)
-    .join("，");
-}
-
-function formatItemProperties(
-  properties: Record<string, unknown>,
-  labels: Record<string, string>,
-): string {
-  return Object.entries(properties)
-    .filter(([, v]) => typeof v !== "object")
-    .map(([key, value]) => {
-      const label = labels[key] ?? key;
-      return typeof value === "boolean" ? label : `${label} +${value}`;
-    })
     .join("，");
 }

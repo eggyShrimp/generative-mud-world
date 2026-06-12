@@ -14,7 +14,7 @@ const NARROW_MIN_EVENT_LOG_HEIGHT = 4;
 const MODAL_MIN_WIDTH = 36;
 const MODAL_MAX_WIDTH = 96;
 const MODAL_MIN_HEIGHT = 8;
-const MODAL_MAX_HEIGHT = 18;
+const MODAL_MAX_HEIGHT = 21;
 
 // ── 类型 ──
 

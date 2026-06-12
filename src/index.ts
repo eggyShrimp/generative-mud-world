@@ -97,7 +97,15 @@ async function main() {
   engine.setDialogueGenerator(dialogueGenerator);
 
   server.setDialogueOptionsHandler(async (playerId, npcId) => {
-    return dialogueGenerator.generateFixedMenu(world, playerId, npcId);
+    return dialogueGenerator.generateChatMenu(world, playerId, npcId);
+  });
+
+  server.setChatOptionsHandler(async (playerId, npcId) => {
+    return dialogueGenerator.generateChatMenu(world, playerId, npcId);
+  });
+
+  server.setTradeOptionsHandler(async (playerId, npcId) => {
+    return dialogueGenerator.generateTradeMenu(world, playerId, npcId);
   });
 
   // Game loop: when all players end their day, settle

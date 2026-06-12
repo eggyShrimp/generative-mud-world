@@ -1,6 +1,6 @@
 import { createSignal, untrack } from "solid-js";
 import type { Capability, RoomEntity } from "../../shared/protocol.ts";
-import type { GameClient } from "../client/game-client.ts";
+import { type GameClient, getDialogueVisibleOptions } from "../client/game-client.ts";
 import {
   findGroupForItem,
   formatGroupedItemName,
@@ -156,9 +156,16 @@ function handleDialogueOption(client: GameClient, keyName: string) {
   const idx = Number(keyName) - 1;
   const dialogue = client.dialogue();
   if (!dialogue) return;
-  const option = dialogue.options[idx];
-  if (option) {
-    client.chooseDialogueOption(option);
+  if (dialogue.activeTab === "trade") {
+    const tradeOption = dialogue.tabs.trade.options[idx];
+    if (tradeOption) {
+      client.chooseTradeOption(tradeOption);
+    }
+  } else {
+    const option = getDialogueVisibleOptions(dialogue)[idx];
+    if (option) {
+      client.chooseDialogueOption(option);
+    }
   }
 }
 
@@ -172,7 +179,7 @@ function handleDialogueTabRight(client: GameClient) {
 
 function handleDialogueEscape(client: GameClient) {
   const dlg = client.dialogue();
-  if (dlg?.activeTab === "trade" && dlg.tradeSelection) {
+  if (dlg?.activeTab === "trade" && dlg.tabs.trade.selected) {
     client.clearTradeSelection();
     return;
   }

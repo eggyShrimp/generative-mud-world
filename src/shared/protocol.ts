@@ -78,6 +78,7 @@ export interface RoomEntity {
   id: EntityId;
   name: string;
   type: string;
+  description?: string;
   typeLabel?: string;
   interactable?: boolean;
   takeable?: boolean;
@@ -175,10 +176,6 @@ export interface Capability {
 }
 
 export type DialogueOptionType =
-  | "trade_menu"
-  | "trade_select"
-  | "trade_sell_menu"
-  | "trade_sell_select"
   | "quest_trigger_menu"
   | "quest_trigger_select"
   | "quest_deliver_menu"
@@ -192,11 +189,26 @@ export interface DialogueOption {
   id: string;
   label: string;
   type: DialogueOptionType;
+  tag?: string;
   meta?: Record<string, unknown>;
   expectedEffects?: {
     relationDelta?: number;
     needDelta?: Record<string, number>;
     risk?: string;
+  };
+}
+
+export interface TradeOption {
+  id: string;
+  label: string;
+  action: "buy" | "sell" | "sell_menu";
+  meta?: {
+    itemId?: string;
+    itemName?: string;
+    itemDescription?: string;
+    itemPropertiesText?: string;
+    price?: number;
+    currencyName?: string;
   };
 }
 
@@ -225,12 +237,29 @@ export interface RequestDialogueOptionsMessage {
   npcId: EntityId;
 }
 
+export interface RequestChatOptionsMessage {
+  type: "request_chat_options";
+  npcId: EntityId;
+}
+
+export interface RequestTradeOptionsMessage {
+  type: "request_trade_options";
+  npcId: EntityId;
+}
+
 export interface TalkMessage {
   type: "talk";
   npcId: EntityId;
   optionId: string;
   label?: string;
   optionType?: DialogueOptionType;
+}
+
+export interface TradeMessage {
+  type: "trade";
+  npcId: EntityId;
+  action: "buy" | "sell";
+  itemId: string;
 }
 
 export interface RequestTravelogueMessage {
@@ -241,7 +270,10 @@ export type ClientMessage =
   | BindEntityMessage
   | ExecuteMessage
   | RequestDialogueOptionsMessage
+  | RequestChatOptionsMessage
+  | RequestTradeOptionsMessage
   | TalkMessage
+  | TradeMessage
   | RequestTravelogueMessage;
 
 // ============================================================
@@ -266,6 +298,7 @@ export interface StateUpdateMessage {
   entity: EntityState;
   room: RoomInfo | null;
   capabilities: Capability[];
+  itemPropertyLabels: Record<string, string>;
   groundRestRecovery: number;
 }
 
@@ -281,6 +314,20 @@ export interface DialogueOptionsMessage {
   npcId: EntityId;
   npcName: string;
   options: DialogueOption[];
+}
+
+export interface ChatOptionsMessage {
+  type: "chat_options";
+  npcId: EntityId;
+  npcName: string;
+  options: DialogueOption[];
+}
+
+export interface TradeOptionsMessage {
+  type: "trade_options";
+  npcId: EntityId;
+  npcName: string;
+  options: TradeOption[];
 }
 
 export interface DailyReportMessage {
@@ -351,6 +398,8 @@ export type ServerMessage =
   | StateUpdateMessage
   | CommandResultMessage
   | DialogueOptionsMessage
+  | ChatOptionsMessage
+  | TradeOptionsMessage
   | DailyReportMessage
   | SettlementStartedMessage
   | StatusMessage

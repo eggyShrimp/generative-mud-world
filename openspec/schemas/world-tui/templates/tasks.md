@@ -2,7 +2,7 @@
 
 <!-- Generated from design.md — grouped by component -->
 
-## Component: <!-- e.g. src/client-tui/components/Xxx.tsx -->
+## Component: <!-- e.g. src/tui/components/Xxx.tsx -->
 
 - [ ] <!-- task description -->
 

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { GameClient } from "../client-tui/game-client.ts";
+import type { Capability, InventoryItem, RoomEntity } from "../shared/protocol.ts";
+import type { GameClient } from "../tui/client/game-client.ts";
 import {
   activeLayer,
   directionKeyChar,
@@ -14,8 +15,7 @@ import {
   hasLayer,
   popLayer,
   pushLayer,
-} from "../client-tui/key-layer.ts";
-import type { Capability, InventoryItem, RoomEntity } from "../shared/protocol.ts";
+} from "../tui/key-layer/index.ts";
 
 function cap(action: string, params?: Capability["params"], label = action): Capability {
   return params ? { action, label, params } : { action, label };
@@ -341,11 +341,12 @@ describe("dispatchKey", () => {
       dialogue: () => ({
         npcId: "npc1",
         npcName: "老马",
-        options,
-        history: [],
         activeTab: "chat" as const,
         availableTabs: ["chat" as const, "trade" as const],
-        savedTabOptions: {},
+        tabs: {
+          chat: { options, loading: false, history: [] },
+          trade: { options: [], loading: false },
+        },
       }),
     });
     const key = mockKey("2");

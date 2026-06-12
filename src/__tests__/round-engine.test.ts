@@ -148,11 +148,11 @@ function setupWorldWithObserver() {
 
 function mockDialogueGenerator(delta: SimulationDelta): DialogueGenerator {
   return {
-    generateFixedMenu: vi.fn().mockReturnValue([
+    generateFixedChatMenu: vi.fn().mockReturnValue([
       { id: "opt_1", label: "你好", type: "idle_chat" },
       { id: "opt_2", label: "再见", type: "close" },
     ]),
-    handleOption: vi.fn().mockResolvedValue({ delta, subOptions: undefined }),
+    handleChatOption: vi.fn().mockResolvedValue({ delta, subOptions: undefined }),
   } as unknown as DialogueGenerator;
 }
 
@@ -161,8 +161,8 @@ function mockDialogueGeneratorWithSubOptions(
   subOptions: Array<{ id: string; label: string; type: string }>,
 ): DialogueGenerator {
   return {
-    generateFixedMenu: vi.fn().mockReturnValue([]),
-    handleOption: vi.fn().mockResolvedValue({ delta, subOptions }),
+    generateFixedChatMenu: vi.fn().mockReturnValue([]),
+    handleChatOption: vi.fn().mockResolvedValue({ delta, subOptions }),
   } as unknown as DialogueGenerator;
 }
 
@@ -730,11 +730,11 @@ describe("RoundEngine — 完整对话链路 (LLM + ContentPool + Ripple)", () =
       optionType: "idle_chat",
     });
 
-    expect(result.needsDialogueOptions).toBeDefined();
-    expect(result.needsDialogueOptions!.npcId).toBe("npc1");
-    expect(result.dialogueOptions!.length).toBe(2);
-    expect(result.dialogueOptions![0].label).toBe("继续聊");
-    expect(result.dialogueOptions![1].label).toBe("告别");
+    expect(result.needsChatOptions).toBeDefined();
+    expect(result.needsChatOptions!.npcId).toBe("npc1");
+    expect(result.chatSubOptions!.length).toBe(2);
+    expect(result.chatSubOptions![0].label).toBe("继续聊");
+    expect(result.chatSubOptions![1].label).toBe("告别");
   });
 });
 

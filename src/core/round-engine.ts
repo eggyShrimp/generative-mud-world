@@ -143,7 +143,8 @@ export class RoundEngine {
 
     // === Step 1.5: LLM 效果 (对话回复) ===
     let llmDelta: SimulationDelta | undefined;
-    let dialogueSubOptions: import("../shared/protocol.ts").DialogueOption[] | undefined;
+    let chatSubOptions: import("../shared/protocol.ts").DialogueOption[] | undefined;
+    let tradeSubOptions: import("../shared/protocol.ts").TradeOption[] | undefined;
     if (action === "talk" && params.optionId && this.dialogueGenerator) {
       const optionType = String(
         params.optionType ?? "idle_chat",
@@ -154,7 +155,7 @@ export class RoundEngine {
         "dbg",
         `[round-engine] talk optionType=${optionType} optionId=${String(params.optionId)} npcId=${npcId}`,
       );
-      const result = await this.dialogueGenerator.handleOption(
+      const result = await this.dialogueGenerator.handleChatOption(
         this.world,
         playerId,
         npcId,
@@ -163,7 +164,25 @@ export class RoundEngine {
         params.optionLabel ? String(params.optionLabel) : undefined,
       );
       llmDelta = result.delta;
-      dialogueSubOptions = result.subOptions;
+      chatSubOptions = result.subOptions;
+    } else if (action === "trade" && params.npcId && this.dialogueGenerator) {
+      const npcId = String(params.npcId);
+      const tradeAction = String(params.action) as "buy" | "sell";
+      const itemId = String(params.itemId);
+      logWrite(
+        "srv",
+        "dbg",
+        `[round-engine] trade action=${tradeAction} itemId=${itemId} npcId=${npcId}`,
+      );
+      const result = await this.dialogueGenerator.handleTradeAction(
+        this.world,
+        playerId,
+        npcId,
+        tradeAction,
+        itemId,
+      );
+      llmDelta = result.delta;
+      tradeSubOptions = result.tradeSubOptions;
     }
 
     // === Step 2-5: Act Loop (ripple + compose + apply + 记忆) ===
@@ -262,9 +281,15 @@ export class RoundEngine {
     }
 
     // 对话子菜单：_menu 类型返回时，将子选项直接附在 result 中
-    if (dialogueSubOptions && dialogueSubOptions.length > 0) {
-      result.dialogueOptions = dialogueSubOptions;
-      result.needsDialogueOptions = { npcId: String(params.npcId), npcName: "" };
+    if (chatSubOptions && chatSubOptions.length > 0) {
+      result.chatSubOptions = chatSubOptions;
+      result.needsChatOptions = { npcId: String(params.npcId), npcName: "" };
+    }
+
+    // 交易子选项
+    if (tradeSubOptions && tradeSubOptions.length > 0) {
+      result.tradeSubOptions = tradeSubOptions;
+      result.needsTradeOptions = { npcId: String(params.npcId), npcName: "" };
     }
 
     return result;

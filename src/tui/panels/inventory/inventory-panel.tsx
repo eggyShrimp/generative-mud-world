@@ -6,6 +6,7 @@ import { For, Show } from "solid-js";
 import type { GameClient } from "../../client/game-client.ts";
 import { KeyHint, KeyHintRow } from "../../components/index.ts";
 import { formatGroupedItemName, type GroupedItem } from "../../features/inventory/grouping.ts";
+import { buildInventoryItemDetail } from "../../features/items/detail.ts";
 import { getInventoryActions } from "../../key-layer/index.ts";
 import type { ModalMetrics } from "../../layout/metrics.ts";
 import { PopupPanel } from "../../layout/popup-panel.tsx";
@@ -16,6 +17,7 @@ import { THEME } from "../../theme/theme.ts";
 
 function InventoryDetail(props: { client: GameClient; group: GroupedItem; height: number }) {
   const representative = props.group.items[0];
+  const detail = () => buildInventoryItemDetail(representative, props.client.itemPropertyLabels());
   return (
     <scrollbox
       border={["left"]}
@@ -27,7 +29,10 @@ function InventoryDetail(props: { client: GameClient; group: GroupedItem; height
       scrollY
     >
       <text fg={THEME.title} wrapMode="word">
-        {formatGroupedItemName(props.group)}：{representative.description}
+        {formatGroupedItemName(props.group)}
+      </text>
+      <text fg={THEME.text} wrapMode="word">
+        {detail()}
       </text>
       <For each={getInventoryActions(props.group, props.client.capabilities())}>
         {(action, index) => (

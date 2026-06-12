@@ -76,12 +76,29 @@ const RequestDialogueOptionsSchema = z.object({
   npcId: z.string().min(1),
 });
 
+const RequestChatOptionsSchema = z.object({
+  type: z.literal("request_chat_options"),
+  npcId: z.string().min(1),
+});
+
+const RequestTradeOptionsSchema = z.object({
+  type: z.literal("request_trade_options"),
+  npcId: z.string().min(1),
+});
+
 const TalkSchema = z.object({
   type: z.literal("talk"),
   npcId: z.string().min(1),
   optionId: z.string().optional(),
   label: z.string().optional(),
   optionType: z.string().optional(),
+});
+
+const TradeSchema = z.object({
+  type: z.literal("trade"),
+  npcId: z.string().min(1),
+  action: z.enum(["buy", "sell"]),
+  itemId: z.string().min(1),
 });
 
 const EncounterResponseSchema = z
@@ -98,7 +115,10 @@ const ClientMessageSchema = z.discriminatedUnion("type", [
   BindEntitySchema,
   ExecuteSchema,
   RequestDialogueOptionsSchema,
+  RequestChatOptionsSchema,
+  RequestTradeOptionsSchema,
   TalkSchema,
+  TradeSchema,
   EncounterResponseSchema,
   RequestTravelogueSchema,
 ]);
@@ -119,6 +139,10 @@ export interface CommandResult {
   ended: boolean;
   needsDialogueOptions?: { npcId: string; npcName: string };
   dialogueOptions?: import("../shared/protocol.ts").DialogueOption[];
+  needsChatOptions?: { npcId: string; npcName: string };
+  chatSubOptions?: import("../shared/protocol.ts").DialogueOption[];
+  needsTradeOptions?: { npcId: string; npcName: string };
+  tradeSubOptions?: import("../shared/protocol.ts").TradeOption[];
   operateOptions?: Array<{ actionId: string; label: string }>;
 }
 
@@ -137,6 +161,14 @@ export type DialogueOptionsHandler = (
   playerId: EntityId,
   npcId: string,
 ) => Promise<Array<{ id: string; label: string }>>;
+export type ChatOptionsHandler = (
+  playerId: EntityId,
+  npcId: string,
+) => Promise<import("../shared/protocol.ts").DialogueOption[]>;
+export type TradeOptionsHandler = (
+  playerId: EntityId,
+  npcId: string,
+) => Promise<import("../shared/protocol.ts").TradeOption[]>;
 
 export class GameServer {
   private wss: WebSocketServer;
@@ -145,6 +177,8 @@ export class GameServer {
   private eventBus: EventBus;
   private onCommandExecute?: CommandHandler;
   private onDialogueOptions?: DialogueOptionsHandler;
+  private onChatOptions?: ChatOptionsHandler;
+  private onTradeOptions?: TradeOptionsHandler;
   private llmReachable = false;
 
   constructor(port: number, world: WorldState, eventBus: EventBus) {
@@ -214,6 +248,14 @@ export class GameServer {
 
   setDialogueOptionsHandler(handler: DialogueOptionsHandler): void {
     this.onDialogueOptions = handler;
+  }
+
+  setChatOptionsHandler(handler: ChatOptionsHandler): void {
+    this.onChatOptions = handler;
+  }
+
+  setTradeOptionsHandler(handler: TradeOptionsHandler): void {
+    this.onTradeOptions = handler;
   }
 
   getConnectedPlayerIds(): EntityId[] {
@@ -380,6 +422,7 @@ export class GameServer {
           }
         : null,
       capabilities: deriveCapabilities(this.world, entityId),
+      itemPropertyLabels: this.world.contentPool.itemPropertyLabels,
       groundRestRecovery,
     });
   }
@@ -466,6 +509,24 @@ export class GameServer {
         break;
       }
 
+      case "request_chat_options": {
+        logWrite("srv", "ws", `recv request_chat_options npc=${msg.npcId}`);
+        if (session.playerId) {
+          await this.handleChatOptionsRequest(session, msg.npcId);
+          logWrite("srv", "ws", `send chat_options npc=${msg.npcId}`);
+        }
+        break;
+      }
+
+      case "request_trade_options": {
+        logWrite("srv", "ws", `recv request_trade_options npc=${msg.npcId}`);
+        if (session.playerId) {
+          await this.handleTradeOptionsRequest(session, msg.npcId);
+          logWrite("srv", "ws", `send trade_options npc=${msg.npcId}`);
+        }
+        break;
+      }
+
       case "talk": {
         if (session.playerId && this.onCommandExecute) {
           logWrite("srv", "ws", `recv talk npc=${msg.npcId} opt=${msg.optionId ?? "initial"}`);
@@ -476,18 +537,48 @@ export class GameServer {
             optionLabel: msg.label,
           });
           this.send(session, { type: "command_result", ...result });
-          if (result.needsDialogueOptions) {
-            if (result.dialogueOptions) {
-              // 对话子菜单：直接发送子选项
+          if (result.needsChatOptions) {
+            if (result.chatSubOptions) {
               const npc = this.world.entities.get(msg.npcId);
               this.send(session, {
-                type: "dialogue_options",
+                type: "chat_options",
                 npcId: msg.npcId,
                 npcName: npc?.name ?? "",
-                options: result.dialogueOptions,
+                options: result.chatSubOptions,
               });
             } else {
-              await this.handleDialogueOptionsRequest(session, result.needsDialogueOptions.npcId);
+              await this.handleChatOptionsRequest(session, result.needsChatOptions.npcId);
+            }
+          }
+          this.pushState(session);
+        }
+        break;
+      }
+
+      case "trade": {
+        if (session.playerId && this.onCommandExecute) {
+          logWrite(
+            "srv",
+            "ws",
+            `recv trade npc=${msg.npcId} action=${msg.action} item=${msg.itemId}`,
+          );
+          const result = await this.onCommandExecute(session.playerId, "trade", {
+            npcId: msg.npcId,
+            action: msg.action,
+            itemId: msg.itemId,
+          });
+          this.send(session, { type: "command_result", ...result });
+          if (result.needsTradeOptions) {
+            if (result.tradeSubOptions) {
+              const npc = this.world.entities.get(msg.npcId);
+              this.send(session, {
+                type: "trade_options",
+                npcId: msg.npcId,
+                npcName: npc?.name ?? "",
+                options: result.tradeSubOptions,
+              });
+            } else {
+              await this.handleTradeOptionsRequest(session, result.needsTradeOptions.npcId);
             }
           }
           this.pushState(session);
@@ -526,6 +617,46 @@ export class GameServer {
       });
     } catch (_err) {
       this.send(session, { type: "error", code: "dialogue_failed", message: "无法生成对话选项" });
+    }
+  }
+
+  private async handleChatOptionsRequest(session: Session, npcId: string): Promise<void> {
+    if (!this.onChatOptions || !session.playerId) return;
+    try {
+      const options = await this.onChatOptions(session.playerId, npcId);
+      const npc = this.world.entities.get(npcId);
+      this.send(session, {
+        type: "chat_options",
+        npcId,
+        npcName: npc?.name ?? npcId,
+        options,
+      });
+    } catch (_err) {
+      this.send(session, {
+        type: "error",
+        code: "chat_options_failed",
+        message: "无法生成对话选项",
+      });
+    }
+  }
+
+  private async handleTradeOptionsRequest(session: Session, npcId: string): Promise<void> {
+    if (!this.onTradeOptions || !session.playerId) return;
+    try {
+      const options = await this.onTradeOptions(session.playerId, npcId);
+      const npc = this.world.entities.get(npcId);
+      this.send(session, {
+        type: "trade_options",
+        npcId,
+        npcName: npc?.name ?? npcId,
+        options,
+      });
+    } catch (_err) {
+      this.send(session, {
+        type: "error",
+        code: "trade_options_failed",
+        message: "无法生成交易选项",
+      });
     }
   }
 

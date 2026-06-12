@@ -10,16 +10,6 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
-import { getEventStyle } from "../client-tui/event-style.ts";
-import type { GameClient } from "../client-tui/game-client.ts";
-import {
-  activeLayer,
-  dispatchKey,
-  getLayerStack,
-  hasLayer,
-  popLayer,
-  pushLayer,
-} from "../client-tui/key-layer.ts";
 import { EventBus } from "../core/event-bus.ts";
 import {
   addEntity,
@@ -34,6 +24,16 @@ import { getRoomEntitiesInfo } from "../engine/capability-provider.ts";
 import { executeCommand } from "../engine/command-executor.ts";
 import { GameServer } from "../server/ws-server.ts";
 import type { Capability } from "../shared/protocol.ts";
+import type { GameClient } from "../tui/client/game-client.ts";
+import {
+  activeLayer,
+  dispatchKey,
+  getLayerStack,
+  hasLayer,
+  popLayer,
+  pushLayer,
+} from "../tui/key-layer/index.ts";
+import { getEventStyle } from "../tui/theme/event-style.ts";
 
 // ============================================================
 // Helpers

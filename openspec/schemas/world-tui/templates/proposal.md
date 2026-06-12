@@ -12,7 +12,7 @@
 
 | File | Change Type | Description |
 |------|-------------|-------------|
-| `src/client-tui/components/Xxx.tsx` | modify / new | |
+| `src/tui/components/Xxx.tsx` | modify / new | |
 
 ## Protocol Surface
 

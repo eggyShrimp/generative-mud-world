@@ -12,7 +12,8 @@ context: |
   Three change types define three custom OpenSpec schemas:
   - world-yaml: Pure ContentPool field / YAML data changes. No engine logic, no TUI.
   - world-engine: Engine/combat/simulation/llm/core logic changes. No ContentPool schema changes, no TUI.
-  - world-tui: Client-side TUI changes (src/client-tui/). No ContentPool, no engine.
+  - world-tui: Client-side TUI changes (src/tui/). No ContentPool, no engine.
+    src/client-tui/ is deprecated and kept only as a reference snapshot.
   
   Cross-cutting features: break into separate changes, each using the appropriate schema.
   
@@ -31,7 +32,8 @@ context: |
   - YAML data: worlds/content-pool/*.yaml
   - Engine: src/engine/command-executor.ts, src/core/round-engine.ts
   - Combat: src/combat/*.ts
-  - TUI: src/client-tui/components/*.tsx, src/client-tui/game-client.ts
+  - TUI: src/tui/components/*.tsx, src/tui/client/game-client.ts
+  - Deprecated TUI reference: src/client-tui/
   - Protocol: src/shared/protocol.ts
   - Trap token guide: docs/dev-guide/trap-tokens.md
   - Add ContentPool field: docs/dev-guide/add-contentpool-field.md

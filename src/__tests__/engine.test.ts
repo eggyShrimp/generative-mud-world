@@ -3,6 +3,7 @@ import {
   addEntity,
   addRegion,
   addRoom,
+  createNPC,
   createPlayer,
   createRoom,
   createWorld,
@@ -539,6 +540,22 @@ describe("capability-provider", () => {
     const entities = getRoomEntitiesInfo(world, "market");
     expect(entities.length).toBe(1);
     expect(entities[0].name).toBe("赵行舟");
+  });
+
+  it("room NPC info includes personality as dialogue description", () => {
+    const world = setupWorld();
+    const npc = createNPC("npc1", {
+      name: "法显",
+      roomId: "market",
+      personality: "汉地来的中年僧人，在莫高窟修行抄经。",
+    });
+    addEntity(world, npc);
+
+    const entities = getRoomEntitiesInfo(world, "market");
+
+    expect(entities.find((e) => e.id === "npc1")?.description).toBe(
+      "汉地来的中年僧人，在莫高窟修行抄经。",
+    );
   });
 
   it("should filter hidden exits from move capability", () => {

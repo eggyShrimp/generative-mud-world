@@ -2,16 +2,18 @@
 // 交易详情：物品描述 + 价格 + 持有量。
 // 仅由 DialoguePanel 使用（dialogue/ 内部组件）。
 
-import type { DialogueOption } from "../../../shared/protocol.ts";
+import type { TradeOption } from "../../../shared/protocol.ts";
 import { THEME } from "../../theme/theme.ts";
 
 export function TradeDetail(props: {
-  selection: { option: DialogueOption; detail?: string };
+  selection: { option: TradeOption; detail?: string };
   playerCopper: number;
-  npcName: string;
 }) {
   const price = () => (props.selection.option.meta?.price as number) ?? 0;
   const currencyName = () => (props.selection.option.meta?.currencyName as string) ?? "铜钱";
+  const isSell = () => props.selection.option.action === "sell";
+  const actionLabel = () => (props.selection.option.action === "sell" ? "卖出" : "购买");
+  const priceLabel = () => (isSell() ? "收购价" : "售价");
 
   return (
     <box flexDirection="column">
@@ -28,15 +30,17 @@ export function TradeDetail(props: {
           {price() > 0 ? (
             <>
               <text fg={THEME.muted}>
-                售价：{price()} {currencyName()}
+                {priceLabel()}：{price()} {currencyName()}
               </text>
-              <text fg={props.playerCopper >= price() ? THEME.dialogue : THEME.danger}>
-                持有：{props.playerCopper} {currencyName()}
-              </text>
+              {!isSell() ? (
+                <text fg={props.playerCopper >= price() ? THEME.dialogue : THEME.danger}>
+                  你的{currencyName()}：{props.playerCopper}
+                </text>
+              ) : undefined}
             </>
           ) : undefined}
           <text fg={THEME.muted} marginTop={1}>
-            [1] 购买 [Esc] 返回
+            [1] {actionLabel()} [Esc] 返回
           </text>
         </>
       )}

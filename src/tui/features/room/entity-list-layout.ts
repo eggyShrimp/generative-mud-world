@@ -1,5 +1,5 @@
 import type { RoomEntity } from "../../../shared/protocol.ts";
-import { formatKeyBracket } from "../../components/index.ts";
+import { formatKeyBracket } from "../../utils/format-key-bracket.ts";
 import { formatRelationText } from "./relation-format.ts";
 
 // ── Column Widths ──

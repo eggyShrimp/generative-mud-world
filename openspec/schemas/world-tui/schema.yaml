@@ -1,7 +1,8 @@
 name: world-tui
 version: 1
 description: |
-  TUI 客户端变更。src/client-tui/ only.
+  TUI 客户端变更。src/tui/ only.
+  src/client-tui/ is deprecated and kept only as a reference snapshot.
   No ContentPool changes. No engine logic changes.
   Key constraints: no imports from engine/combat/simulation (use shared/protocol),
   no hardcoded Chinese display text (must come from server ContentPool labels).

@@ -206,6 +206,7 @@ export function getRoomEntitiesInfo(
   id: string;
   name: string;
   type: string;
+  description?: string;
   typeLabel?: string;
   interactable?: boolean;
   takeable?: boolean;
@@ -224,6 +225,7 @@ export function getRoomEntitiesInfo(
     id: string;
     name: string;
     type: string;
+    description?: string;
     typeLabel?: string;
     interactable?: boolean;
     takeable?: boolean;
@@ -242,6 +244,12 @@ export function getRoomEntitiesInfo(
       id: e.id,
       name: e.name,
       type: e.type,
+      description:
+        "description" in e && e.description
+          ? e.description
+          : e.type === "npc"
+            ? e.personality
+            : undefined,
       typeLabel: world.contentPool.narrativeTemplates.eventTitles[`entity.${e.type}`] ?? e.type,
       interactable: e.type === "npc",
       takeable: e.type === "item",

@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
+import type { RoomEntity } from "../shared/protocol.ts";
 import {
   buildEntityListRows,
   buildExitListRows,
   ENTITY_LIST_COLUMNS,
   truncateDisplayText,
-} from "../client-tui/entity-list-layout.ts";
+} from "../tui/features/room/entity-list-layout.ts";
+import { formatRelationText } from "../tui/features/room/relation-format.ts";
 import {
   percentBar,
   percentToneColor,
@@ -12,9 +14,7 @@ import {
   ratioToneColor,
   signedPercentBar,
   signedToneColor,
-} from "../client-tui/progress-format.ts";
-import { formatRelationText } from "../client-tui/relation-format.ts";
-import type { RoomEntity } from "../shared/protocol.ts";
+} from "../tui/theme/progress-format.ts";
 
 describe("formatRelationText", () => {
   it("有关系标签时显示标签和数值", () => {

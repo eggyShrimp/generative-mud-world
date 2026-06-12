@@ -8,6 +8,7 @@ import type {
   RoomInfo,
   ServerMessage,
   StatusMessage,
+  TradeOption,
   TravelogueDataMessage,
 } from "../../shared/protocol.ts";
 import {
@@ -43,33 +44,97 @@ export interface TradeItemDisplay {
   mode: "buy" | "sell";
 }
 
+export interface DialogueTabList {
+  options: DialogueOption[];
+  loading: boolean;
+}
+
+export interface ChatTab extends DialogueTabList {
+  history: DialogueHistoryEntry[];
+}
+
+export interface TradeTab {
+  options: TradeOption[];
+  loading: boolean;
+  selected?: { option: TradeOption; detail?: string };
+}
+
 export interface DialogueState {
   npcId: string;
   npcName: string;
-  options: DialogueOption[];
-  history: DialogueHistoryEntry[];
   activeTab: DialogueTab;
   availableTabs: DialogueTab[];
-  savedTabOptions: Record<string, DialogueOption[]>;
   npcDescription?: string;
-  tradeSelection?: { option: DialogueOption; detail?: string; fullOptions: DialogueOption[] };
+  tabs: {
+    chat: ChatTab;
+    trade: TradeTab;
+  };
 }
 
 export function shouldKeepPopupOpen(optionType: string): boolean {
   return optionType !== "close";
 }
 
-export function buildLoadingDialogueState(current: DialogueState): DialogueState {
+export function shouldExpectDialogueOptions(option: DialogueOption): boolean {
+  return option.type.endsWith("_menu") || option.type === "idle_chat";
+}
+
+export function createDialogueState(input: {
+  npcId: string;
+  npcName: string;
+  chatOptions?: DialogueOption[];
+  tradeOptions?: TradeOption[];
+  history?: DialogueHistoryEntry[];
+  activeTab?: DialogueTab;
+  availableTabs?: DialogueTab[];
+  npcDescription?: string;
+  chatLoading?: boolean;
+  tradeLoading?: boolean;
+}): DialogueState {
   return {
-    npcId: current.npcId,
-    npcName: current.npcName,
-    options: [],
-    history: current.history,
-    activeTab: current.activeTab,
-    availableTabs: current.availableTabs,
-    savedTabOptions: current.savedTabOptions,
-    npcDescription: current.npcDescription,
-    tradeSelection: current.tradeSelection,
+    npcId: input.npcId,
+    npcName: input.npcName,
+    activeTab: input.activeTab ?? "chat",
+    availableTabs: input.availableTabs ?? ["chat", "trade"],
+    npcDescription: input.npcDescription,
+    tabs: {
+      chat: {
+        options: input.chatOptions ?? [],
+        loading: input.chatLoading ?? false,
+        history: input.history ?? [],
+      },
+      trade: {
+        options: input.tradeOptions ?? [],
+        loading: input.tradeLoading ?? false,
+      },
+    },
+  };
+}
+
+export function getDialogueVisibleOptions(state: DialogueState): DialogueOption[] {
+  if (state.activeTab === "trade") return [];
+  return state.tabs[state.activeTab].options;
+}
+
+export function isDialogueTabLoading(state: DialogueState): boolean {
+  return state.tabs[state.activeTab].loading;
+}
+
+export function buildLoadingDialogueState(
+  current: DialogueState,
+  targetTab: DialogueTab = current.activeTab,
+): DialogueState {
+  const tab = current.tabs[targetTab];
+  return {
+    ...current,
+    tabs: {
+      ...current.tabs,
+      [targetTab]: {
+        ...tab,
+        options: [],
+        loading: true,
+      },
+    },
   };
 }
 
@@ -83,7 +148,7 @@ export function appendToHistory(
   speaker: "player" | "npc",
   content: string,
 ): DialogueHistoryEntry[] {
-  return [...state.history, { speaker, content }];
+  return [...state.tabs.chat.history, { speaker, content }];
 }
 
 export function computeContentHeight(bodyHeight: number, interactionHeight: number): number {
@@ -91,7 +156,6 @@ export function computeContentHeight(bodyHeight: number, interactionHeight: numb
 }
 
 export function computeTabSwitch(state: DialogueState, direction: -1 | 1): DialogueState {
-  const saved = { ...state.savedTabOptions, [state.activeTab]: state.options };
   const tabs = state.availableTabs;
   const idx = tabs.indexOf(state.activeTab);
   const nextIdx = (idx + direction + tabs.length) % tabs.length;
@@ -99,15 +163,19 @@ export function computeTabSwitch(state: DialogueState, direction: -1 | 1): Dialo
   return {
     ...state,
     activeTab: nextTab,
-    options: saved[nextTab] ?? [],
-    savedTabOptions: saved,
   };
 }
 
 export function applyNpcReply(state: DialogueState, npcReplyText: string): DialogueState {
   return {
     ...state,
-    history: [...state.history, { speaker: "npc" as const, content: npcReplyText }],
+    tabs: {
+      ...state.tabs,
+      chat: {
+        ...state.tabs.chat,
+        history: [...state.tabs.chat.history, { speaker: "npc" as const, content: npcReplyText }],
+      },
+    },
   };
 }
 
@@ -117,17 +185,40 @@ export function applyDialogueOptionsToTab(
   options: DialogueOption[],
   npc: { id: string; name: string },
 ): DialogueState {
-  const savedTabOptions = { ...state.savedTabOptions };
-  if (state.activeTab !== tab) {
-    savedTabOptions[tab] = options;
-  }
-
+  const currentTab = state.tabs[tab];
   return {
     ...state,
     npcId: npc.id,
     npcName: npc.name,
-    options: state.activeTab === tab ? options : state.options,
-    savedTabOptions,
+    tabs: {
+      ...state.tabs,
+      [tab]: {
+        ...currentTab,
+        options,
+        loading: false,
+      },
+    },
+  };
+}
+
+export function applyTradeOptionsToTab(
+  state: DialogueState,
+  options: TradeOption[],
+  npc: { id: string; name: string },
+): DialogueState {
+  return {
+    ...state,
+    npcId: npc.id,
+    npcName: npc.name,
+    tabs: {
+      ...state.tabs,
+      trade: {
+        ...state.tabs.trade,
+        options,
+        loading: false,
+        selected: undefined,
+      },
+    },
   };
 }
 
@@ -135,9 +226,28 @@ export function responseTabForOptionType(optionType: string): DialogueTab {
   return optionType.startsWith("trade_") ? "trade" : "chat";
 }
 
+export function shouldRunPendingDialogueRequest(
+  current: DialogueState | null,
+  pending: { npcId: string; targetTab: DialogueTab } | null,
+): boolean {
+  return Boolean(current && pending && current.npcId === pending.npcId);
+}
+
+function tradeOptionDetail(option: TradeOption): string | undefined {
+  const description = option.meta?.itemDescription;
+  const properties = option.meta?.itemPropertiesText;
+  const lines = [
+    typeof description === "string" ? description : "",
+    typeof properties === "string" && properties.length > 0 ? `属性：${properties}` : "",
+  ].filter(Boolean);
+  return lines.length > 0 ? lines.join("\n") : undefined;
+}
+
 export interface ActiveRequest {
   onCommandResult?: (msg: ServerMessage & { type: "command_result" }) => void;
   onDialogueOptions?: (msg: ServerMessage & { type: "dialogue_options" }) => void;
+  onChatOptions?: (msg: ServerMessage & { type: "chat_options" }) => void;
+  onTradeOptions?: (msg: ServerMessage & { type: "trade_options" }) => void;
   onError?: () => void;
 }
 
@@ -208,10 +318,11 @@ export interface GameClient {
   execute: (action: string, params?: Record<string, unknown>) => void;
   requestDialogueOptions: (npcId: string) => void;
   chooseDialogueOption: (option: DialogueOption) => void;
+  chooseTradeOption: (option: TradeOption) => void;
   clearTradeSelection: () => void;
   closeDialogue: () => void;
   switchDialogueTab: (direction: -1 | 1) => void;
-  requestTrade: (npcId: string) => void;
+  requestTradeOptions: (npcId: string) => void;
   startCombat: (targetId: string, targetName: string) => void;
   endCombat: () => void;
   trackedQuestIds: () => Set<string>;
@@ -233,6 +344,7 @@ export interface GameClient {
   combatRound: () => number;
   settlementPending: () => boolean;
   groundRestRecovery: () => number;
+  itemPropertyLabels: () => Record<string, string>;
   endDayOptions: () => RestOption[];
   requestEndDay: () => void;
   confirmEndDay: (option: RestOption) => void;
@@ -287,14 +399,21 @@ export function createGameClient(url: string): GameClient {
     return true;
   };
 
-  const [pendingTradeNpcId, setPendingTradeNpcId] = createSignal<string | null>(null);
+  const [pendingDialogueRequest, setPendingDialogueRequest] = createSignal<{
+    npcId: string;
+    targetTab: DialogueTab;
+  } | null>(null);
 
   const completeActiveRequest = (): void => {
     setActiveRequest(null);
-    const npcId = pendingTradeNpcId();
-    if (!npcId) return;
-    setPendingTradeNpcId(null);
-    queueMicrotask(() => requestTrade(npcId));
+    const pending = pendingDialogueRequest();
+    if (!pending) return;
+    setPendingDialogueRequest(null);
+    queueMicrotask(() => {
+      const current = dialogue();
+      if (!shouldRunPendingDialogueRequest(current, pending)) return;
+      if (pending.targetTab === "trade") requestTradeOptions(pending.npcId);
+    });
   };
 
   const buildTalkHandlers = (
@@ -303,6 +422,7 @@ export function createGameClient(url: string): GameClient {
     responseTab: DialogueTab,
   ): void => {
     req.onCommandResult = (msg) => {
+      if (responseTab === "trade") return;
       const npcReplyText = extractNpcReply(msg.events);
       if (npcReplyText) {
         setDialogue((prev) => {
@@ -312,25 +432,23 @@ export function createGameClient(url: string): GameClient {
       }
     };
     if (expectOptions) {
-      req.onDialogueOptions = (msg) => {
+      req.onChatOptions = (msg) => {
         logWrite(
           "cli",
           "dbg",
-          `[DIAG] onDialogueOptions msg.options=${msg.options?.length} prev?=${!!dialogue()}`,
+          `[DIAG] onChatOptions msg.options=${msg.options?.length} prev?=${!!dialogue()}`,
         );
         setDialogue((prev) => {
           if (!prev) {
-            return {
+            return createDialogueState({
               npcId: msg.npcId,
               npcName: msg.npcName,
-              options: msg.options,
-              history: [],
+              chatOptions: msg.options,
               activeTab: responseTab,
               availableTabs: ["chat", "trade"] as DialogueTab[],
-              savedTabOptions: {},
-            };
+            });
           }
-          return applyDialogueOptionsToTab(prev, responseTab, msg.options, {
+          return applyDialogueOptionsToTab(prev, "chat", msg.options, {
             id: msg.npcId,
             name: msg.npcName,
           });
@@ -373,6 +491,7 @@ export function createGameClient(url: string): GameClient {
   const [combatRound, setCombatRound] = createSignal(0);
   const [settlementPending, setSettlementPending] = createSignal(false);
   const [groundRestRecovery, setGroundRestRecovery] = createSignal(20);
+  const [itemPropertyLabels, setItemPropertyLabels] = createSignal<Record<string, string>>({});
   const [endDayOptions, setEndDayOptions] = createSignal<RestOption[]>([]);
   const [travelogue, setTravelogue] = createSignal<TravelogueEntry[]>([]);
   const [selectedTravelogueIndex, setSelectedTravelogueIndex] = createSignal<number | null>(null);
@@ -486,6 +605,7 @@ export function createGameClient(url: string): GameClient {
         setEntity(message.entity);
         setRoom(message.room);
         setCapabilities(message.capabilities);
+        setItemPropertyLabels(message.itemPropertyLabels ?? {});
         setGroundRestRecovery(message.groundRestRecovery);
         if (hasLayer("combat")) {
           checkCombatEnd();
@@ -522,7 +642,7 @@ export function createGameClient(url: string): GameClient {
         }
         const req = activeRequest();
         req?.onCommandResult?.(message);
-        if (req && !req.onDialogueOptions) {
+        if (req && !req.onDialogueOptions && !req.onChatOptions && !req.onTradeOptions) {
           completeActiveRequest();
         }
         break;
@@ -536,11 +656,32 @@ export function createGameClient(url: string): GameClient {
         );
         if (req?.onDialogueOptions) {
           req.onDialogueOptions(message);
-          logWrite(
-            "cli",
-            "dbg",
-            `[DIAG] onDialogueOptions done options=${dialogue()?.options?.length}`,
-          );
+          completeActiveRequest();
+        }
+        break;
+      }
+      case "chat_options": {
+        const req = activeRequest();
+        logWrite(
+          "cli",
+          "dbg",
+          `[DIAG] recv chat_options options=${message.options?.length} hasCallback=${!!req?.onChatOptions} activeTab=${dialogue()?.activeTab}`,
+        );
+        if (req?.onChatOptions) {
+          req.onChatOptions(message);
+          completeActiveRequest();
+        }
+        break;
+      }
+      case "trade_options": {
+        const req = activeRequest();
+        logWrite(
+          "cli",
+          "dbg",
+          `[DIAG] recv trade_options options=${message.options?.length} hasCallback=${!!req?.onTradeOptions} activeTab=${dialogue()?.activeTab}`,
+        );
+        if (req?.onTradeOptions) {
+          req.onTradeOptions(message);
           completeActiveRequest();
         }
         break;
@@ -612,15 +753,22 @@ export function createGameClient(url: string): GameClient {
     });
   };
 
-  const handleTradeSelection = (option: DialogueOption) => {
+  const handleTradeSelection = (option: TradeOption) => {
     const current = dialogue();
     if (!current) return;
     const itemName = (option.meta?.itemName as string) ?? option.label;
+    const detail = tradeOptionDetail(option);
     setDialogue({
       ...current,
-      tradeSelection: { option, fullOptions: current.options },
-      options: [{ id: option.id, label: "购买", type: "trade_select" as const }],
+      tabs: {
+        ...current.tabs,
+        trade: {
+          ...current.tabs.trade,
+          selected: { option, detail },
+        },
+      },
     });
+    if (detail) return;
     sendRequest({ type: "execute", action: "look", params: { target: itemName } }, (req) => {
       req.onCommandResult = (msg) => {
         const detail = msg.events
@@ -628,8 +776,17 @@ export function createGameClient(url: string): GameClient {
           .filter(Boolean)
           .join("\n");
         setDialogue((prev) =>
-          prev?.tradeSelection
-            ? { ...prev, tradeSelection: { ...prev.tradeSelection, detail } }
+          prev?.tabs.trade.selected?.option.id === option.id
+            ? {
+                ...prev,
+                tabs: {
+                  ...prev.tabs,
+                  trade: {
+                    ...prev.tabs.trade,
+                    selected: { ...prev.tabs.trade.selected, detail },
+                  },
+                },
+              }
             : prev,
         );
       };
@@ -638,28 +795,33 @@ export function createGameClient(url: string): GameClient {
 
   const clearTradeSelection = () => {
     setDialogue((prev) => {
-      if (!prev?.tradeSelection) return prev;
+      if (!prev?.tabs.trade.selected) return prev;
       return {
         ...prev,
-        tradeSelection: undefined,
-        options: prev.tradeSelection.fullOptions,
+        tabs: {
+          ...prev.tabs,
+          trade: {
+            ...prev.tabs.trade,
+            selected: undefined,
+          },
+        },
       };
     });
   };
 
   const requestDialogueOptions = (npcId: string) => {
     hideDialogue();
-    sendRequest({ type: "request_dialogue_options", npcId }, (req) => {
-      req.onDialogueOptions = (msg) => {
-        showDialogue({
-          npcId: msg.npcId,
-          npcName: msg.npcName,
-          options: msg.options,
-          history: [],
-          activeTab: "chat",
-          availableTabs: ["chat", "trade"],
-          savedTabOptions: {},
-        });
+    sendRequest({ type: "request_chat_options", npcId }, (req) => {
+      req.onChatOptions = (msg) => {
+        showDialogue(
+          createDialogueState({
+            npcId: msg.npcId,
+            npcName: msg.npcName,
+            chatOptions: msg.options,
+            activeTab: "chat",
+            availableTabs: ["chat", "trade"],
+          }),
+        );
       };
     });
   };
@@ -668,43 +830,26 @@ export function createGameClient(url: string): GameClient {
     const current = dialogue();
     if (!current) return;
 
-    if (
-      current.activeTab === "trade" &&
-      option.type === "trade_select" &&
-      !current.tradeSelection
-    ) {
-      handleTradeSelection(option);
-      return;
-    }
-
-    if (current.activeTab === "trade" && option.type === "trade_select" && current.tradeSelection) {
-      if (hasActiveRequest()) return;
-      clearTradeSelection();
-      handleTradeSelection(option);
-      return;
-    }
+    const expectOptions = shouldExpectDialogueOptions(option);
+    const responseTab = responseTabForOptionType(option.type);
 
     pushEvents([{ type: "say", description: `你：${option.label}` }]);
-    const responseTab = responseTabForOptionType(option.type);
     if (shouldKeepPopupOpen(option.type)) {
       const activeState =
-        responseTab === current.activeTab
-          ? current
-          : {
-              ...current,
-              activeTab: responseTab,
-              options: current.savedTabOptions[responseTab] ?? [],
-              savedTabOptions: {
-                ...current.savedTabOptions,
-                [current.activeTab]: current.options,
-              },
-            };
+        responseTab === current.activeTab ? current : { ...current, activeTab: responseTab };
       const withPlayerEntry = {
         ...activeState,
-        history: appendToHistory(activeState, "player", option.label),
-        tradeSelection: undefined,
+        tabs: {
+          ...activeState.tabs,
+          chat: {
+            ...activeState.tabs.chat,
+            history: appendToHistory(activeState, "player", option.label),
+          },
+        },
       };
-      setDialogue(buildLoadingDialogueState(withPlayerEntry));
+      setDialogue(
+        expectOptions ? buildLoadingDialogueState(withPlayerEntry, responseTab) : withPlayerEntry,
+      );
     } else {
       hideDialogue();
     }
@@ -716,8 +861,35 @@ export function createGameClient(url: string): GameClient {
         label: option.label,
         optionType: option.type,
       },
-      (req) => buildTalkHandlers(req, shouldKeepPopupOpen(option.type), responseTab),
+      (req) => buildTalkHandlers(req, expectOptions, responseTab),
     );
+  };
+
+  const chooseTradeOption = (option: TradeOption) => {
+    const current = dialogue();
+    if (!current) return;
+
+    if (option.action === "sell_menu") {
+      requestSellOptions(current.npcId);
+      return;
+    }
+
+    if (!current.tabs.trade.selected) {
+      handleTradeSelection(option);
+      return;
+    }
+
+    if (hasActiveRequest()) return;
+
+    sendTradeAction(current.npcId, option.action as "buy" | "sell", option.meta?.itemId ?? "");
+  };
+
+  const sendTradeAction = (npcId: string, action: "buy" | "sell", itemId: string) => {
+    sendRequest({ type: "trade", npcId, action, itemId }, (req) => {
+      req.onCommandResult = (_msg) => {
+        clearTradeSelection();
+      };
+    });
   };
 
   const switchDialogueTab = (direction: -1 | 1) => {
@@ -725,31 +897,57 @@ export function createGameClient(url: string): GameClient {
       if (!prev) return prev;
       return computeTabSwitch(prev, direction);
     });
-    setTimeout(() => {
-      const dlg = dialogue();
-      if (dlg?.activeTab === "trade" && (dlg.savedTabOptions.trade?.length ?? 0) === 0) {
-        requestTrade(dlg.npcId);
-      }
-    }, 50);
+    const dlg = dialogue();
+    if (
+      dlg?.activeTab === "trade" &&
+      dlg.tabs.trade.options.length === 0 &&
+      !dlg.tabs.trade.loading
+    ) {
+      requestTradeOptions(dlg.npcId);
+    }
   };
 
-  const requestTrade = (npcId: string) => {
+  const requestTradeOptions = (npcId: string) => {
     if (hasActiveRequest()) {
-      setPendingTradeNpcId(npcId);
-      logWrite("cli", "dbg", "[DIAG] requestTrade QUEUED hasActiveRequest=true");
+      setPendingDialogueRequest({ npcId, targetTab: "trade" });
+      logWrite("cli", "dbg", "[DIAG] requestTradeOptions QUEUED hasActiveRequest=true");
       return;
     }
-    logWrite("cli", "dbg", `[DIAG] requestTrade npc=${npcId}`);
-    sendRequest(
-      {
-        type: "talk",
-        npcId,
-        optionId: "menu:trade",
-        optionType: "trade_menu",
-        label: "交易",
-      },
-      (req) => buildTalkHandlers(req, true, "trade"),
-    );
+    setDialogue((prev) => {
+      if (!prev || prev.npcId !== npcId) return prev;
+      return buildLoadingDialogueState(prev, "trade");
+    });
+    logWrite("cli", "dbg", `[DIAG] requestTradeOptions npc=${npcId}`);
+    sendRequest({ type: "request_trade_options", npcId }, (req) => {
+      req.onTradeOptions = (msg) => {
+        setDialogue((prev) => {
+          if (!prev) return prev;
+          return applyTradeOptionsToTab(prev, msg.options, {
+            id: msg.npcId,
+            name: msg.npcName,
+          });
+        });
+      };
+    });
+  };
+
+  const requestSellOptions = (npcId: string) => {
+    if (hasActiveRequest()) return;
+    setDialogue((prev) => {
+      if (!prev || prev.npcId !== npcId) return prev;
+      return buildLoadingDialogueState(prev, "trade");
+    });
+    sendRequest({ type: "request_trade_options", npcId }, (req) => {
+      req.onTradeOptions = (msg) => {
+        setDialogue((prev) => {
+          if (!prev) return prev;
+          return applyTradeOptionsToTab(prev, msg.options, {
+            id: msg.npcId,
+            name: msg.npcName,
+          });
+        });
+      };
+    });
   };
 
   return {
@@ -779,26 +977,34 @@ export function createGameClient(url: string): GameClient {
         );
         if (targetEntity?.type === "npc" && hasTalk) {
           const npcName = targetEntity.name;
-          showDialogue({
-            npcId: id,
-            npcName,
-            options: [],
-            history: [],
-            activeTab: "chat",
-            availableTabs: ["chat", "trade"],
-            savedTabOptions: {},
-            npcDescription: targetEntity.typeLabel ?? "人物",
-          });
-          sendRequest(
-            {
-              type: "talk",
+          showDialogue(
+            createDialogueState({
               npcId: id,
-              optionId: "menu:chat",
-              optionType: "idle_chat",
-              label: "闲聊",
-            },
-            (req) => buildTalkHandlers(req, true, "chat"),
+              npcName,
+              activeTab: "chat",
+              availableTabs: ["chat", "trade"],
+              npcDescription: targetEntity.description ?? targetEntity.typeLabel ?? "人物",
+              chatLoading: true,
+            }),
           );
+          sendRequest({ type: "request_chat_options", npcId: id }, (req) => {
+            req.onChatOptions = (msg) => {
+              setDialogue((prev) =>
+                prev
+                  ? applyDialogueOptionsToTab(prev, "chat", msg.options, {
+                      id: msg.npcId,
+                      name: msg.npcName,
+                    })
+                  : createDialogueState({
+                      npcId: msg.npcId,
+                      npcName: msg.npcName,
+                      chatOptions: msg.options,
+                      activeTab: "chat",
+                      availableTabs: ["chat", "trade"],
+                    }),
+              );
+            };
+          });
         } else {
           pushLayer("entity-selected");
         }
@@ -869,10 +1075,11 @@ export function createGameClient(url: string): GameClient {
     execute,
     requestDialogueOptions,
     chooseDialogueOption,
+    chooseTradeOption,
     clearTradeSelection,
     closeDialogue: () => hideDialogue(),
     switchDialogueTab,
-    requestTrade,
+    requestTradeOptions,
     trackedQuestIds,
     toggleTrackQuest: (templateId: string) => {
       setTrackedQuestIds((prev) => {
@@ -901,6 +1108,7 @@ export function createGameClient(url: string): GameClient {
     combatRound,
     settlementPending,
     groundRestRecovery,
+    itemPropertyLabels,
     endDayOptions,
     requestEndDay: () => {
       const currentRoom = room();

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { GroupedItem } from "../client-tui/key-layer.ts";
-import { findGroupForItem, formatGroupedItemName } from "../client-tui/key-layer.ts";
 import type { InventoryItem } from "../shared/protocol.ts";
+import type { GroupedItem } from "../tui/features/inventory/grouping.ts";
+import { findGroupForItem, formatGroupedItemName } from "../tui/features/inventory/grouping.ts";
 
 function makeItem(id: string, name: string, templateId?: string): InventoryItem {
   return {

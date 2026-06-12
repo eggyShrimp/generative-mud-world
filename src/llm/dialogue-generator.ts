@@ -1,7 +1,7 @@
 /**
- * Dialogue Generator — 生成固定菜单和 NPC 回复
+ * Dialogue Generator — 生成交互菜单和 NPC 回复
  *
- * 菜单生成: 确定性，不调用 LLM。检查 NPC 状态 → 固定 5 项菜单。
+ * 菜单生成: 系统入口确定性，闲聊入口由 LLM 基于 ContentPool.conversationDirections 包装。
  * 对话回复: LLM 只做定性分类 (tool_calls)，数值映射从 ContentPool.dialogueEffectMapping 查表。
  *
  * ✅ ContentPool 应该包含的数据:
@@ -15,6 +15,7 @@
  *   - 数学公式 (clamp, linear interpolation)
  *   - 逻辑常量 (Math.PI, 方向数组)
  */
+
 import type {
   DialogueEffectMapping,
   Entity,
@@ -28,8 +29,9 @@ import type {
 } from "../core/types.ts";
 import { getRoomEntities } from "../core/world.ts";
 import { resolveQuestAccept } from "../engine/quest-tracker.ts";
+import { formatItemProperties } from "../shared/item-format.ts";
 import { logWrite } from "../shared/log.ts";
-import type { DialogueOption, DialogueOptionType } from "../shared/protocol.ts";
+import type { DialogueOption, DialogueOptionType, TradeOption } from "../shared/protocol.ts";
 import type { LLMAdapter, ToolCallResult } from "./adapter.ts";
 import {
   buildAffectNeedArgs,
@@ -40,7 +42,7 @@ import {
   SuggestFollowupTopicsSchema,
 } from "./dialogue-tools.ts";
 
-export type { DialogueOption, DialogueOptionType };
+export type { DialogueOption, DialogueOptionType, TradeOption };
 
 interface ConversationEntry {
   speaker: "player" | "npc";
@@ -53,7 +55,7 @@ const MAX_HISTORY_ROUNDS = 10;
 /**
  * 对话生成器 — 固定菜单 + type-based 路由
  *
- * generateFixedMenu(): 确定性生成 5 项菜单（不调用 LLM）
+ * generateMenu(): 生成系统入口 + 沉浸式闲聊入口
  * handleOption(): 根据选项类型路由到对应 handler
  *
  * 对话回复通过 tool calling 描述副作用（关系/需求/信息/情绪），
@@ -68,39 +70,75 @@ export class DialogueGenerator {
   }
 
   /**
-   * 确定性生成固定菜单（不调用 LLM）
-   *
-   * 5 项菜单，每项有可用性条件：
-   * - trade: NPC 有 inventory
-   * - quest_trigger: 存在该 NPC 的 player_action storyline 且玩家未完成
-   * - quest_deliver: 玩家有来自此 NPC 的 activeQuest 且 objectives 全部完成
-   * - functional: NPC tags 匹配 entityActionsByTag
-   * - idle_chat: 始终可用
+   * 生成对话菜单（对话Tab用）：系统入口确定性，闲聊方向由 LLM 包装，quest 叙事注入。
    */
-  generateFixedMenu(world: WorldState, playerId: EntityId, npcId: EntityId): DialogueOption[] {
+  async generateChatMenu(
+    world: WorldState,
+    playerId: EntityId,
+    npcId: EntityId,
+  ): Promise<DialogueOption[]> {
+    const baseOptions = this.generateFixedChatMenu(world, playerId, npcId);
+    const player = world.entities.get(playerId);
+    const npc = world.entities.get(npcId);
+    if (!player || !isNpc(npc)) return baseOptions;
+
+    // 构建 quest 方向：注入 LLM 对话方向中，生成叙事包装
+    const questDirections: Array<{ key: string; instruction: string }> = [];
+    const eligibleStorylines = this.getEligibleStorylines(world, player as PlayerEntity, npc);
+    for (const t of eligibleStorylines) {
+      questDirections.push({
+        key: `quest_trigger__${t.id}`,
+        instruction: `提及关于"${t.title}"的委托`,
+      });
+    }
+    const completableQuests = (player as PlayerEntity).activeQuests.filter((q) => {
+      if (q.status !== "active") return false;
+      const template = this.getQuestTemplate(world, q.templateId);
+      return template?.giverNpcId === npcId && q.groupCompleted.every(Boolean);
+    });
+    for (const q of completableQuests) {
+      const template = this.getQuestTemplate(world, q.templateId);
+      questDirections.push({
+        key: `quest_deliver__${q.templateId}`,
+        instruction: `告知关于"${template?.title ?? q.templateId}"的任务完成情况`,
+      });
+    }
+
+    const chatOptions = await this.generateConversationDirectionOptions(
+      world,
+      player as PlayerEntity,
+      npc,
+      questDirections.length > 0 ? questDirections : undefined,
+    );
+    return [...baseOptions, ...chatOptions];
+  }
+
+  /**
+   * 生成交易菜单（交易Tab用）：NPC 商品 + 卖出入口。
+   */
+  generateTradeMenu(world: WorldState, playerId: EntityId, npcId: EntityId): TradeOption[] {
+    const player = world.entities.get(playerId);
+    const npc = world.entities.get(npcId);
+    if (!player || !isNpc(npc)) return [];
+    return this.getTradeSubOptions(npc, world, player as PlayerEntity);
+  }
+
+  /**
+   * 确定性生成系统入口（不调用 LLM）
+   *
+   * 每项有可用性条件：
+   * - quest_trigger: 存在该 NPC 的 player_action storyline 且玩家未完成（叙事包装，tag: quest）
+   * - quest_deliver: 玩家有来自此 NPC 的 activeQuest 且 objectives 全部完成（叙事包装，tag: quest）
+   * - functional: NPC tags 匹配 entityActionsByTag
+   */
+  generateFixedChatMenu(world: WorldState, playerId: EntityId, npcId: EntityId): DialogueOption[] {
     const player = world.entities.get(playerId);
     const npc = world.entities.get(npcId);
     if (!player || !isNpc(npc)) return [];
 
     const options: DialogueOption[] = [];
 
-    // 1. Trade: NPC 有可交易物品
-    if (npc.inventory.length > 0) {
-      options.push({ id: "menu:trade", label: "交易", type: "trade_menu" });
-    }
-
-    // 2. Quest trigger: 存在该 NPC 的 player_action storyline 且玩家未完成
-    const eligibleStorylines = this.getEligibleStorylines(world, player as PlayerEntity, npc);
-    if (eligibleStorylines.length > 0) {
-      options.push({ id: "menu:quest_trigger", label: "任务触发", type: "quest_trigger_menu" });
-    }
-
-    // 3. Quest deliver: 玩家有来自此 NPC 的 activeQuest 且 objectives 全部完成
-    if (this.hasCompletableQuests(world, player as PlayerEntity, npcId)) {
-      options.push({ id: "menu:quest_deliver", label: "任务交付", type: "quest_deliver_menu" });
-    }
-
-    // 4. Functional: NPC tags 匹配 entityActionsByTag
+    // 1. Functional: NPC tags 匹配 entityActionsByTag
     const functionalActions = this.getFunctionalActions(world, npc);
     if (functionalActions.length > 0) {
       options.push({
@@ -110,10 +148,180 @@ export class DialogueGenerator {
       });
     }
 
-    // 5. Idle chat: 始终可用
-    options.push({ id: "menu:chat", label: "闲聊", type: "idle_chat" });
-
     return options;
+  }
+
+  private async generateConversationDirectionOptions(
+    world: WorldState,
+    player: PlayerEntity,
+    npc: NPCEntity,
+    extraDirections?: Array<{ key: string; instruction: string }>,
+  ): Promise<DialogueOption[]> {
+    const baseDirections = world.contentPool.conversationDirections;
+    const directions = extraDirections ? [...baseDirections, ...extraDirections] : baseDirections;
+    if (directions.length === 0) return [];
+
+    const fallback = this.buildConversationDirectionOptions(directions);
+    const context = this.buildContext(world, player, npc);
+    const prompt = this.buildConversationMenuPrompt(context, directions);
+
+    try {
+      const response = await this.adapter.chat(
+        prompt.system,
+        prompt.user,
+        undefined,
+        undefined,
+        "dialogue-menu-options",
+        false,
+      );
+      const generated = this.parseConversationMenuOptions(response.text, directions);
+      return generated.length > 0 ? generated : fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
+  private buildConversationDirectionOptions(
+    directions: WorldState["contentPool"]["conversationDirections"],
+  ): DialogueOption[] {
+    return directions.map((direction) => {
+      if (direction.key.startsWith("quest_trigger__")) {
+        const storylineId = direction.key.replace("quest_trigger__", "");
+        return {
+          id: `menu:quest_trigger__${storylineId}`,
+          label: direction.instruction,
+          type: "quest_trigger_menu" as DialogueOptionType,
+          tag: "quest",
+          meta: { directionKey: direction.key },
+        };
+      }
+      if (direction.key.startsWith("quest_deliver__")) {
+        const templateId = direction.key.replace("quest_deliver__", "");
+        return {
+          id: `menu:quest_deliver__${templateId}`,
+          label: direction.instruction,
+          type: "quest_deliver_menu" as DialogueOptionType,
+          tag: "quest",
+          meta: { directionKey: direction.key },
+        };
+      }
+      return {
+        id: `chat:${direction.key}`,
+        label: direction.instruction,
+        type: "idle_chat" as DialogueOptionType,
+        meta: { directionKey: direction.key },
+      };
+    });
+  }
+
+  private buildConversationMenuPrompt(
+    context: ReturnType<typeof this.buildContext>,
+    directions: WorldState["contentPool"]["conversationDirections"],
+  ) {
+    const directionLines = directions
+      .map((direction) => `- ${direction.key}: ${direction.instruction}`)
+      .join("\n");
+
+    return {
+      system: `你是 MUD 游戏的对话选项生成器。根据 NPC、地点和对话方向，生成玩家可以选择的自然中文对话选项。
+
+NPC: ${context.npcName}
+身份: ${context.npcRole}
+性格: ${context.npcPersonality}
+心情: ${context.npcMood}
+关系: ${context.relationshipLabel} (${context.relationshipLevel})
+地点: ${context.roomName}
+地点描述: ${context.roomDescription}
+附近地点: ${context.connectedRooms.join("，") || "无"}
+房间物品: ${context.roomItems.join("、") || "无"}
+其他人物: ${context.roomNpcs.join("、") || "无"}
+
+对话方向:
+${directionLines}
+
+要求:
+- 为每个对话方向生成 1 个玩家视角的自然话术，不要照抄方向说明
+- 额外生成 1 个 key 为 freeform 的自由发挥话术，结合 NPC 和当前地点
+- 选项要短，适合作为菜单项
+- 只输出 JSON，不要解释`,
+      user: `输出格式:
+{"options":[{"key":"方向key或freeform","label":"玩家可选择的话术"}]}`,
+    };
+  }
+
+  private parseConversationMenuOptions(
+    text: string,
+    directions: WorldState["contentPool"]["conversationDirections"],
+  ): DialogueOption[] {
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return [];
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch {
+      return [];
+    }
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      !Array.isArray((parsed as { options?: unknown }).options)
+    ) {
+      return [];
+    }
+
+    const directionKeys = new Set(directions.map((direction) => direction.key));
+    const directionOrder = new Map(directions.map((direction, index) => [direction.key, index]));
+    const seen = new Set<string>();
+    const options: DialogueOption[] = [];
+
+    for (const item of (parsed as { options: unknown[] }).options) {
+      if (typeof item !== "object" || item === null) continue;
+      const key = (item as { key?: unknown }).key;
+      const label = (item as { label?: unknown }).label;
+      if (typeof key !== "string" || typeof label !== "string" || label.trim().length === 0) {
+        continue;
+      }
+      if (key !== "freeform" && !directionKeys.has(key)) continue;
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      // Quest 方向映射：quest_trigger__${id} / quest_deliver__${id} → 对应类型 + tag: "quest"
+      if (key.startsWith("quest_trigger__")) {
+        const storylineId = key.replace("quest_trigger__", "");
+        options.push({
+          id: `menu:quest_trigger__${storylineId}`,
+          label: label.trim(),
+          type: "quest_trigger_menu",
+          tag: "quest",
+          meta: { directionKey: key },
+        });
+      } else if (key.startsWith("quest_deliver__")) {
+        const templateId = key.replace("quest_deliver__", "");
+        options.push({
+          id: `menu:quest_deliver__${templateId}`,
+          label: label.trim(),
+          type: "quest_deliver_menu",
+          tag: "quest",
+          meta: { directionKey: key },
+        });
+      } else {
+        options.push({
+          id: key === "freeform" ? "chat:freeform" : `chat:${key}`,
+          label: label.trim(),
+          type: "idle_chat",
+          meta: key === "freeform" ? { freeform: true } : { directionKey: key },
+        });
+      }
+    }
+
+    return options.sort((a, b) => {
+      const aKey = (a.meta?.directionKey as string | undefined) ?? "freeform";
+      const bKey = (b.meta?.directionKey as string | undefined) ?? "freeform";
+      const aIndex = aKey === "freeform" ? directions.length : (directionOrder.get(aKey) ?? 0);
+      const bIndex = bKey === "freeform" ? directions.length : (directionOrder.get(bKey) ?? 0);
+      return aIndex - bIndex;
+    });
   }
 
   /**
@@ -123,7 +331,7 @@ export class DialogueGenerator {
    * _select 类型 → 执行确定性逻辑 + LLM 生成对话文本
    * idle_chat → LLM 生成自由对话 + 连续对话选项
    */
-  async handleOption(
+  async handleChatOption(
     world: WorldState,
     playerId: EntityId,
     npcId: EntityId,
@@ -137,32 +345,14 @@ export class DialogueGenerator {
       logWrite(
         "srv",
         "dbg",
-        `[handleOption] player or npc not found playerId=${playerId} npcId=${npcId}`,
+        `[handleChatOption] player or npc not found playerId=${playerId} npcId=${npcId}`,
       );
       return { delta: {} };
     }
 
-    logWrite("srv", "dbg", `[handleOption] type=${optionType} id=${optionId} npc=${npc.name}`);
+    logWrite("srv", "dbg", `[handleChatOption] type=${optionType} id=${optionId} npc=${npc.name}`);
 
     switch (optionType) {
-      case "trade_menu":
-        return {
-          delta: {},
-          subOptions: this.getTradeSubOptions(npc, world, player as PlayerEntity),
-        };
-
-      case "trade_select":
-        return { delta: await this.executeTrade(world, player as PlayerEntity, npc, optionId) };
-
-      case "trade_sell_menu":
-        return {
-          delta: {},
-          subOptions: this.getSellSubOptions(player as PlayerEntity, npc, world),
-        };
-
-      case "trade_sell_select":
-        return { delta: await this.executeSellTrade(world, player as PlayerEntity, npc, optionId) };
-
       case "quest_trigger_menu":
         return {
           delta: {},
@@ -231,6 +421,39 @@ export class DialogueGenerator {
     }
   }
 
+  /**
+   * 处理交易动作（交易Tab用）
+   */
+  async handleTradeAction(
+    world: WorldState,
+    playerId: EntityId,
+    npcId: EntityId,
+    action: "buy" | "sell",
+    itemId: string,
+  ): Promise<{ delta: SimulationDelta; tradeSubOptions?: TradeOption[] }> {
+    const player = world.entities.get(playerId);
+    const npc = world.entities.get(npcId);
+    if (!player || !isNpc(npc)) {
+      logWrite(
+        "srv",
+        "dbg",
+        `[handleTradeAction] player or npc not found playerId=${playerId} npcId=${npcId}`,
+      );
+      return { delta: {} };
+    }
+
+    logWrite("srv", "dbg", `[handleTradeAction] action=${action} itemId=${itemId} npc=${npc.name}`);
+
+    if (action === "buy") {
+      return { delta: await this.executeTrade(world, player as PlayerEntity, npc, itemId) };
+    }
+    if (action === "sell") {
+      return { delta: await this.executeSellTrade(world, player as PlayerEntity, npc, itemId) };
+    }
+
+    return { delta: {} };
+  }
+
   // --- Menu helpers: 可用性检查 ---
 
   private getEligibleStorylines(world: WorldState, player: PlayerEntity, npc: NPCEntity) {
@@ -255,15 +478,6 @@ export class DialogueGenerator {
         if ((rel?.level ?? 0) < (t.minRelation?.minValue ?? 0)) return false;
       }
       return true;
-    });
-  }
-
-  private hasCompletableQuests(world: WorldState, player: PlayerEntity, npcId: EntityId): boolean {
-    return player.activeQuests.some((q) => {
-      if (q.status !== "active") return false;
-      const template = this.getQuestTemplate(world, q.templateId);
-      if (!template || template.giverNpcId !== npcId) return false;
-      return q.groupCompleted.every(Boolean);
     });
   }
 
@@ -303,10 +517,10 @@ export class DialogueGenerator {
     npc: NPCEntity,
     world: WorldState,
     player: PlayerEntity,
-  ): DialogueOption[] {
+  ): TradeOption[] {
     const multiplier = this.tradePriceMultiplier(npc, player);
     const currencyName = this.getCurrencyName(world);
-    const buyOptions: DialogueOption[] = npc.inventory
+    const buyOptions: TradeOption[] = npc.inventory
       .filter((item) => this.isTradeable(world, item))
       .map((item) => {
         const value = this.getItemValue(world, item);
@@ -314,15 +528,25 @@ export class DialogueGenerator {
         return {
           id: `trade:${item.id}`,
           label: `${item.name} — ${price} ${currencyName}`,
-          type: "trade_select" as DialogueOptionType,
-          meta: { itemId: item.id, itemName: item.name, price, currencyName },
+          action: "buy",
+          meta: {
+            itemId: item.id,
+            itemName: item.name,
+            itemDescription: item.description,
+            itemPropertiesText: formatItemProperties(
+              item.properties,
+              world.contentPool.itemPropertyLabels,
+            ),
+            price,
+            currencyName,
+          },
         };
       });
 
     buyOptions.push({
       id: "menu:sell",
       label: "卖出物品",
-      type: "trade_sell_menu" as DialogueOptionType,
+      action: "sell_menu",
     });
 
     return buyOptions;
@@ -375,9 +599,8 @@ export class DialogueGenerator {
     world: WorldState,
     player: PlayerEntity,
     npc: NPCEntity,
-    optionId: string,
+    itemId: string,
   ): Promise<SimulationDelta> {
-    const itemId = optionId.replace("trade:", "");
     const item = npc.inventory.find((i) => i.id === itemId);
     if (!item) return {};
 
@@ -506,40 +729,12 @@ export class DialogueGenerator {
     return delta;
   }
 
-  // --- Sell sub-options & executor ---
-
-  private getSellSubOptions(
-    player: PlayerEntity,
-    npc: NPCEntity,
-    world: WorldState,
-  ): DialogueOption[] {
-    const multiplier = this.tradePriceMultiplier(npc, player);
-    const currencyName = this.getCurrencyName(world);
-
-    return player.inventory
-      .filter((item) => {
-        if (item.properties.currency === true) return false;
-        return this.isTradeable(world, item);
-      })
-      .map((item) => {
-        const value = this.getItemValue(world, item);
-        const price = this.computeSellPrice(value, multiplier);
-        return {
-          id: `trade_sell:${item.id}`,
-          label: `${item.name} — ${price} ${currencyName}`,
-          type: "trade_sell_select" as DialogueOptionType,
-          meta: { itemId: item.id, itemName: item.name, price, currencyName },
-        };
-      });
-  }
-
   private async executeSellTrade(
     world: WorldState,
     player: PlayerEntity,
     npc: NPCEntity,
-    optionId: string,
+    itemId: string,
   ): Promise<SimulationDelta> {
-    const itemId = optionId.replace("trade_sell:", "");
     const item = player.inventory.find((i) => i.id === itemId);
     if (!item) return {};
 
@@ -1266,9 +1461,9 @@ ${userLine}
 
   private buildFollowUpOptions(
     topics: string[],
-    world: WorldState,
-    player: PlayerEntity,
-    npc: NPCEntity,
+    _world: WorldState,
+    _player: PlayerEntity,
+    _npc: NPCEntity,
   ): DialogueOption[] {
     const seen = new Set<string>();
     const options: DialogueOption[] = [];
@@ -1285,18 +1480,7 @@ ${userLine}
       add({ id: `chat:followup_${i}`, label: topics[i], type: "idle_chat" });
     }
 
-    // 2. 系统注入 — 从闲聊衔接游戏交互
-    if (npc.inventory.length > 0) {
-      add({ id: "sys:trade", label: "看看你的货物", type: "trade_menu" });
-    }
-    if (this.getEligibleStorylines(world, player, npc).length > 0) {
-      add({ id: "sys:quest", label: "需要帮忙吗？", type: "quest_trigger_menu" });
-    }
-    if (this.hasCompletableQuests(world, player, npc.id)) {
-      add({ id: "sys:deliver", label: "关于之前的任务...", type: "quest_deliver_menu" });
-    }
-
-    // 3. 告别
+    // 2. 告别
     add({ id: "chat:goodbye", label: "告别", type: "close" });
 
     return options;

@@ -189,11 +189,11 @@ export function stubSimulation() {
 
 export function mockDialogueGenerator(delta: SimulationDelta): DialogueGenerator {
   return {
-    generateFixedMenu: vi.fn().mockReturnValue([
+    generateFixedChatMenu: vi.fn().mockReturnValue([
       { id: "opt_1", label: "你好", type: "idle_chat" },
       { id: "opt_2", label: "再见", type: "close" },
     ]),
-    handleOption: vi.fn().mockResolvedValue({ delta, subOptions: undefined }),
+    handleChatOption: vi.fn().mockResolvedValue({ delta, subOptions: undefined }),
   } as unknown as DialogueGenerator;
 }
 
@@ -202,8 +202,8 @@ export function mockDialogueGeneratorWithSubOptions(
   subOptions: Array<{ id: string; label: string; type: string }>,
 ): DialogueGenerator {
   return {
-    generateFixedMenu: vi.fn().mockReturnValue([]),
-    handleOption: vi.fn().mockResolvedValue({ delta, subOptions }),
+    generateFixedChatMenu: vi.fn().mockReturnValue([]),
+    handleChatOption: vi.fn().mockResolvedValue({ delta, subOptions }),
   } as unknown as DialogueGenerator;
 }
 

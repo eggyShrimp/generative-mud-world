@@ -2,19 +2,23 @@ export function KeyHint(props: {
   shortcut: string | number;
   label?: string;
   color?: string;
+  tag?: string;
   selectable?: boolean;
   onMouseDown?: () => void;
   wrapMode?: "none" | "char" | "word";
 }) {
+  const suffix = props.tag === "quest" ? "!" : "";
+  const fg = props.tag === "quest" ? "#e6a850" : props.color;
   const labelPart = props.label ? ` ${props.label}` : "";
   return (
     <text
-      fg={props.color}
+      fg={fg}
       selectable={props.selectable}
       onMouseDown={props.onMouseDown}
       wrapMode={props.wrapMode}
     >
       [{props.shortcut}]{labelPart}
+      {suffix}
     </text>
   );
 }
@@ -38,6 +42,4 @@ export function KeyHintRow(props: {
   );
 }
 
-export function formatKeyBracket(key: string | number): string {
-  return `[${key}]`;
-}
+export { formatKeyBracket } from "../utils/format-key-bracket.ts";
