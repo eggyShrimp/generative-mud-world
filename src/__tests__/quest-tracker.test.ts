@@ -360,6 +360,11 @@ describe("QuestTracker", () => {
       const world = createTestWorld([QUEST_COLLECT]);
       const player = createPlayer("p1", "测试玩家", "room_tavern", world.contentPool);
       addEntity(world, player);
+      const restBefore = player.needs.find((n) => n.type === "rest")?.value ?? 0;
+      world.contentPool.questTemplates[0].rewards.needChanges = [{ needType: "rest", delta: 10 }];
+      world.contentPool.questTemplates[0].rewards.items = [
+        { itemId: "reward_badge", quantity: 2, name: "徽章" },
+      ];
       player.activeQuests.push({
         templateId: "quest_collect_herb",
         status: "active",
@@ -378,6 +383,13 @@ describe("QuestTracker", () => {
       expect(player.completedQuests).toContain("quest_collect_herb");
       // 检查关系奖励
       expect(player.traits.some((t) => t.name === "compassion" && t.value === 5)).toBe(true);
+      expect(player.needs.find((n) => n.type === "rest")?.value).toBe(restBefore + 10);
+      expect(player.inventory.filter((i) => i.templateId === "reward_badge")).toHaveLength(2);
+      expect(
+        player.inventory
+          .filter((i) => i.templateId === "reward_badge")
+          .every((i) => world.entities.get(i.id) === i),
+      ).toBe(true);
     });
 
     it("should fail quest and apply abandon penalty", () => {
@@ -386,11 +398,13 @@ describe("QuestTracker", () => {
         id: "quest_with_penalty",
         abandonPenalty: {
           relationDelta: { targetId: "npc_tavern_keeper", delta: -10 },
+          needChanges: [{ needType: "rest", delta: -10 }],
         },
       };
       const world = createTestWorld([questWithPenalty]);
       const player = createPlayer("p1", "测试玩家", "room_tavern", world.contentPool);
       addEntity(world, player);
+      const restBefore = player.needs.find((n) => n.type === "rest")?.value ?? 0;
       player.activeQuests.push({
         templateId: "quest_with_penalty",
         status: "active",
@@ -409,6 +423,7 @@ describe("QuestTracker", () => {
 
       expect(player.activeQuests[0].status).toBe("failed");
       expect(player.failedQuests.some((f) => f.templateId === "quest_with_penalty")).toBe(true);
+      expect(player.needs.find((n) => n.type === "rest")?.value).toBe(restBefore - 10);
     });
 
     it("should not accept duplicate quest", () => {

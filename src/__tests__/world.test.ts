@@ -10,7 +10,6 @@ import {
   initializePlayer,
   moveEntity,
 } from "../core/world";
-import { applyDeltaFields } from "../engine/delta-registry.ts";
 
 describe("WorldState", () => {
   it("should create an empty world with ContentPool", () => {
@@ -108,16 +107,42 @@ describe("WorldState", () => {
     expect(npc.relations[0].label).toBe("普通");
   });
 
-  it("should fill relation labels through delta registry", () => {
+  it("should fill relation labels through applyDelta", () => {
     const world = createWorld();
     const npc = createNPC("npc_01", { relations: [] });
     const target = createNPC("npc_02", { relations: [] });
     addEntity(world, npc);
     addEntity(world, target);
-    applyDeltaFields(world, {
+    applyDelta(world, {
       relationChanges: [{ fromId: "npc_01", toId: "npc_02", delta: 60 }],
     });
     expect(npc.relations[0].label).toBe("友好");
+  });
+
+  it("should remove template-matched inventory items from world entities", () => {
+    const world = createWorld();
+    const player = createPlayer("p1", "玩家", "");
+    const item = {
+      id: "item_01",
+      type: "item" as const,
+      name: "草药",
+      roomId: null,
+      description: "草药",
+      ownerId: "p1",
+      containerId: null,
+      templateId: "herb",
+      properties: {},
+    };
+    player.inventory = [item];
+    addEntity(world, player);
+    world.entities.set(item.id, item);
+
+    applyDelta(world, {
+      itemChanges: [{ targetId: "p1", templateId: "herb", operation: "remove", qty: 1 }],
+    });
+
+    expect(player.inventory).toHaveLength(0);
+    expect(world.entities.has("item_01")).toBe(false);
   });
 
   it("should discover starting room on initializePlayer", () => {
