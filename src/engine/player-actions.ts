@@ -17,6 +17,7 @@ export const PLAYER_ACTIONS = [
   "drop",
   "use",
   "eat",
+  "read",
   "say",
   "inventory",
   "status",

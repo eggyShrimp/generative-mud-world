@@ -79,6 +79,12 @@ function mockClient(overrides: Partial<GameClient> = {}): GameClient {
     setSelectedTravelogueIndex: vi.fn(),
     openTravelogue: vi.fn(),
     closeTravelogue: vi.fn(),
+    bookReader: () => null,
+    openBookReader: vi.fn(),
+    closeBookReader: vi.fn(),
+    nextBookPage: vi.fn(),
+    prevBookPage: vi.fn(),
+    scrollBookReader: vi.fn(),
     saveSlots: () => [],
     selectedSaveSlotIndex: () => null,
     setSelectedSaveSlotIndex: vi.fn(),
@@ -115,6 +121,7 @@ function resetStack() {
     "inventory",
     "quests",
     "save",
+    "book-reader",
     "quest-notification",
     "item-change-notification",
     "dialogue",
@@ -502,6 +509,51 @@ describe("dispatchKey", () => {
     expect(client.dismissItemChangeNotification).not.toHaveBeenCalled();
   });
 
+  it("book-reader 层: 可翻到下一页并关闭", () => {
+    pushLayer("book-reader");
+    const client = mockClient({
+      bookReader: () => ({ title: "书", pages: ["第一页", "第二页"], pageIndex: 0, scrollTop: 0 }),
+    });
+
+    dispatchKey(mockKey("right"), client);
+    expect(client.nextBookPage).toHaveBeenCalled();
+
+    dispatchKey(mockKey("escape"), client);
+    expect(client.closeBookReader).toHaveBeenCalled();
+  });
+
+  it("book-reader 层: 第一页不能向前翻，第二页可以向前翻", () => {
+    pushLayer("book-reader");
+    const firstPageClient = mockClient({
+      bookReader: () => ({ title: "书", pages: ["第一页", "第二页"], pageIndex: 0, scrollTop: 0 }),
+    });
+    dispatchKey(mockKey("left"), firstPageClient);
+    expect(firstPageClient.prevBookPage).not.toHaveBeenCalled();
+
+    const secondPageClient = mockClient({
+      bookReader: () => ({ title: "书", pages: ["第一页", "第二页"], pageIndex: 1, scrollTop: 0 }),
+    });
+    dispatchKey(mockKey("left"), secondPageClient);
+    expect(secondPageClient.prevBookPage).toHaveBeenCalled();
+  });
+
+  it("book-reader 层: 上下键滚动当前页", () => {
+    pushLayer("book-reader");
+    const scrolledClient = mockClient({
+      bookReader: () => ({ title: "书", pages: ["第一页"], pageIndex: 0, scrollTop: 4 }),
+    });
+    dispatchKey(mockKey("up"), scrolledClient);
+    expect(scrolledClient.scrollBookReader).toHaveBeenCalledWith(-2);
+
+    const client = mockClient({
+      bookReader: () => ({ title: "书", pages: ["第一页"], pageIndex: 0, scrollTop: 0 }),
+    });
+    dispatchKey(mockKey("down"), client);
+    expect(client.scrollBookReader).toHaveBeenCalledWith(2);
+    dispatchKey(mockKey("pagedown"), client);
+    expect(client.scrollBookReader).toHaveBeenCalledWith(8);
+  });
+
   it("item-change-notification 层: 优先级 85 > dialogue 60", () => {
     pushLayer("dialogue");
     pushLayer("item-change-notification");
@@ -713,6 +765,20 @@ describe("getEntityActions", () => {
     expect(labels).not.toContain("攻击");
   });
 
+  it("可读房间物品有阅读动作", () => {
+    const entity = { id: "book_1", name: "佛经抄本", type: "item" } as RoomEntity;
+    const actions = getEntityActions(entity, [
+      cap("read", { type: "item_select", values: ["book_1"] }, "阅读"),
+    ]);
+    const readAction = actions.find((action) => action.label === "阅读");
+    const client = mockClient();
+
+    readAction?.run(client, entity);
+
+    expect(readAction?.color).toBe("#d4a574");
+    expect(client.execute).toHaveBeenCalledWith("read", { itemId: "book_1" });
+  });
+
   it("interactable 实体有交谈和攻击", () => {
     const entity = { id: "1", name: "箱子", type: "object", interactable: true } as RoomEntity;
     const actions = getEntityActions(entity, [
@@ -799,6 +865,33 @@ describe("getInventoryActions", () => {
     const actions = getInventoryActions(group);
     const labels = actions.map((a) => a.label);
     expect(labels).toContain("丢下全部 x3");
+  });
+
+  it("可读背包物品有阅读动作", () => {
+    const group = {
+      name: "佛经抄本",
+      count: 1,
+      items: [
+        {
+          id: "book_1",
+          name: "佛经抄本",
+          type: "item" as const,
+          description: "",
+          templateId: "sutra_copy",
+          properties: { readable: true },
+        },
+      ],
+    };
+    const actions = getInventoryActions(group, [
+      cap("read", { type: "item_select", values: ["book_1"] }, "阅读"),
+    ]);
+    const readAction = actions.find((action) => action.label === "阅读");
+    const client = mockClient();
+
+    readAction?.run(client, group);
+
+    expect(readAction?.color).toBe("#d4a574");
+    expect(client.execute).toHaveBeenCalledWith("read", { itemId: "book_1" });
   });
 });
 
@@ -896,6 +989,12 @@ describe("entity selection flow (integration)", () => {
       requestEndDay: vi.fn(),
       confirmEndDay: vi.fn(),
       cancelEndDay: vi.fn(),
+      bookReader: () => null,
+      openBookReader: vi.fn(),
+      closeBookReader: vi.fn(),
+      nextBookPage: vi.fn(),
+      prevBookPage: vi.fn(),
+      scrollBookReader: vi.fn(),
       ...overrides,
     } as unknown as GameClient;
   }

@@ -242,6 +242,52 @@ describe("ContentPoolLoader", () => {
     expect(pool.roomTemplates).toHaveLength(1);
     expect(pool.roomTemplates[0].culture).toBe("test_culture");
   });
+
+  it("loadContentPoolFromDir: bookContents 应从 YAML 加载", () => {
+    const poolDir = join(TEST_DIR, "content-pool");
+    mkdirSync(poolDir, { recursive: true });
+
+    writeYamlFile(join(poolDir, "books.yaml"), {
+      bookContents: [
+        {
+          id: "sutra_copy",
+          itemTemplateId: "sutra_copy",
+          title: "佛经抄本",
+          pages: ["第一页", "第二页"],
+        },
+      ],
+    });
+
+    const pool = loadContentPoolFromDir(poolDir);
+
+    expect(pool.bookContents).toEqual([
+      {
+        id: "sutra_copy",
+        itemTemplateId: "sutra_copy",
+        title: "佛经抄本",
+        pages: ["第一页", "第二页"],
+      },
+    ]);
+  });
+
+  it("loadContentPoolFromDir: readable itemTemplate 必须有对应 bookContents", () => {
+    const poolDir = join(TEST_DIR, "content-pool");
+    mkdirSync(poolDir, { recursive: true });
+
+    writeYamlFile(join(poolDir, "needs-actions.yaml"), {
+      itemTemplates: [
+        {
+          id: "missing_book",
+          name: "缺页书",
+          properties: { readable: true },
+        },
+      ],
+    });
+
+    expect(() => loadContentPoolFromDir(poolDir)).toThrow(
+      "readable itemTemplates 缺少 bookContents",
+    );
+  });
 });
 
 describe("writeEvolveDeltas", () => {
@@ -502,6 +548,43 @@ describe("writeEvolveDeltas", () => {
     ) as Record<string, unknown>;
     const actions = content.entityActionsByTag as Record<string, string[]>;
     expect(actions.tavern).toEqual(["drink", "eat"]);
+  });
+
+  it("writeEvolveDeltas: books domain 持久化", () => {
+    const poolDir = join(TEST_DIR, "content-pool");
+    mkdirSync(join(poolDir, "evolve"), { recursive: true });
+
+    const pool = createDefaultContentPool();
+    const mutation: ContentPoolMutation = {
+      addBookContents: [
+        {
+          id: "sutra_copy",
+          itemTemplateId: "sutra_copy",
+          title: "佛经抄本",
+          pages: ["第一页", "第二页"],
+        },
+      ],
+    };
+
+    applyContentPoolMutation(pool, mutation);
+    writeEvolveDeltas(poolDir, mutation, pool);
+
+    const evolveDir = join(poolDir, "evolve");
+    const evolveFiles = readdirSync(evolveDir);
+    expect(evolveFiles).toContain("books.yaml");
+
+    const content = parseYaml(readFileSync(join(evolveDir, "books.yaml"), "utf-8")) as Record<
+      string,
+      unknown
+    >;
+    expect(content.bookContents).toEqual([
+      {
+        id: "sutra_copy",
+        itemTemplateId: "sutra_copy",
+        title: "佛经抄本",
+        pages: ["第一页", "第二页"],
+      },
+    ]);
   });
 });
 

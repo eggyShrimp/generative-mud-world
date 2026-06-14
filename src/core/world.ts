@@ -1029,6 +1029,7 @@ export function createDefaultContentPool(): ContentPool {
         drop: "丢下",
         use: "使用",
         eat: "食用",
+        read: "阅读",
         say: "说话",
         inventory: "背包",
         status: "状态",
@@ -1125,6 +1126,12 @@ export function createDefaultContentPool(): ContentPool {
         unequip: "卸下了 {item}。",
         eatWithEffect: "吃了 {item}（{effect}）",
         eatNoEffect: "吃了 {item}，暂时没有明显效果。",
+        readWithEffect: "阅读了 {item}（{effect}）",
+        readNoEffect: "阅读了 {item}。",
+        readMissingContent: "{item} 标记为可阅读，但没有对应的书籍内容。",
+        readNotReadable: "{item} 不可阅读",
+        readSpecifyItem: "请指定要阅读的物品",
+        readItemNotFound: "找不到要阅读的物品",
         roomAction: "{label}",
         roomActionWithEffect: "{label}（{effect}）",
       },
@@ -1378,6 +1385,8 @@ export function createDefaultContentPool(): ContentPool {
       { id: "copper_coin", name: "铜币", properties: { currency: true } },
       { id: "iron_ore", name: "铁矿石", properties: { material: true } },
     ],
+
+    bookContents: [],
 
     questTemplates: [],
 

@@ -61,6 +61,33 @@ function connectAndCollect(
   });
 }
 
+function connectAndCollectOpen(
+  port: number,
+  count: number,
+  timeout = 3000,
+): Promise<{ ws: WebSocket; messages: Record<string, unknown>[] }> {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(`ws://localhost:${port}`);
+    const messages: Record<string, unknown>[] = [];
+    const timer = setTimeout(() => {
+      ws.close();
+      reject(new Error(`Timeout: got ${messages.length}/${count} messages`));
+    }, timeout);
+
+    ws.on("message", (data) => {
+      messages.push(JSON.parse(String(data)));
+      if (messages.length >= count) {
+        clearTimeout(timer);
+        resolve({ ws, messages });
+      }
+    });
+    ws.on("error", (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+  });
+}
+
 function connectAndSend(
   port: number,
   sendMsg: unknown,
@@ -222,6 +249,25 @@ describe("GameServer", () => {
     expect(init).toBeDefined();
     expect(init?.boundEntityId).toBe("p1");
     expect(init?.boundEntityName).toBe("赵行舟");
+  });
+
+  it("should bind the only player when a previous single-player connection is still open", async () => {
+    const first = await connectAndCollectOpen(port, 3);
+
+    try {
+      const second = await connectAndCollect(port, 3);
+      const init = second.find((m) => m.type === "init");
+      const state = second.find((m) => m.type === "state_update");
+
+      expect(init?.boundEntityId).toBe("p1");
+      expect(state?.capabilities).toBeDefined();
+      const actions = (state?.capabilities as Record<string, unknown>[]).map((c) => c.action);
+      expect(actions).toContain("rest");
+      expect(actions).toContain("inventory");
+      expect(actions).toContain("end_day");
+    } finally {
+      first.ws.close();
+    }
   });
 
   it("should include capabilities in state_update", async () => {

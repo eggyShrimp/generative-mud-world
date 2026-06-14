@@ -217,6 +217,11 @@ export interface CommandEvent {
   description: string;
 }
 
+export interface BookDisplay {
+  title: string;
+  pages: string[];
+}
+
 export interface SaveSlotInfo {
   slotId: string;
   worldId: string;
@@ -336,6 +341,7 @@ export interface CommandResultMessage {
   events: CommandEvent[];
   delta?: SimulationDelta;
   ended: boolean;
+  bookDisplay?: BookDisplay;
 }
 
 export interface DialogueOptionsMessage {

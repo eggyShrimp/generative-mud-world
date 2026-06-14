@@ -219,6 +219,13 @@ export function getEntityActions(
       run: (client, target) => client.execute("take", { itemId: target.id }),
     });
   }
+  if (capabilityTargets(capabilities, "read").includes(entity.id)) {
+    entityActions.push({
+      label: capabilityLabel(capabilities, "read", "阅读"),
+      color: actionColor("read"),
+      run: (client, target) => client.execute("read", { itemId: target.id }),
+    });
+  }
   if (capabilityTargets(capabilities, "talk").includes(entity.id)) {
     entityActions.push({
       label: capabilityLabel(capabilities, "talk", "交谈"),
@@ -283,9 +290,16 @@ export function getInventoryActions(
   ];
   if (capabilityTargets(capabilities, "operate").includes(group.items[0].id)) {
     actions.splice(1, 0, {
-      label: "操作",
+      label: capabilityLabel(capabilities, "operate", "操作"),
       color: actionColor("operate"),
       run: (client, g) => client.execute("operate", { itemId: g.items[0].id }),
+    });
+  }
+  if (capabilityTargets(capabilities, "read").includes(group.items[0].id)) {
+    actions.splice(1, 0, {
+      label: capabilityLabel(capabilities, "read", "阅读"),
+      color: actionColor("read"),
+      run: (client, g) => client.execute("read", { itemId: g.items[0].id }),
     });
   }
   if (group.count > 1) {
@@ -720,6 +734,44 @@ const SAVE_LAYER: KeyLayer = {
   ],
 };
 
+const BOOK_READER_LAYER: KeyLayer = {
+  id: "book-reader",
+  priority: 70,
+  bindings: [
+    {
+      key: ["escape", "q"],
+      handler: (c) => c.closeBookReader(),
+      label: "关闭",
+    },
+    {
+      key: ["left", "h"],
+      handler: (c) => c.prevBookPage(),
+      label: "上一页",
+      enabled: (c) => (c.bookReader()?.pageIndex ?? 0) > 0,
+    },
+    {
+      key: ["right", "l", " "],
+      handler: (c) => c.nextBookPage(),
+      label: "下一页",
+      enabled: (c) => {
+        const reader = c.bookReader();
+        return reader ? reader.pageIndex < reader.pages.length - 1 : false;
+      },
+    },
+    {
+      key: ["up", "k", "pageup"],
+      handler: (c, keyName) => c.scrollBookReader(keyName === "pageup" ? -8 : -2),
+      label: "上滚",
+      enabled: (c) => (c.bookReader()?.scrollTop ?? 0) > 0,
+    },
+    {
+      key: ["down", "j", "pagedown"],
+      handler: (c, keyName) => c.scrollBookReader(keyName === "pagedown" ? 8 : 2),
+      label: "下滚",
+    },
+  ],
+};
+
 const DIALOGUE_LAYER: KeyLayer = {
   id: "dialogue",
   priority: 60,
@@ -803,6 +855,7 @@ const ALL_LAYERS: Record<string, KeyLayer> = {
   quests: QUESTS_LAYER,
   travelogue: TRAVELOGUE_LAYER,
   save: SAVE_LAYER,
+  "book-reader": BOOK_READER_LAYER,
   "quest-notification": QUEST_NOTIFICATION_LAYER,
   "item-change-notification": ITEM_CHANGE_NOTIFICATION_LAYER,
   "confirm-end-day": CONFIRM_END_DAY_LAYER,

@@ -19,6 +19,11 @@ const RoomConfigSchema = z.object({
   tags: z.array(z.string()).optional().default([]),
 });
 
+const InventoryItemConfigSchema = z.object({
+  templateId: z.string().min(1),
+  quantity: z.number().int().min(1).optional(),
+});
+
 const NPCConfigSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -29,14 +34,7 @@ const NPCConfigSchema = z.object({
   tags: z.array(z.string()).optional(),
   traits: z.array(z.object({ name: z.string(), value: z.number() })).optional(),
   needs: z.record(z.string(), z.number()).optional(),
-  items: z
-    .array(
-      z.object({
-        templateId: z.string().min(1),
-        quantity: z.number().int().min(1).optional(),
-      }),
-    )
-    .optional(),
+  items: z.array(InventoryItemConfigSchema).optional(),
 });
 
 const PlayerConfigSchema = z.object({
@@ -46,6 +44,7 @@ const PlayerConfigSchema = z.object({
   description: z.string().optional(),
   traits: z.array(z.object({ name: z.string(), value: z.number() })).optional(),
   needs: z.record(z.string(), z.number()).optional(),
+  items: z.array(InventoryItemConfigSchema).optional(),
 });
 
 export const WorldConfigSchema = z.object({

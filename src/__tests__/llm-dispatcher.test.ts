@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   addEntity,
   addRegion,
@@ -7,7 +7,8 @@ import {
   createRoom,
   createWorld,
 } from "../core/world.ts";
-import { createTriggerDetector } from "../llm/dispatcher.ts";
+import type { LLMAdapter } from "../llm/adapter.ts";
+import { createTriggerDetector, InteractionDispatcher } from "../llm/dispatcher.ts";
 import { parseMemoryCompressionOutput, parseWorldEventOutput } from "../llm/output-parser.ts";
 import { buildDialoguePrompt } from "../llm/prompts/dialogue.ts";
 import { buildMemoryCompressionPrompt } from "../llm/prompts/memory-compression.ts";
@@ -140,5 +141,65 @@ describe("Output parser", () => {
     const delta = parseMemoryCompressionOutput(text);
     expect(delta).not.toBeNull();
     expect(delta?.traitModifiers).toHaveLength(2);
+  });
+});
+
+describe("InteractionDispatcher content pool evolve", () => {
+  it("uses LLM tools to build book content mutations", async () => {
+    const world = createWorld();
+    world.time.day = 1;
+    world.time.month = 1;
+    world.round = 1;
+
+    const adapter = {
+      chat: vi.fn().mockResolvedValue({
+        text: "",
+        toolCalls: [
+          {
+            id: "call_1",
+            function: {
+              name: "add_book_content",
+              arguments: JSON.stringify({
+                id: "sutra_copy",
+                itemTemplateId: "sutra_copy",
+                title: "佛经抄本",
+                pages: ["第一页", "第二页"],
+              }),
+            },
+          },
+        ],
+      }),
+      generate: vi.fn(),
+      getBaseUrl: () => "http://localhost",
+      getApiKey: () => "test",
+    } as unknown as LLMAdapter;
+    const dispatcher = new InteractionDispatcher(adapter);
+    dispatcher.reachable = true;
+
+    const result = await dispatcher.runSettlementBatch(world);
+
+    expect(adapter.chat).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.arrayContaining([
+        expect.objectContaining({
+          function: expect.objectContaining({ name: "add_book_content" }),
+        }),
+      ]),
+      "auto",
+      "content_pool_evolve",
+    );
+    expect(result.contentPoolMutations).toEqual([
+      {
+        addBookContents: [
+          {
+            id: "sutra_copy",
+            itemTemplateId: "sutra_copy",
+            title: "佛经抄本",
+            pages: ["第一页", "第二页"],
+          },
+        ],
+      },
+    ]);
   });
 });

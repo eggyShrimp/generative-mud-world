@@ -40,6 +40,7 @@ export interface CommandResult {
   needsTradeOptions?: { npcId: string; npcName: string };
   tradeSubOptions?: import("../shared/protocol.ts").TradeOption[];
   operateOptions?: Array<{ actionId: string; label: string }>;
+  bookDisplay?: { title: string; pages: string[] };
 }
 
 // --- Feasibility Check ---
@@ -173,6 +174,7 @@ const BUILTIN_ACTIONS = new Set([
   "status",
   "inventory",
   "eat",
+  "read",
   "say",
   "end_day",
   "attack",
@@ -249,6 +251,8 @@ export function executeCommand(
       return executeInventory(world, entityId);
     case "eat":
       return executeEat(world, entityId, params);
+    case "read":
+      return executeRead(world, entityId, params);
     case "say":
       return executeSay(world, entityId, params);
     case "end_day":
@@ -1230,6 +1234,70 @@ function executeEat(
   };
 }
 
+function executeRead(
+  world: WorldState,
+  entityId: EntityId,
+  params: Record<string, unknown>,
+): CommandResult {
+  const entity = getEntity(world, entityId);
+  if (!entity) return fail("找不到自己");
+
+  const itemId = params.itemId as string | undefined;
+  if (!itemId) return fail(commandMessages(world).readSpecifyItem);
+
+  const item = findReadableCandidate(world, entity, itemId);
+  if (!item) return fail(commandMessages(world).readItemNotFound);
+  if (item.properties.readable !== true) {
+    return fail(renderTemplate(commandMessages(world).readNotReadable, { item: item.name }));
+  }
+
+  const bookContent = world.contentPool.bookContents.find(
+    (candidate) => candidate.itemTemplateId === item.templateId,
+  );
+  if (!bookContent) {
+    return fail(renderTemplate(commandMessages(world).readMissingContent, { item: item.name }));
+  }
+
+  const needDeltas = getItemNeedDeltas(item.properties);
+  const traitModifiers = getItemTraitModifiers(item.properties);
+  const delta: SimulationDelta = {};
+  if (Object.keys(needDeltas).length > 0) {
+    delta.needChanges = Object.entries(needDeltas).map(([needType, d]) => ({
+      targetId: entityId,
+      needType: needType as unknown as NeedType,
+      delta: d,
+    }));
+  }
+  if (traitModifiers.length > 0) {
+    delta.traitModifiers = traitModifiers.map((modifier) => ({
+      targetId: entityId,
+      trait: modifier.trait,
+      delta: modifier.delta,
+    }));
+  }
+
+  const effectText = formatNeedDeltas(needDeltas, world.contentPool.needLabels);
+  return {
+    events: [
+      {
+        type: "book_read",
+        description: effectText
+          ? renderTemplate(commandMessages(world).readWithEffect, {
+              item: item.name,
+              effect: effectText,
+            })
+          : renderTemplate(commandMessages(world).readNoEffect, { item: item.name }),
+      },
+    ],
+    delta,
+    ended: false,
+    bookDisplay: {
+      title: bookContent.title,
+      pages: bookContent.pages,
+    },
+  };
+}
+
 // --- Helpers ---
 
 function fail(message: string): CommandResult {
@@ -1378,6 +1446,22 @@ function hasInventory(entity: Entity): entity is PlayerEntity {
   return entity.type === "player";
 }
 
+function findReadableCandidate(
+  world: WorldState,
+  entity: Entity,
+  itemId: string,
+): ItemEntity | undefined {
+  if (hasInventory(entity)) {
+    const inventoryItem = entity.inventory.find((item) => item.id === itemId);
+    if (inventoryItem) return inventoryItem;
+  }
+
+  if (!entity.roomId) return undefined;
+  return getRoomEntities(world, entity.roomId).find(
+    (candidate): candidate is ItemEntity => candidate.type === "item" && candidate.id === itemId,
+  );
+}
+
 function getItemNeedDeltas(properties: Record<string, unknown>): Record<string, number> {
   if (properties.needDeltas && typeof properties.needDeltas === "object") {
     return Object.fromEntries(
@@ -1393,6 +1477,22 @@ function getItemNeedDeltas(properties: Record<string, unknown>): Record<string, 
   if (typeof properties.socialRestore === "number") deltas.social = properties.socialRestore;
   if (typeof properties.safetyRestore === "number") deltas.safety = properties.safetyRestore;
   return deltas;
+}
+
+function getItemTraitModifiers(properties: Record<string, unknown>): Array<{
+  trait: string;
+  delta: number;
+}> {
+  if (!Array.isArray(properties.traitModifiers)) return [];
+  return properties.traitModifiers
+    .map((modifier) => {
+      if (!modifier || typeof modifier !== "object") return null;
+      const record = modifier as Record<string, unknown>;
+      const delta = Number(record.delta);
+      if (typeof record.trait !== "string" || !Number.isFinite(delta)) return null;
+      return { trait: record.trait, delta };
+    })
+    .filter((modifier): modifier is { trait: string; delta: number } => modifier !== null);
 }
 
 function formatNeedDeltas(deltas: Record<string, number>, labels: Record<string, string>): string {

@@ -804,6 +804,18 @@ npcs:
         quantity: 1
       - templateId: trinket
         quantity: 1
+players:
+  - id: player_01
+    name: 探索者
+    roomId: room_dunhuang_mogao
+    description: 路过此地的旅人。
+    items:
+      - templateId: sutra_copy
+        quantity: 1
+      - templateId: caravan_route_notes
+        quantity: 1
+      - templateId: herb_manual
+        quantity: 1
 graph:
   layout:
     region_dunhuang:

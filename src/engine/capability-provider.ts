@@ -23,6 +23,7 @@ export function deriveCapabilities(world: WorldState, entityId: EntityId): Capab
 
   const caps: Capability[] = [];
   const room = entity.roomId ? world.rooms.get(entity.roomId) : null;
+  const readableTargets: string[] = [];
 
   // Incapacitated: only status
   if ("combatState" in entity && entity.combatState.isIncapacitated) {
@@ -90,7 +91,10 @@ export function deriveCapabilities(world: WorldState, entityId: EntityId): Capab
     const takeTargets: string[] = [];
     for (const eid of room.entities) {
       const e = world.entities.get(eid);
-      if (e && e.type === "item") takeTargets.push(e.id);
+      if (e && e.type === "item") {
+        takeTargets.push(e.id);
+        if (e.properties.readable === true) readableTargets.push(e.id);
+      }
     }
     if (takeTargets.length > 0) {
       caps.push({
@@ -131,6 +135,12 @@ export function deriveCapabilities(world: WorldState, entityId: EntityId): Capab
         params: { type: "item_select", values: edibleItems },
       });
     }
+    const readableItems = (
+      entity.inventory as Array<{ id: string; properties?: Record<string, unknown> }>
+    )
+      .filter((i) => i.properties?.readable === true)
+      .map((i) => i.id);
+    readableTargets.push(...readableItems);
     // operate: 背包中有功能 tag 的物品
     const operableItems = (entity.inventory as Array<{ id: string; tags?: string[] }>)
       .filter((i) => {
@@ -145,6 +155,14 @@ export function deriveCapabilities(world: WorldState, entityId: EntityId): Capab
         params: { type: "item_select", values: operableItems },
       });
     }
+  }
+
+  if (readableTargets.length > 0) {
+    caps.push({
+      action: "read",
+      label: actionLabel(world, "read"),
+      params: { type: "item_select", values: readableTargets },
+    });
   }
 
   // attack: 房间内有 NPC

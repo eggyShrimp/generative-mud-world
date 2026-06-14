@@ -17,6 +17,7 @@ import { applyDelta, discoverRoom, formatDate, initializePlayer } from "../core/
 import { deriveCapabilities, getRoomEntitiesInfo } from "../engine/capability-provider.ts";
 import { logWrite } from "../shared/log.ts";
 import type {
+  BookDisplay,
   CrossRegionExit,
   EntityBrief,
   MinimapData,
@@ -162,6 +163,7 @@ export interface CommandResult {
   needsTradeOptions?: { npcId: string; npcName: string };
   tradeSubOptions?: import("../shared/protocol.ts").TradeOption[];
   operateOptions?: Array<{ actionId: string; label: string }>;
+  bookDisplay?: BookDisplay;
 }
 
 interface EntityWithNeeds {
@@ -225,7 +227,11 @@ export class GameServer {
         .filter((e) => e.type === "player" && !claimedIds.has(e.id))
         .map((e) => ({ id: e.id, name: e.name, type: e.type }));
 
-      const autoEntity = availableEntities[0];
+      const playerEntities = Array.from(world.entities.values())
+        .filter((e) => e.type === "player")
+        .map((e) => ({ id: e.id, name: e.name, type: e.type }));
+      const autoEntity =
+        availableEntities[0] ?? (playerEntities.length === 1 ? playerEntities[0] : undefined);
       if (autoEntity) {
         session.controlledEntityId = autoEntity.id;
         session.playerId = autoEntity.id;

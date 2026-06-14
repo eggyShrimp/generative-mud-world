@@ -1,6 +1,7 @@
 export { CombatConfigSchema, CombatSkillSchema } from "../../combat/config.ts";
 export {
   ActionEffectSchema,
+  BookContentSchema,
   CalendarConfigSchema,
   ConversationDirectionSchema,
   DialogueEffectMappingSchema,

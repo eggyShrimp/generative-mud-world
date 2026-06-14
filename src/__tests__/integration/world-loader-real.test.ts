@@ -11,7 +11,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadContentPoolFromDir } from "../../core/content-pool-loader.ts";
-import type { NPCEntity } from "../../core/types.ts";
+import type { NPCEntity, PlayerEntity } from "../../core/types.ts";
 import { buildWorld, loadWorldFromYaml } from "../../core/world-loader.ts";
 
 const TEST_DIR = join(import.meta.dirname, "../../.test-integration-yaml");
@@ -140,6 +140,20 @@ describe("集成: 真实 YAML 加载", () => {
     expect(world.contentPool.needDefinitions.length).toBeGreaterThan(0);
     expect(world.contentPool.actionEffects.length).toBeGreaterThan(0);
     expect(world.contentPool.scheduleTemplates.length).toBeGreaterThan(0);
+  });
+
+  it("loadWorldFromYaml: generated_continent 起始玩家带有测试书籍", () => {
+    const world = loadWorldFromYaml(
+      join(import.meta.dirname, "../../../worlds/generated_continent.yaml"),
+    );
+    const player = world.entities.get("player_01") as PlayerEntity;
+    const readableBooks = player.inventory.filter((item) => item.properties.readable === true);
+
+    expect(readableBooks.map((item) => item.templateId).sort()).toEqual([
+      "caravan_route_notes",
+      "herb_manual",
+      "sutra_copy",
+    ]);
   });
 
   it("buildWorld: 与 loadWorldFromYaml 产出结构一致", () => {

@@ -26,6 +26,14 @@ export const ItemTemplateSchema = z.object({
   tradeable: z.boolean().optional(),
 });
 
+// bookContents
+export const BookContentSchema = z.object({
+  id: z.string().min(1),
+  itemTemplateId: z.string().min(1),
+  title: z.string().min(1),
+  pages: z.array(z.string().min(1)).min(1),
+});
+
 // needActionMap
 export const NeedActionMappingSchema = z.object({
   needType: z.string().min(1),
@@ -110,6 +118,12 @@ const CommandMessagesSchema = z.object({
   unequip: z.string(),
   eatWithEffect: z.string(),
   eatNoEffect: z.string(),
+  readWithEffect: z.string(),
+  readNoEffect: z.string(),
+  readMissingContent: z.string(),
+  readNotReadable: z.string(),
+  readSpecifyItem: z.string(),
+  readItemNotFound: z.string(),
   roomAction: z.string(),
   roomActionWithEffect: z.string(),
 });

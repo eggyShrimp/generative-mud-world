@@ -1,6 +1,7 @@
 import { createSignal } from "solid-js";
 import { logWrite } from "../../shared/log.ts";
 import type {
+  BookDisplay,
   Capability,
   CommandEvent,
   DialogueOption,
@@ -287,6 +288,13 @@ export interface SavePanelState {
   message: string | null;
 }
 
+export interface BookReaderState {
+  title: string;
+  pages: string[];
+  pageIndex: number;
+  scrollTop: number;
+}
+
 // ── GameClient interface ──
 // 62 个成员：22 个信号读取器、5 个计算属性、5 个 setter、30 个动作方法。
 // 面板通过 props.client 接收此接口，不应直接导入 createGameClient。
@@ -367,6 +375,12 @@ export interface GameClient {
   setSelectedSaveSlotIndex: (index: number | null) => void;
   savePanelLoading: () => boolean;
   savePanelMessage: () => string | null;
+  bookReader: () => BookReaderState | null;
+  openBookReader: (book: BookDisplay) => void;
+  closeBookReader: () => void;
+  nextBookPage: () => void;
+  prevBookPage: () => void;
+  scrollBookReader: (delta: number) => void;
   openSavePanel: () => void;
   closeSavePanel: () => void;
   requestSaveSlots: () => void;
@@ -513,6 +527,7 @@ export function createGameClient(url: string): GameClient {
   const [endDayOptions, setEndDayOptions] = createSignal<RestOption[]>([]);
   const [travelogue, setTravelogue] = createSignal<TravelogueEntry[]>([]);
   const [selectedTravelogueIndex, setSelectedTravelogueIndex] = createSignal<number | null>(null);
+  const [bookReader, setBookReader] = createSignal<BookReaderState | null>(null);
   const [savePanel, setSavePanel] = createSignal<SavePanelState>({
     slots: [],
     selectedIndex: null,
@@ -636,6 +651,36 @@ export function createGameClient(url: string): GameClient {
     }
   };
 
+  const openBookReader = (book: BookDisplay) => {
+    setBookReader({ title: book.title, pages: book.pages, pageIndex: 0, scrollTop: 0 });
+    pushLayer("book-reader");
+  };
+
+  const closeBookReader = () => {
+    setBookReader(null);
+    popLayer("book-reader");
+  };
+
+  const nextBookPage = () => {
+    setBookReader((prev) =>
+      prev
+        ? { ...prev, pageIndex: Math.min(prev.pages.length - 1, prev.pageIndex + 1), scrollTop: 0 }
+        : prev,
+    );
+  };
+
+  const prevBookPage = () => {
+    setBookReader((prev) =>
+      prev ? { ...prev, pageIndex: Math.max(0, prev.pageIndex - 1), scrollTop: 0 } : prev,
+    );
+  };
+
+  const scrollBookReader = (delta: number) => {
+    setBookReader((prev) =>
+      prev ? { ...prev, scrollTop: Math.max(0, prev.scrollTop + delta) } : prev,
+    );
+  };
+
   const manualSave = () => {
     const panel = savePanel();
     const slot = panel.selectedIndex !== null ? panel.slots[panel.selectedIndex] : null;
@@ -700,6 +745,9 @@ export function createGameClient(url: string): GameClient {
               }
             }
           }
+        }
+        if (message.bookDisplay) {
+          openBookReader(message.bookDisplay);
         }
         if (message.ended) {
           pushEvents([{ type: "system", description: "今天已经结束，等待结算。" }]);
@@ -1266,6 +1314,12 @@ export function createGameClient(url: string): GameClient {
       popLayer("confirm-end-day");
     },
     travelogue,
+    bookReader,
+    openBookReader,
+    closeBookReader,
+    nextBookPage,
+    prevBookPage,
+    scrollBookReader,
     selectedTravelogueIndex,
     setSelectedTravelogueIndex,
     openTravelogue: () => {

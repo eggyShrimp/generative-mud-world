@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { NPCEntity } from "../core/types.ts";
+import type { NPCEntity, PlayerEntity } from "../core/types.ts";
 import { buildWorld } from "../core/world-loader";
 
 const miniConfig = {
@@ -391,5 +391,22 @@ describe("WorldLoader", () => {
     const world = buildWorld(config);
     const npc = world.entities.get("npc_01") as NPCEntity;
     expect(npc.inventory).toHaveLength(0);
+  });
+
+  it("should create player items from config", () => {
+    const config = {
+      ...miniConfig,
+      players: [
+        {
+          ...miniConfig.players[0],
+          items: [{ templateId: "copper_coin", quantity: 2 }],
+        },
+      ],
+    };
+
+    const world = buildWorld(config);
+    const player = world.entities.get("player_01") as PlayerEntity;
+
+    expect(player.inventory.filter((item) => item.templateId === "copper_coin")).toHaveLength(7);
   });
 });

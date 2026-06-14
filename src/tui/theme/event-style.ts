@@ -36,6 +36,7 @@ const STYLES: Record<string, EventStyleConfig> = {
   equip: { prefix: "\u2713", color: "#a46bdb" },
   unequip: { prefix: "\u2713", color: "#a46bdb" },
   operate: { prefix: "⚙", color: "#a46bdb" },
+  read: { prefix: "◆", color: "#d4a574" },
 };
 
 const FALLBACK: EventStyleConfig = { prefix: "·", color: "#c7d0d9" };

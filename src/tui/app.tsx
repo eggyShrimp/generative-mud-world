@@ -6,6 +6,7 @@ import { findGroupForItem, groupInventory } from "./features/inventory/grouping.
 import { getLayoutMetrics, getModalMetrics, getStatusPanelMetrics } from "./layout/metrics.ts";
 import { ItemChangeNotificationOverlay } from "./overlays/item-change-notification.tsx";
 import { QuestNotificationOverlay } from "./overlays/quest-notification.tsx";
+import { BookReaderPanel } from "./panels/book-reader/book-reader-panel.tsx";
 import { CombatPanel } from "./panels/combat/combat-panel.tsx";
 import { DialoguePanel } from "./panels/dialogue/dialogue-panel.tsx";
 import { EndDayPanel } from "./panels/end-day/end-day-panel.tsx";
@@ -120,6 +121,7 @@ export function App(props: { client: GameClient }) {
       <DialoguePanel client={props.client} metrics={modalMetrics()} />
       <MapPanel client={props.client} metrics={modalMetrics()} narrow={narrow()} />
       <SavePanel client={props.client} metrics={modalMetrics()} />
+      <BookReaderPanel client={props.client} metrics={modalMetrics()} />
       <CombatPanel client={props.client} entities={visibleEntities()} metrics={modalMetrics()} />
 
       {/* 浮层通知 */}

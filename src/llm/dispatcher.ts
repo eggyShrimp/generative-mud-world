@@ -20,6 +20,8 @@ import {
 } from "./prompts/settlement-growth.ts";
 import { buildWorldEventPrompt } from "./prompts/world-event.ts";
 import { generateRoom, getFallbackRoom } from "./room-generator.ts";
+import { contentPoolMutationFromToolCalls } from "./tool-mutations.ts";
+import { CONTENT_POOL_EVOLVE_TOOLS } from "./tools/content-pool-evolve.ts";
 
 // ============================================================
 // 触发信号
@@ -369,10 +371,15 @@ export class InteractionDispatcher {
           const response = await this.adapter.chat(
             system,
             user,
-            undefined,
-            undefined,
+            CONTENT_POOL_EVOLVE_TOOLS,
+            "auto",
             "content_pool_evolve",
           );
+          const toolMutation = contentPoolMutationFromToolCalls(response.toolCalls);
+          if (toolMutation) {
+            logWrite("srv", "info", "[ContentPoolEvolve] parsed tool mutation");
+            return { ...emptyResult(), contentPoolMutation: toolMutation };
+          }
           const match =
             response.text.match(/```json\n?([\s\S]*?)\n?```/) ??
             response.text.match(/(\{[\s\S]*\})/);

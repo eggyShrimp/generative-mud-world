@@ -40,6 +40,21 @@ export function applyContentPoolMutation(
     }
   }
 
+  if (mutation.addBookContents) {
+    for (const book of mutation.addBookContents) {
+      const index = pool.bookContents.findIndex(
+        (candidate) => candidate.id === book.id || candidate.itemTemplateId === book.itemTemplateId,
+      );
+      if (index >= 0) {
+        pool.bookContents[index] = book;
+        log.push(`更新书籍内容: ${book.id}`);
+      } else {
+        pool.bookContents.push(book);
+        log.push(`新书籍内容: ${book.id}`);
+      }
+    }
+  }
+
   if (mutation.addRoomTemplates) {
     for (const tmpl of mutation.addRoomTemplates) {
       const exists = pool.roomTemplates.find((t) => t.culture === tmpl.culture);

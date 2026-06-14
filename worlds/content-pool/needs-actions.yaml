@@ -76,6 +76,16 @@ itemTemplates:
       readable: true
       spiritual: true
       value: 5
+  - id: caravan_route_notes
+    name: 商道札记
+    properties:
+      readable: true
+      value: 6
+  - id: herb_manual
+    name: 草药手册
+    properties:
+      readable: true
+      value: 4
   - id: camel_bell
     name: 驼铃
     properties:

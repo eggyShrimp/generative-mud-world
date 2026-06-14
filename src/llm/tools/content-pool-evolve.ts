@@ -52,4 +52,32 @@ export const ADD_SCHEDULE_TOOL: ToolDefinition = {
   },
 };
 
-export const CONTENT_POOL_EVOLVE_TOOLS: ToolDefinition[] = [ADD_ACTION_TOOL, ADD_SCHEDULE_TOOL];
+export const ADD_BOOK_CONTENT_TOOL: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "add_book_content",
+    description: "向内容池添加或更新一本可阅读物品对应的书籍内容",
+    parameters: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "书籍内容稳定 ID" },
+        itemTemplateId: { type: "string", description: "关联的可阅读物品模板 ID" },
+        title: { type: "string", description: "阅读器标题" },
+        pages: {
+          type: "array",
+          description:
+            "书内正文的分页文本。每页应是玩家实际读到的正文，不是第三方介绍；建议每页 300-600 个中文字符。",
+          items: { type: "string", minLength: 120 },
+          minItems: 1,
+        },
+      },
+      required: ["id", "itemTemplateId", "title", "pages"],
+    },
+  },
+};
+
+export const CONTENT_POOL_EVOLVE_TOOLS: ToolDefinition[] = [
+  ADD_ACTION_TOOL,
+  ADD_SCHEDULE_TOOL,
+  ADD_BOOK_CONTENT_TOOL,
+];

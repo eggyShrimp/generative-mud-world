@@ -1,5 +1,6 @@
 import {
   ActionEffectSchema,
+  BookContentSchema,
   NamePoolSchema,
   NewNPCDefSchema,
   NewRoomDefSchema,
@@ -118,6 +119,20 @@ export function contentPoolMutationFromToolCalls(
         };
         mutation.addScheduleTemplates = mutation.addScheduleTemplates ?? [];
         mutation.addScheduleTemplates.push(scheduleTemplate);
+        break;
+      }
+      case "add_book_content": {
+        const result = BookContentSchema.safeParse(args);
+        if (!result.success) {
+          logWrite(
+            "srv",
+            "warn",
+            `[LLMTool] invalid add_book_content ignored: ${result.error.message}`,
+          );
+          break;
+        }
+        mutation.addBookContents = mutation.addBookContents ?? [];
+        mutation.addBookContents.push(result.data);
         break;
       }
       case "add_room_template": {

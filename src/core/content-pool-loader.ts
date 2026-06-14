@@ -5,6 +5,7 @@ import { z } from "zod";
 import { logWrite } from "../shared/log.ts";
 import {
   ActionEffectSchema,
+  BookContentSchema,
   CalendarConfigSchema,
   CombatConfigSchema,
   CombatSkillSchema,
@@ -46,6 +47,7 @@ import { createDefaultContentPool } from "./world";
 // 每个 YAML 文件包含的 ContentPool 字段
 const DOMAIN_FIELDS: Record<string, (keyof ContentPool)[]> = {
   "needs-actions": ["needDefinitions", "actionEffects", "needActionMap", "itemTemplates"],
+  books: ["bookContents"],
   schedules: ["scheduleTemplates", "behaviorAtoms"],
   "social-dialogue": [
     "dialogueEffectMapping",
@@ -74,6 +76,9 @@ const DOMAIN_SCHEMAS: Record<string, Record<string, unknown>> = {
     actionEffects: z.array(ActionEffectSchema),
     needActionMap: z.array(NeedActionMappingSchema),
     itemTemplates: z.array(ItemTemplateSchema),
+  },
+  books: {
+    bookContents: z.array(BookContentSchema),
   },
   schedules: {
     scheduleTemplates: z.array(RoleScheduleTemplateSchema),
@@ -141,6 +146,19 @@ function validateActionEffectsConsistency(pool: ContentPool): void {
   }
 }
 
+function validateReadableBookConsistency(pool: ContentPool): void {
+  const bookItemTemplateIds = new Set(pool.bookContents.map((book) => book.itemTemplateId));
+  const missing = pool.itemTemplates
+    .filter((item) => item.properties.readable === true && !bookItemTemplateIds.has(item.id))
+    .map((item) => item.id);
+
+  if (missing.length > 0) {
+    throw new Error(
+      `ContentPool 交叉字段一致性校验失败 — 以下 readable itemTemplates 缺少 bookContents:\n${missing.map((id) => `  - ${id}`).join("\n")}`,
+    );
+  }
+}
+
 /**
  * 从 YAML 目录加载 ContentPool
  * @param poolDir worlds/content-pool/ 目录路径
@@ -185,6 +203,7 @@ export function loadContentPoolFromDir(poolDir: string): ContentPool {
 
   // 4. 交叉字段一致性校验（门禁）
   validateActionEffectsConsistency(defaults);
+  validateReadableBookConsistency(defaults);
 
   logWrite("srv", "info", `[ContentPoolLoader] Loading from: ${poolDir}`);
   logWrite(
@@ -232,6 +251,12 @@ export function writeEvolveDeltas(
       needDefinitions: currentPool.needDefinitions,
       actionEffects: currentPool.actionEffects,
       needActionMap: currentPool.needActionMap,
+    });
+  }
+
+  if (mutation.addBookContents?.length) {
+    affectedDomains.set("books", {
+      bookContents: currentPool.bookContents,
     });
   }
 

@@ -478,6 +478,9 @@ export interface ContentPool {
   // 物品模板: 稳定的物品定义 (LLM 可演化)
   itemTemplates: ItemTemplate[];
 
+  // 书籍内容: 可阅读物品模板 → 分页文本 (LLM 可演化)
+  bookContents: BookContent[];
+
   // 任务模板: 任务/剧情定义 (LLM 可演化)
   questTemplates: QuestTemplate[];
 
@@ -527,6 +530,7 @@ export interface ContentPoolMutation {
   addNamePools?: NamePool[];
   addRoomTemplates?: RoomTemplatePool[];
   addQuestTemplates?: QuestTemplate[];
+  addBookContents?: BookContent[];
   addCombatSkills?: CombatSkill[];
   replaceNarrativeTemplates?: Partial<NarrativeTemplates>;
   replaceCalendar?: Partial<CalendarConfig>;
@@ -552,6 +556,13 @@ export interface NamePool {
   femaleGiven: string[]; // ["秀", "兰", "春芽"]
   neutralGiven: string[]; // ["石头", "小河"]
   epithetPatterns: string[]; // ["{role}{name}", "老{char}", "小{char}"]
+}
+
+export interface BookContent {
+  id: string;
+  itemTemplateId: string;
+  title: string;
+  pages: string[];
 }
 
 export interface MemoryTemplates {
@@ -606,6 +617,12 @@ export interface CommandMessages {
   unequip: string;
   eatWithEffect: string;
   eatNoEffect: string;
+  readWithEffect: string;
+  readNoEffect: string;
+  readMissingContent: string;
+  readNotReadable: string;
+  readSpecifyItem: string;
+  readItemNotFound: string;
   roomAction: string;
   roomActionWithEffect: string;
 }

@@ -150,4 +150,30 @@ describe("LLM tool mutation parsing", () => {
     expect(mutation?.addRoomTemplates).toHaveLength(1);
     expect(mutation?.addNamePools).toHaveLength(1);
   });
+
+  it("builds ContentPoolMutation from book content tool calls", () => {
+    const mutation = contentPoolMutationFromToolCalls([
+      {
+        id: "call_1",
+        function: {
+          name: "add_book_content",
+          arguments: JSON.stringify({
+            id: "sutra_copy",
+            itemTemplateId: "sutra_copy",
+            title: "佛经抄本",
+            pages: ["第一页", "第二页"],
+          }),
+        },
+      },
+    ]);
+
+    expect(mutation?.addBookContents).toEqual([
+      {
+        id: "sutra_copy",
+        itemTemplateId: "sutra_copy",
+        title: "佛经抄本",
+        pages: ["第一页", "第二页"],
+      },
+    ]);
+  });
 });

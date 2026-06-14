@@ -72,10 +72,7 @@ interface NPCConfig {
     importance: number;
     type?: "observation" | "conversation" | "reflection" | "event";
   }>;
-  items?: Array<{
-    name: string;
-    properties?: Record<string, unknown>;
-  }>;
+  items?: InventoryItemConfig[];
 }
 
 interface PlayerConfig {
@@ -85,6 +82,14 @@ interface PlayerConfig {
   description?: string;
   traits?: Array<{ name: string; value: number }>;
   needs?: Record<string, number>;
+  items?: InventoryItemConfig[];
+}
+
+interface InventoryItemConfig {
+  templateId?: string;
+  quantity?: number;
+  name?: string;
+  properties?: Record<string, unknown>;
 }
 
 export function loadWorldFromYaml(yamlPath: string): WorldState {
@@ -154,51 +159,7 @@ export function buildWorld(config: WorldConfig, pool?: ContentPool): WorldState 
             };
           })
         : [];
-      const inventory = (npc.items ?? []).flatMap((item) => {
-        // New schema: { templateId, quantity? }
-        const raw = item as Record<string, unknown>;
-        const templateId = raw.templateId as string | undefined;
-        if (templateId) {
-          const template = contentPool.itemTemplates.find((t) => t.id === templateId);
-          if (!template) {
-            logWrite(
-              "srv",
-              "warn",
-              `[world-loader] NPC ${npc.name}: unknown templateId "${templateId}"`,
-            );
-            return [];
-          }
-          const quantity = (raw.quantity as number) ?? 1;
-          const entities: ItemEntity[] = [];
-          for (let i = 0; i < quantity; i++) {
-            const itemEntity = createItem(
-              `${npc.id}_item_${templateId}_${i}`,
-              template.name,
-              templateId,
-              template.properties ?? {},
-              npc.id,
-            );
-            itemEntity.ownerId = npc.id;
-            addEntity(world, itemEntity);
-            entities.push(itemEntity);
-          }
-          return entities;
-        }
-        // Old schema fallback: { name, properties? }
-        const name = (item as { name?: string }).name ?? "";
-        const props = (item as { properties?: Record<string, unknown> }).properties ?? {};
-        const oldTemplateId = (props.templateId as string) || name;
-        const itemEntity = createItem(
-          `${npc.id}_item_${Date.now()}`,
-          name,
-          oldTemplateId,
-          props,
-          npc.id,
-        );
-        itemEntity.ownerId = npc.id;
-        addEntity(world, itemEntity);
-        return [itemEntity];
-      });
+      const inventory = createInventoryItems(world, contentPool, npc.id, npc.items, npc.name);
       const entity = createNPC(
         npc.id,
         {
@@ -276,6 +237,9 @@ export function buildWorld(config: WorldConfig, pool?: ContentPool): WorldState 
         player.description,
         player.traits,
       );
+      entity.inventory.push(
+        ...createInventoryItems(world, contentPool, player.id, player.items, player.name),
+      );
       addEntity(world, entity);
     }
   } else {
@@ -309,6 +273,56 @@ export function buildWorld(config: WorldConfig, pool?: ContentPool): WorldState 
   }
 
   return world;
+}
+
+function createInventoryItems(
+  world: WorldState,
+  contentPool: ContentPool,
+  ownerId: string,
+  items: InventoryItemConfig[] | undefined,
+  ownerName: string,
+): ItemEntity[] {
+  const result: ItemEntity[] = [];
+  let index = 0;
+  for (const item of items ?? []) {
+    const templateId = item.templateId;
+    if (templateId) {
+      const template = contentPool.itemTemplates.find((t) => t.id === templateId);
+      if (!template) {
+        logWrite("srv", "warn", `[world-loader] ${ownerName}: unknown templateId "${templateId}"`);
+        continue;
+      }
+      const quantity = item.quantity ?? 1;
+      for (let i = 0; i < quantity; i++) {
+        const itemEntity = createItem(
+          `${ownerId}_item_${templateId}_${index++}`,
+          template.name,
+          templateId,
+          template.properties ?? {},
+          ownerId,
+        );
+        itemEntity.ownerId = ownerId;
+        addEntity(world, itemEntity);
+        result.push(itemEntity);
+      }
+      continue;
+    }
+
+    const name = item.name ?? "";
+    const props = item.properties ?? {};
+    const oldTemplateId = (props.templateId as string) || name;
+    const itemEntity = createItem(
+      `${ownerId}_item_${index++}`,
+      name,
+      oldTemplateId,
+      props,
+      ownerId,
+    );
+    itemEntity.ownerId = ownerId;
+    addEntity(world, itemEntity);
+    result.push(itemEntity);
+  }
+  return result;
 }
 
 // ============================================================
