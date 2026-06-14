@@ -6,6 +6,7 @@ import type {
   DialogueOption,
   EntityState,
   RoomInfo,
+  SaveSlotInfo,
   ServerMessage,
   StatusMessage,
   TradeOption,
@@ -279,6 +280,13 @@ export interface MapCursor {
   regionId?: string;
 }
 
+export interface SavePanelState {
+  slots: SaveSlotInfo[];
+  selectedIndex: number | null;
+  loading: boolean;
+  message: string | null;
+}
+
 // ── GameClient interface ──
 // 62 个成员：22 个信号读取器、5 个计算属性、5 个 setter、30 个动作方法。
 // 面板通过 props.client 接收此接口，不应直接导入 createGameClient。
@@ -354,6 +362,16 @@ export interface GameClient {
   setSelectedTravelogueIndex: (index: number | null) => void;
   openTravelogue: () => void;
   closeTravelogue: () => void;
+  saveSlots: () => SaveSlotInfo[];
+  selectedSaveSlotIndex: () => number | null;
+  setSelectedSaveSlotIndex: (index: number | null) => void;
+  savePanelLoading: () => boolean;
+  savePanelMessage: () => string | null;
+  openSavePanel: () => void;
+  closeSavePanel: () => void;
+  requestSaveSlots: () => void;
+  manualSave: () => void;
+  createSaveSlot: () => void;
 }
 
 export interface RestOption {
@@ -495,6 +513,12 @@ export function createGameClient(url: string): GameClient {
   const [endDayOptions, setEndDayOptions] = createSignal<RestOption[]>([]);
   const [travelogue, setTravelogue] = createSignal<TravelogueEntry[]>([]);
   const [selectedTravelogueIndex, setSelectedTravelogueIndex] = createSignal<number | null>(null);
+  const [savePanel, setSavePanel] = createSignal<SavePanelState>({
+    slots: [],
+    selectedIndex: null,
+    loading: false,
+    message: null,
+  });
 
   let combatTargetId: string | null = null;
   let _combatTargetName: string | null = null;
@@ -591,6 +615,47 @@ export function createGameClient(url: string): GameClient {
     }
     ws.send(JSON.stringify(data));
     return true;
+  };
+
+  const selectDefaultSaveSlot = (slots: SaveSlotInfo[]): number | null => {
+    if (slots.length === 0) return null;
+    const current = slots.findIndex((slot) => slot.isCurrent);
+    return current >= 0 ? current : 0;
+  };
+
+  const makeSlotId = (): string => {
+    const date = new Date();
+    const pad = (value: number) => String(value).padStart(2, "0");
+    return `slot_${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+  };
+
+  const requestSaveSlots = () => {
+    setSavePanel((prev) => ({ ...prev, loading: true, message: null }));
+    if (!send({ type: "request_save_slots" })) {
+      setSavePanel((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
+  const manualSave = () => {
+    const panel = savePanel();
+    const slot = panel.selectedIndex !== null ? panel.slots[panel.selectedIndex] : null;
+    const slotId = slot?.slotId;
+    setSavePanel((prev) => ({
+      ...prev,
+      loading: true,
+      message: slotId ? `正在保存到 ${slotId}...` : "正在保存...",
+    }));
+    if (!send({ type: "manual_save", slotId })) {
+      setSavePanel((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
+  const createSaveSlot = () => {
+    const slotId = makeSlotId();
+    setSavePanel((prev) => ({ ...prev, loading: true, message: `正在创建 ${slotId}...` }));
+    if (!send({ type: "create_save_slot", slotId })) {
+      setSavePanel((prev) => ({ ...prev, loading: false }));
+    }
   };
 
   const handleMessage = (message: ServerMessage) => {
@@ -702,6 +767,39 @@ export function createGameClient(url: string): GameClient {
       case "travelogue_data": {
         const msg = message as TravelogueDataMessage;
         setTravelogue(msg.entries);
+        break;
+      }
+      case "save_slots": {
+        setSavePanel((prev) => {
+          const selectedIndex =
+            prev.selectedIndex !== null && prev.selectedIndex < message.slots.length
+              ? prev.selectedIndex
+              : selectDefaultSaveSlot(message.slots);
+          return {
+            ...prev,
+            slots: message.slots,
+            selectedIndex,
+            loading: false,
+          };
+        });
+        break;
+      }
+      case "save_result": {
+        setSavePanel((prev) => ({
+          ...prev,
+          loading: false,
+          message: message.ok
+            ? `已保存到 ${message.slot?.slotId ?? "当前存档"}`
+            : (message.error ?? "存档操作失败"),
+        }));
+        pushEvents([
+          {
+            type: message.ok ? "system" : "error",
+            description: message.ok
+              ? `存档已保存：${message.slot?.slotId ?? "当前存档"}`
+              : (message.error ?? "存档操作失败"),
+          },
+        ]);
         break;
       }
       case "status":
@@ -1180,5 +1278,26 @@ export function createGameClient(url: string): GameClient {
       setSelectedTravelogueIndex(null);
       popLayer("travelogue");
     },
+    saveSlots: () => savePanel().slots,
+    selectedSaveSlotIndex: () => savePanel().selectedIndex,
+    setSelectedSaveSlotIndex: (index: number | null) => {
+      setSavePanel((prev) => ({ ...prev, selectedIndex: index }));
+    },
+    savePanelLoading: () => savePanel().loading,
+    savePanelMessage: () => savePanel().message,
+    openSavePanel: () => {
+      setSelectedEntityId(null);
+      setSelectedInventoryItemId(null);
+      hideDialogue();
+      pushLayer("save");
+      requestSaveSlots();
+    },
+    closeSavePanel: () => {
+      setSavePanel((prev) => ({ ...prev, loading: false }));
+      popLayer("save");
+    },
+    requestSaveSlots,
+    manualSave,
+    createSaveSlot,
   };
 }

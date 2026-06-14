@@ -20,7 +20,18 @@ async function main() {
   const world = loadWorldFromYaml(worldFile);
   const worldId = basename(worldFile, extname(worldFile));
   const saveSlot = process.env.SAVE_SLOT ?? "slot_001";
-  const saveManager = SaveManager.load(saveSlot, worldId);
+  const saveRoot = process.env.SAVE_DIR ?? "saves";
+  const saveSelect = process.env.SAVE_SELECT ?? "skip";
+  if (saveSelect !== "skip") {
+    logWrite("srv", "warn", `SAVE_SELECT=${saveSelect} is not implemented yet; using SAVE_SLOT`);
+  }
+  const saveManager = SaveManager.load({
+    rootDir: saveRoot,
+    slotId: saveSlot,
+    worldId,
+    currentTick: world.tick,
+    currentRound: world.round,
+  });
   hookEventLog(world);
   const eventBus = new EventBus();
 
@@ -114,6 +125,17 @@ async function main() {
     return dialogueGenerator.generateTradeMenu(world, playerId, npcId);
   });
 
+  server.setSaveHandlers({
+    listSlots: () => saveManager.listSlots(),
+    manualSave: (slotId) => {
+      if (slotId) return saveManager.saveAs(slotId, world);
+      saveManager.capture(world);
+      saveManager.save();
+      return saveManager.toSlotInfo();
+    },
+    createSlot: (slotId) => saveManager.saveAs(slotId, world),
+  });
+
   // Game loop: when all players end their day, settle
   const gameLoop = engine.startLoop({
     getPlayerIds: () => server.getConnectedPlayerIds(),
@@ -149,6 +171,7 @@ async function main() {
 
   const gracefulShutdown = () => {
     logWrite("srv", "info", "Shutting down, saving...");
+    saveManager.capture(world);
     saveManager.save();
     process.exit(0);
   };

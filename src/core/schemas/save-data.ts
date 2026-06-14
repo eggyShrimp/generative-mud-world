@@ -14,6 +14,7 @@ export const SaveMetaSchema = z.object({
 });
 
 export const SaveDataSchema = z.object({
+  version: z.literal(1).default(1),
   meta: SaveMetaSchema,
   conversations: z.object({
     summaries: z.record(z.string(), z.array(ConversationSummaryEntrySchema)),

@@ -424,6 +424,13 @@ const BASE_LAYER: KeyLayer = {
       color: "#6fc3bd",
       group: "global",
     },
+    {
+      key: "v",
+      handler: (c) => c.openSavePanel(),
+      label: "存档",
+      color: "#8fb9e8",
+      group: "global",
+    },
 
     // Entity select (1-9 pattern)
     {
@@ -675,6 +682,44 @@ const TRAVELOGUE_LAYER: KeyLayer = {
   ],
 };
 
+const SAVE_LAYER: KeyLayer = {
+  id: "save",
+  priority: 50,
+  bindings: [
+    {
+      key: ["escape", "v"],
+      handler: (c) => c.closeSavePanel(),
+      label: "关闭",
+    },
+    {
+      key: "s",
+      handler: (c) => c.manualSave(),
+      label: "保存",
+    },
+    {
+      key: "r",
+      handler: (c) => c.requestSaveSlots(),
+      label: "刷新",
+    },
+    {
+      key: "n",
+      handler: (c) => c.createSaveSlot(),
+      label: "新建",
+    },
+    {
+      key: "1-9",
+      handler: (c, keyName) => {
+        const idx = Number(keyName) - 1;
+        if (idx >= 0 && idx < c.saveSlots().length) {
+          c.setSelectedSaveSlotIndex(idx);
+        }
+      },
+      label: "",
+      enabled: (c) => c.saveSlots().length > 0,
+    },
+  ],
+};
+
 const DIALOGUE_LAYER: KeyLayer = {
   id: "dialogue",
   priority: 60,
@@ -757,6 +802,7 @@ const ALL_LAYERS: Record<string, KeyLayer> = {
   inventory: INVENTORY_LAYER,
   quests: QUESTS_LAYER,
   travelogue: TRAVELOGUE_LAYER,
+  save: SAVE_LAYER,
   "quest-notification": QUEST_NOTIFICATION_LAYER,
   "item-change-notification": ITEM_CHANGE_NOTIFICATION_LAYER,
   "confirm-end-day": CONFIRM_END_DAY_LAYER,

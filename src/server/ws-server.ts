@@ -22,6 +22,7 @@ import type {
   MinimapData,
   MinimapTile,
   QuestInfo,
+  SaveSlotInfo,
 } from "../shared/protocol.ts";
 
 export function enrichQuests(quests: ActiveQuest[], templates: QuestTemplate[]): QuestInfo[] {
@@ -111,6 +112,20 @@ const RequestTravelogueSchema = z.object({
   type: z.literal("request_travelogue"),
 });
 
+const RequestSaveSlotsSchema = z.object({
+  type: z.literal("request_save_slots"),
+});
+
+const ManualSaveSchema = z.object({
+  type: z.literal("manual_save"),
+  slotId: z.string().min(1).optional(),
+});
+
+const CreateSaveSlotSchema = z.object({
+  type: z.literal("create_save_slot"),
+  slotId: z.string().min(1),
+});
+
 const ClientMessageSchema = z.discriminatedUnion("type", [
   BindEntitySchema,
   ExecuteSchema,
@@ -121,6 +136,9 @@ const ClientMessageSchema = z.discriminatedUnion("type", [
   TradeSchema,
   EncounterResponseSchema,
   RequestTravelogueSchema,
+  RequestSaveSlotsSchema,
+  ManualSaveSchema,
+  CreateSaveSlotSchema,
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
@@ -169,6 +187,9 @@ export type TradeOptionsHandler = (
   playerId: EntityId,
   npcId: string,
 ) => Promise<import("../shared/protocol.ts").TradeOption[]>;
+export type SaveSlotsHandler = () => SaveSlotInfo[];
+export type ManualSaveHandler = (slotId?: string) => SaveSlotInfo;
+export type CreateSaveSlotHandler = (slotId: string) => SaveSlotInfo;
 
 export class GameServer {
   private wss: WebSocketServer;
@@ -179,6 +200,9 @@ export class GameServer {
   private onDialogueOptions?: DialogueOptionsHandler;
   private onChatOptions?: ChatOptionsHandler;
   private onTradeOptions?: TradeOptionsHandler;
+  private onSaveSlots?: SaveSlotsHandler;
+  private onManualSave?: ManualSaveHandler;
+  private onCreateSaveSlot?: CreateSaveSlotHandler;
   private llmReachable = false;
 
   constructor(port: number, world: WorldState, eventBus: EventBus) {
@@ -256,6 +280,16 @@ export class GameServer {
 
   setTradeOptionsHandler(handler: TradeOptionsHandler): void {
     this.onTradeOptions = handler;
+  }
+
+  setSaveHandlers(handlers: {
+    listSlots: SaveSlotsHandler;
+    manualSave: ManualSaveHandler;
+    createSlot: CreateSaveSlotHandler;
+  }): void {
+    this.onSaveSlots = handlers.listSlots;
+    this.onManualSave = handlers.manualSave;
+    this.onCreateSaveSlot = handlers.createSlot;
   }
 
   getConnectedPlayerIds(): EntityId[] {
@@ -598,6 +632,65 @@ export class GameServer {
               entries: (playerEntity as PlayerEntity).travelogue,
             });
           }
+        }
+        break;
+      }
+
+      case "request_save_slots": {
+        if (!this.onSaveSlots) {
+          this.send(session, {
+            type: "save_result",
+            ok: false,
+            error: "存档服务不可用",
+          });
+          break;
+        }
+        this.send(session, { type: "save_slots", slots: this.onSaveSlots() });
+        break;
+      }
+
+      case "manual_save": {
+        if (!this.onManualSave) {
+          this.send(session, {
+            type: "save_result",
+            ok: false,
+            error: "存档服务不可用",
+          });
+          break;
+        }
+        try {
+          const slot = this.onManualSave(msg.slotId);
+          this.send(session, { type: "save_result", ok: true, slot });
+          this.send(session, { type: "save_slots", slots: this.onSaveSlots?.() ?? [slot] });
+        } catch (err) {
+          this.send(session, {
+            type: "save_result",
+            ok: false,
+            error: `保存失败: ${String(err)}`,
+          });
+        }
+        break;
+      }
+
+      case "create_save_slot": {
+        if (!this.onCreateSaveSlot) {
+          this.send(session, {
+            type: "save_result",
+            ok: false,
+            error: "存档服务不可用",
+          });
+          break;
+        }
+        try {
+          const slot = this.onCreateSaveSlot(msg.slotId);
+          this.send(session, { type: "save_result", ok: true, slot });
+          this.send(session, { type: "save_slots", slots: this.onSaveSlots?.() ?? [slot] });
+        } catch (err) {
+          this.send(session, {
+            type: "save_result",
+            ok: false,
+            error: `创建存档失败: ${String(err)}`,
+          });
         }
         break;
       }

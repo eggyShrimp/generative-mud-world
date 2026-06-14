@@ -54,9 +54,36 @@
 
 - [ ] Derive `worldId` from the world file or explicit config.
 - [ ] Load SaveData after `loadWorldFromYaml()`.
+- [ ] Add `SAVE_SELECT=skip|prompt` behavior.
+- [ ] Keep `SAVE_SELECT=skip` suitable for development so local startup can load `SAVE_SLOT` directly.
 - [ ] Pass SaveData access to `DialogueGenerator`.
 - [ ] On shutdown, call `saveManager.capture(world)` before `saveManager.save()`.
 - [ ] Keep `SAVE_SLOT` and add or support `SAVE_DIR` for local/test separation.
+
+## Module: `src/shared/protocol.ts` and `src/server/ws-server.ts` — Save Protocol
+
+- [ ] Add `SaveSlotInfo` DTO.
+- [ ] Add `request_save_slots` client message.
+- [ ] Add `manual_save` client message.
+- [ ] Add `create_save_slot` client message.
+- [ ] Add `save_slots` server message.
+- [ ] Add `save_result` server message.
+- [ ] Implement `request_save_slots` using SaveManager list metadata, not raw SaveData.
+- [ ] Implement `manual_save` as `saveManager.capture(world)` then `saveManager.save()`.
+- [ ] Implement `create_save_slot` without switching runtime slot unless full restore/switch support exists.
+
+## Module: TUI Save Panel
+
+- [ ] Add save panel state to `game-client.ts`.
+- [ ] Add a key/action to open the Save panel.
+- [ ] Render a two-column Save panel similar to the trade panel.
+- [ ] Left column: slot list, current marker, and keyed actions.
+- [ ] Right column: selected slot details including world id, saved time, tick, round, version, summary counts, and validation status.
+- [ ] Add manual save action.
+- [ ] Add refresh slot list action.
+- [ ] Add create slot action.
+- [ ] Do not add in-game load/switch action until `restore(world)` can restore full world state.
+- [ ] Keep TUI dependent on protocol DTOs only. Do not import `SaveManager` or `SaveData`.
 
 ## Module: Tests
 
@@ -72,6 +99,10 @@
 - [ ] Test different player-NPC pairs do not collide.
 - [ ] Test dialogue close does not await the summary task.
 - [ ] Test summary task failure logs and does not fail close.
+- [ ] Add WebSocket integration test for `manual_save` with a temporary save directory.
+- [ ] Add WebSocket integration test for `request_save_slots`.
+- [ ] Add TUI unit test for Save panel two-column rendering data.
+- [ ] Add startup test or wiring test for `SAVE_SELECT=skip`.
 
 ## Module: Tooling Guardrails
 

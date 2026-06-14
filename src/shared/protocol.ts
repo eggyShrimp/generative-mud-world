@@ -217,6 +217,18 @@ export interface CommandEvent {
   description: string;
 }
 
+export interface SaveSlotInfo {
+  slotId: string;
+  worldId: string;
+  savedAt: number;
+  gameTick: number;
+  round: number;
+  version: number;
+  isCurrent: boolean;
+  summaryCount: number;
+  valid: boolean;
+}
+
 // ============================================================
 // Client → Server 消息
 // ============================================================
@@ -266,6 +278,20 @@ export interface RequestTravelogueMessage {
   type: "request_travelogue";
 }
 
+export interface RequestSaveSlotsMessage {
+  type: "request_save_slots";
+}
+
+export interface ManualSaveMessage {
+  type: "manual_save";
+  slotId?: string;
+}
+
+export interface CreateSaveSlotMessage {
+  type: "create_save_slot";
+  slotId: string;
+}
+
 export type ClientMessage =
   | BindEntityMessage
   | ExecuteMessage
@@ -274,7 +300,10 @@ export type ClientMessage =
   | RequestTradeOptionsMessage
   | TalkMessage
   | TradeMessage
-  | RequestTravelogueMessage;
+  | RequestTravelogueMessage
+  | RequestSaveSlotsMessage
+  | ManualSaveMessage
+  | CreateSaveSlotMessage;
 
 // ============================================================
 // Server → Client 消息
@@ -392,6 +421,18 @@ export interface TravelogueDataMessage {
   }>;
 }
 
+export interface SaveSlotsMessage {
+  type: "save_slots";
+  slots: SaveSlotInfo[];
+}
+
+export interface SaveResultMessage {
+  type: "save_result";
+  ok: boolean;
+  slot?: SaveSlotInfo;
+  error?: string;
+}
+
 export type ServerMessage =
   | InitMessage
   | BoundMessage
@@ -404,7 +445,9 @@ export type ServerMessage =
   | SettlementStartedMessage
   | StatusMessage
   | ErrorMessage
-  | TravelogueDataMessage;
+  | TravelogueDataMessage
+  | SaveSlotsMessage
+  | SaveResultMessage;
 
 // ============================================================
 // 联合类型

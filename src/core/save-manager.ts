@@ -8,17 +8,48 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { logWrite } from "../shared/log.ts";
+import type { SaveSlotInfo } from "../shared/protocol.ts";
 import { SaveDataSchema } from "./schemas/index.ts";
-import type { SaveData, SaveMeta } from "./types";
+import type { SaveData, SaveMeta, WorldState } from "./types";
 
-const SAVES_DIR = "saves";
+const DEFAULT_SAVES_DIR = "saves";
+
+export interface SaveLoadOptions {
+  rootDir?: string;
+  slotId: string;
+  worldId: string;
+  currentTick?: number;
+  currentRound?: number;
+}
+
+function nowSeconds(): number {
+  return Math.floor(Date.now() / 1000);
+}
+
+function emptySaveData(slotId: string, worldId: string, tick: number, round: number): SaveData {
+  return {
+    version: 1,
+    meta: {
+      slotId,
+      worldId,
+      savedAt: nowSeconds(),
+      gameTick: tick,
+      round,
+    },
+    conversations: {
+      summaries: {},
+    },
+  };
+}
 
 export class SaveManager {
   #data: SaveData;
+  readonly #rootDir: string;
   readonly #slotId: string;
 
-  private constructor(data: SaveData) {
+  private constructor(data: SaveData, rootDir: string) {
     this.#data = data;
+    this.#rootDir = rootDir;
     this.#slotId = data.meta.slotId;
   }
 
@@ -26,12 +57,35 @@ export class SaveManager {
     return this.#data;
   }
 
-  static load(slotId: string, worldId: string): SaveManager {
-    const filePath = join(SAVES_DIR, `${slotId}.json`);
+  static load(slotId: string, worldId: string): SaveManager;
+  static load(options: SaveLoadOptions): SaveManager;
+  static load(optionsOrSlotId: SaveLoadOptions | string, maybeWorldId?: string): SaveManager {
+    const options =
+      typeof optionsOrSlotId === "string"
+        ? {
+            slotId: optionsOrSlotId,
+            worldId: maybeWorldId ?? "default",
+            rootDir: DEFAULT_SAVES_DIR,
+            currentTick: 0,
+            currentRound: 0,
+          }
+        : {
+            rootDir: DEFAULT_SAVES_DIR,
+            currentTick: 0,
+            currentRound: 0,
+            ...optionsOrSlotId,
+          };
+    const filePath = join(options.rootDir, `${options.slotId}.json`);
 
     if (!existsSync(filePath)) {
-      logWrite("srv", "info", `SaveManager: slot "${slotId}" not found, creating new save`);
-      return SaveManager.create(slotId, worldId, 0, 0);
+      logWrite("srv", "info", `SaveManager: slot "${options.slotId}" not found, creating new save`);
+      return SaveManager.create({
+        rootDir: options.rootDir,
+        slotId: options.slotId,
+        worldId: options.worldId,
+        currentTick: options.currentTick,
+        currentRound: options.currentRound,
+      });
     }
 
     try {
@@ -43,77 +97,149 @@ export class SaveManager {
         logWrite(
           "srv",
           "warn",
-          `SaveManager: slot "${slotId}" validation failed: ${result.error.message}, creating new save`,
+          `SaveManager: slot "${options.slotId}" validation failed: ${result.error.message}, creating new save`,
         );
-        return SaveManager.create(slotId, worldId, 0, 0);
+        return SaveManager.create(options);
       }
 
       const data = result.data;
-      if (data.meta.slotId !== slotId) {
+      if (data.meta.worldId !== options.worldId) {
         logWrite(
           "srv",
           "warn",
-          `SaveManager: slot "${slotId}" meta mismatch (expected ${slotId}, got ${data.meta.slotId}), using file's slotId`,
+          `SaveManager: slot "${options.slotId}" world mismatch (expected ${options.worldId}, got ${data.meta.worldId}), creating new save`,
+        );
+        return SaveManager.create(options);
+      }
+      if (data.meta.slotId !== options.slotId) {
+        logWrite(
+          "srv",
+          "warn",
+          `SaveManager: slot "${options.slotId}" meta mismatch (expected ${options.slotId}, got ${data.meta.slotId}), using file's slotId`,
         );
       }
 
       logWrite(
         "srv",
         "info",
-        `SaveManager: loaded slot "${slotId}" (tick ${data.meta.gameTick}, round ${data.meta.round})`,
+        `SaveManager: loaded slot "${options.slotId}" (tick ${data.meta.gameTick}, round ${data.meta.round})`,
       );
-      return new SaveManager(data);
+      return new SaveManager(data, options.rootDir);
     } catch (err) {
       logWrite(
         "srv",
         "warn",
-        `SaveManager: failed to load slot "${slotId}": ${String(err)}, creating new save`,
+        `SaveManager: failed to load slot "${options.slotId}": ${String(err)}, creating new save`,
       );
-      return SaveManager.create(slotId, worldId, 0, 0);
+      return SaveManager.create(options);
     }
   }
 
-  static create(slotId: string, worldId: string, tick: number, round: number): SaveManager {
-    const data: SaveData = {
-      meta: {
-        slotId,
-        worldId,
-        savedAt: Math.floor(Date.now() / 1000),
-        gameTick: tick,
-        round,
-      },
-      conversations: {
-        summaries: {},
-      },
-    };
-    return new SaveManager(data);
+  static create(slotId: string, worldId: string, tick: number, round: number): SaveManager;
+  static create(options: SaveLoadOptions): SaveManager;
+  static create(
+    optionsOrSlotId: SaveLoadOptions | string,
+    maybeWorldId?: string,
+    maybeTick = 0,
+    maybeRound = 0,
+  ): SaveManager {
+    const options =
+      typeof optionsOrSlotId === "string"
+        ? {
+            rootDir: DEFAULT_SAVES_DIR,
+            slotId: optionsOrSlotId,
+            worldId: maybeWorldId ?? "default",
+            currentTick: maybeTick,
+            currentRound: maybeRound,
+          }
+        : {
+            rootDir: DEFAULT_SAVES_DIR,
+            currentTick: 0,
+            currentRound: 0,
+            ...optionsOrSlotId,
+          };
+    return new SaveManager(
+      emptySaveData(
+        options.slotId,
+        options.worldId,
+        options.currentTick ?? 0,
+        options.currentRound ?? 0,
+      ),
+      options.rootDir,
+    );
   }
 
-  static listSlots(): string[] {
-    if (!existsSync(SAVES_DIR)) return [];
-    return readdirSync(SAVES_DIR)
+  static listSlots(rootDir = DEFAULT_SAVES_DIR): string[] {
+    if (!existsSync(rootDir)) return [];
+    return readdirSync(rootDir)
       .filter((f) => f.endsWith(".json"))
       .map((f) => f.replace(/\.json$/, ""));
   }
 
+  static createSlot(options: SaveLoadOptions): SaveSlotInfo {
+    const manager = SaveManager.create(options);
+    manager.save();
+    return manager.toSlotInfo();
+  }
+
+  listSlots(): SaveSlotInfo[] {
+    return SaveManager.listSlots(this.#rootDir)
+      .map((slotId) => this.readSlotInfo(slotId))
+      .filter((slot): slot is SaveSlotInfo => slot !== null)
+      .sort((a, b) => b.savedAt - a.savedAt || a.slotId.localeCompare(b.slotId));
+  }
+
   save(): void {
-    if (!existsSync(SAVES_DIR)) {
-      mkdirSync(SAVES_DIR, { recursive: true });
+    if (!existsSync(this.#rootDir)) {
+      mkdirSync(this.#rootDir, { recursive: true });
     }
 
-    this.#data.meta.savedAt = Math.floor(Date.now() / 1000);
+    this.#data.meta.savedAt = nowSeconds();
 
-    const filePath = join(SAVES_DIR, `${this.#slotId}.json`);
-    const tmpPath = join(SAVES_DIR, `.${this.#slotId}.tmp`);
+    this.writeData(this.#slotId, this.#data);
+  }
 
-    const json = JSON.stringify(this.#data, null, 2);
+  saveAs(slotId: string, world: WorldState): SaveSlotInfo {
+    const data = JSON.parse(JSON.stringify(this.#data)) as SaveData;
+    data.meta = {
+      ...data.meta,
+      slotId,
+      savedAt: nowSeconds(),
+      gameTick: world.tick,
+      round: world.round,
+    };
+    this.writeData(slotId, data);
+    return this.buildSlotInfo(data, slotId === this.#slotId, true);
+  }
+
+  private writeData(slotId: string, data: SaveData): void {
+    if (!existsSync(this.#rootDir)) {
+      mkdirSync(this.#rootDir, { recursive: true });
+    }
+
+    const filePath = join(this.#rootDir, `${slotId}.json`);
+    const tmpPath = join(this.#rootDir, `.${slotId}.tmp`);
+
+    const json = `${JSON.stringify(data, null, 2)}\n`;
 
     writeFileSync(tmpPath, json, "utf-8");
     renameSync(tmpPath, filePath);
   }
 
+  capture(world: WorldState): void {
+    this.updateMeta(world.tick, world.round);
+  }
+
+  restore(_world: WorldState): void {
+    // Future SaveData sections restore through this single entry.
+  }
+
   getMeta(): SaveMeta {
     return { ...this.#data.meta };
+  }
+
+  toSlotInfo(): SaveSlotInfo {
+    return this.buildSlotInfo(this.#data, true, true);
   }
 
   updateMeta(tick: number, round: number): void {
@@ -133,5 +259,56 @@ export class SaveManager {
     const entries = this.#data.conversations.summaries[key] ?? [];
     entries.push({ summary, lastTick: tick });
     this.#data.conversations.summaries[key] = entries;
+  }
+
+  private readSlotInfo(slotId: string): SaveSlotInfo | null {
+    try {
+      const raw = readFileSync(join(this.#rootDir, `${slotId}.json`), "utf-8");
+      const parsed = JSON.parse(raw);
+      const result = SaveDataSchema.safeParse(parsed);
+      if (!result.success) {
+        return {
+          slotId,
+          worldId: "",
+          savedAt: 0,
+          gameTick: 0,
+          round: 0,
+          version: 0,
+          isCurrent: slotId === this.#slotId,
+          summaryCount: 0,
+          valid: false,
+        };
+      }
+      return this.buildSlotInfo(result.data, slotId === this.#slotId, true);
+    } catch {
+      return {
+        slotId,
+        worldId: "",
+        savedAt: 0,
+        gameTick: 0,
+        round: 0,
+        version: 0,
+        isCurrent: slotId === this.#slotId,
+        summaryCount: 0,
+        valid: false,
+      };
+    }
+  }
+
+  private buildSlotInfo(data: SaveData, isCurrent: boolean, valid: boolean): SaveSlotInfo {
+    return {
+      slotId: data.meta.slotId,
+      worldId: data.meta.worldId,
+      savedAt: data.meta.savedAt,
+      gameTick: data.meta.gameTick,
+      round: data.meta.round,
+      version: data.version,
+      isCurrent,
+      summaryCount: Object.values(data.conversations.summaries).reduce(
+        (sum, entries) => sum + entries.length,
+        0,
+      ),
+      valid,
+    };
   }
 }

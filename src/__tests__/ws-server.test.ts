@@ -1,6 +1,10 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { EventBus } from "../core/event-bus.ts";
+import { SaveManager } from "../core/save-manager.ts";
 import {
   addEntity,
   addRegion,
@@ -97,6 +101,45 @@ function connectAndSend(
   });
 }
 
+function connectAndSendUntil(
+  port: number,
+  sendMsg: unknown,
+  done: (messages: Record<string, unknown>[]) => boolean,
+  timeout = 3000,
+): Promise<Record<string, unknown>[]> {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(`ws://localhost:${port}`);
+    const messages: Record<string, unknown>[] = [];
+    let sent = false;
+    const timer = setTimeout(() => {
+      ws.close();
+      reject(
+        new Error(
+          `Timeout: got ${messages.length} messages, types: ${messages.map((m) => m.type)}`,
+        ),
+      );
+    }, timeout);
+
+    ws.on("message", (data) => {
+      const msg = JSON.parse(String(data));
+      messages.push(msg);
+      if (msg.type === "status" && !sent) {
+        sent = true;
+        ws.send(JSON.stringify(sendMsg));
+      }
+      if (sent && done(messages)) {
+        clearTimeout(timer);
+        ws.close();
+        resolve(messages);
+      }
+    });
+    ws.on("error", (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+  });
+}
+
 function connectMoveOutAndBack(port: number, timeout = 3000): Promise<Record<string, unknown>[]> {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(`ws://localhost:${port}`);
@@ -159,6 +202,10 @@ describe("GameServer", () => {
     server.setCommandHandler(async (playerId, action, params) => {
       return executeCommand(world, playerId, action, params);
     });
+  });
+
+  afterAll(() => {
+    server.close();
   });
 
   it("should send init + state_update + status on connection", async () => {
@@ -570,5 +617,68 @@ describe("GameServer", () => {
     expect(crossExits).toHaveLength(1);
     expect(crossExits?.[0].direction).toBe("南");
     expect(crossExits?.[0].targetRegionName).toBe("区域B");
+  });
+
+  it("should list, save, and create save slots over websocket", async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), "world-save-ws-"));
+    const savePort = port + 6000;
+    const world = setupWorld();
+    const saveServer = new GameServer(savePort, world, new EventBus());
+    const manager = SaveManager.load({
+      rootDir,
+      slotId: "slot_001",
+      worldId: "ws-test",
+      currentTick: world.tick,
+      currentRound: world.round,
+    });
+    manager.save();
+    saveServer.setSaveHandlers({
+      listSlots: () => manager.listSlots(),
+      manualSave: (slotId) => {
+        if (slotId) return manager.saveAs(slotId, world);
+        manager.capture(world);
+        manager.save();
+        return manager.toSlotInfo();
+      },
+      createSlot: (slotId) => manager.saveAs(slotId, world),
+    });
+
+    try {
+      const listMessages = await connectAndSendUntil(
+        savePort,
+        { type: "request_save_slots" },
+        (messages) => messages.some((m) => m.type === "save_slots"),
+      );
+      const list = listMessages.find((m) => m.type === "save_slots");
+      expect(list).toBeDefined();
+      expect((list?.slots as Record<string, unknown>[])[0].slotId).toBe("slot_001");
+
+      const saveMessages = await connectAndSendUntil(
+        savePort,
+        { type: "manual_save", slotId: "slot_001" },
+        (messages) =>
+          messages.some((m) => m.type === "save_result") &&
+          messages.some((m) => m.type === "save_slots"),
+      );
+      const saveResult = saveMessages.find((m) => m.type === "save_result");
+      expect(saveResult).toMatchObject({ ok: true });
+
+      const createMessages = await connectAndSendUntil(
+        savePort,
+        { type: "create_save_slot", slotId: "slot_002" },
+        (messages) =>
+          messages.some((m) => m.type === "save_result") &&
+          messages.some((m) => m.type === "save_slots"),
+      );
+      const createResult = createMessages.find((m) => m.type === "save_result");
+      expect(createResult).toMatchObject({ ok: true });
+      const createList = createMessages.find((m) => m.type === "save_slots");
+      const slotIds = (createList?.slots as Record<string, unknown>[]).map((slot) => slot.slotId);
+      expect(slotIds).toContain("slot_001");
+      expect(slotIds).toContain("slot_002");
+    } finally {
+      saveServer.close();
+      rmSync(rootDir, { recursive: true, force: true });
+    }
   });
 });

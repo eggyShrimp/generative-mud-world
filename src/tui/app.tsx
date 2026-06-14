@@ -14,6 +14,7 @@ import { InventoryPanel } from "./panels/inventory/inventory-panel.tsx";
 import { MapPanel } from "./panels/map/map-panel.tsx";
 import { QuestsPanel } from "./panels/quests/quests-panel.tsx";
 import { RoomPanel } from "./panels/room/room-panel.tsx";
+import { SavePanel } from "./panels/save/save-panel.tsx";
 import { Sidebar } from "./panels/sidebar/sidebar.tsx";
 import { StatusBar } from "./panels/sidebar/status-bar.tsx";
 import { StatusPanel } from "./panels/status/status-panel.tsx";
@@ -118,6 +119,7 @@ export function App(props: { client: GameClient }) {
       />
       <DialoguePanel client={props.client} metrics={modalMetrics()} />
       <MapPanel client={props.client} metrics={modalMetrics()} narrow={narrow()} />
+      <SavePanel client={props.client} metrics={modalMetrics()} />
       <CombatPanel client={props.client} entities={visibleEntities()} metrics={modalMetrics()} />
 
       {/* 浮层通知 */}

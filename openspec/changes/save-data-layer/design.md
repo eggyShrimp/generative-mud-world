@@ -153,6 +153,7 @@ Startup loads both databases:
 
 ```
 loadWorldFromYaml(worldFile)       -> WorldState + ContentPool
+resolveSaveSlot(config)            -> selected slotId
 SaveManager.load(options)          -> SaveData + Save DAOs
 new DialogueGenerator(adapter, saves)
 ```
@@ -166,6 +167,71 @@ process.exit(0)
 ```
 
 `capture(world)` updates `gameTick` and `round` in the first version. Later versions can add world time, player state, quest state, and other sections.
+
+## Save Slot Selection
+
+The runtime should support save slot selection, but development should not pay an extra interaction cost on every launch.
+
+Use these startup modes:
+
+| Mode | Config | Behavior |
+|------|--------|----------|
+| Skip selection | `SAVE_SELECT=skip` or default dev config | Load `SAVE_SLOT` directly. If no file exists, create it. |
+| Prompt selection | `SAVE_SELECT=prompt` | Ask the client or terminal startup flow to choose a slot before loading SaveData. |
+| New slot | explicit UI action | Create a new slot for the current `worldId`. |
+
+The first implementation may keep startup selection outside the TUI and use `SAVE_SLOT`. The TUI save panel can still list slots and save the current slot. Runtime slot switching should wait until `restore(world)` can rebuild WorldState safely.
+
+Do not add in-game "load slot" until full restore is implemented. Showing a load option before full restore exists would imply that the whole world can be replaced, but the first version only restores metadata and conversation summaries.
+
+## TUI Save Panel
+
+Add a Save panel after the SaveData API is stable. The panel should support manual save and slot inspection.
+
+The Save panel uses a two-column layout similar to the trade panel:
+
+| Column | Content |
+|--------|---------|
+| Left column | Save slots, keyed actions, and current-slot marker |
+| Right column | Details for the selected slot: world id, saved time, tick, round, summary counts, version, and validation status |
+
+First-version actions:
+
+- `保存当前进度`: call the server manual-save command for the active slot.
+- `刷新列表`: request the latest slot list from the server.
+- `新建存档`: create a new slot name and save current state.
+
+Deferred actions:
+
+- `读取存档`: wait until `restore(world)` can restore full world state.
+- `切换存档`: wait until the server can rebuild world state and push a full client refresh.
+
+The server should expose save operations through protocol messages instead of letting TUI import `SaveManager`.
+
+Suggested protocol shape:
+
+```ts
+type SaveSlotInfo = {
+  slotId: string;
+  worldId: string;
+  savedAt: number;
+  gameTick: number;
+  round: number;
+  version: number;
+  isCurrent: boolean;
+};
+
+// client -> server
+{ type: "request_save_slots" }
+{ type: "manual_save" }
+{ type: "create_save_slot", slotId: string }
+
+// server -> client
+{ type: "save_slots", slots: SaveSlotInfo[] }
+{ type: "save_result", ok: boolean, slot?: SaveSlotInfo, error?: string }
+```
+
+The key rule is the same as the DAO rule: TUI sees protocol DTOs, not `SaveData`.
 
 ## ContentPool DAO Integration
 
@@ -244,6 +310,10 @@ Add or update tests for these cases:
 - `ConversationSaveDao` reads and writes summaries independently by player-NPC pair.
 - Dialogue close returns without awaiting summary generation.
 - Background summary failure logs a warning and does not fail the close command.
+- WebSocket `manual_save` writes the current slot in a temporary save directory.
+- WebSocket `request_save_slots` returns slot metadata without raw SaveData.
+- TUI Save panel renders slots in the left column and selected slot details in the right column.
+- Startup with `SAVE_SELECT=skip` loads `SAVE_SLOT` without prompting.
 
 Manual smoke test:
 

@@ -850,6 +850,7 @@ export interface ConversationSummaryEntry {
 }
 
 export interface SaveData {
+  version: 1;
   meta: SaveMeta;
   conversations: {
     summaries: Record<string, ConversationSummaryEntry[]>;

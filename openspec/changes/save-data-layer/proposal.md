@@ -36,6 +36,10 @@ Primary area: engine/core/llm runtime persistence.
 | `worlds/content-pool/culture-narrative.yaml` | modify-data | Add base YAML values for summary prompt and label |
 | `src/llm/dialogue-generator.ts` | modify-class | Use SaveData DAO for summary reads/writes; summarize close in background |
 | `src/index.ts` | modify-function | Load SaveData, pass DAOs to services, capture and save on shutdown |
+| `src/shared/protocol.ts` | modify-protocol | Add save slot list and manual-save messages |
+| `src/server/ws-server.ts` | modify-server | Handle save slot list, manual save, and create slot requests |
+| `src/tui/client/game-client.ts` | modify-client | Add save panel state and save protocol handlers |
+| `src/tui/panels/save/save-panel.tsx` | new-ui | Add two-column save slot panel |
 | `src/__tests__/save-manager.test.ts` | new-test | Cover SaveManager and section DAO behavior |
 
 ## Public Design
@@ -73,6 +77,10 @@ NPC dialogue uses SaveData as follows:
 
 Summary generation failure logs a warning. It does not fail the close command and does not block the player.
 
+The TUI adds a Save panel for manual saving and slot inspection. The panel uses a two-column layout similar to the trade panel: slots on the left, selected slot details on the right. The first version supports listing slots, showing metadata, creating a slot, and saving the current slot. It does not support in-game loading until full `restore(world)` exists.
+
+Startup can skip slot selection. Development defaults should load `SAVE_SLOT` directly to avoid extra flow during local iteration. A later startup selection mode can prompt the user to pick a slot before SaveData loads.
+
 ## ContentPool Reads
 
 The dialogue feature reads these ContentPool fields:
@@ -90,6 +98,8 @@ These fields belong in ContentPool because they are prompt text and presentation
 - SaveData creates a clear home for future runtime persistence.
 - Tests no longer need to write to the real `saves/` directory.
 - `DialogueGenerator` depends on a SaveData DAO instead of raw storage.
+- TUI can show and manually update the current save slot without importing SaveManager.
+- Development can skip save selection and use a configured default slot.
 - Future save fields follow one extension path: type, schema, migration, DAO, capture, restore, tests.
 
 ## Non-Goals

@@ -1,8 +1,9 @@
 {
+  "version": 1,
   "meta": {
     "slotId": "slot_001",
-    "worldId": "test_world",
-    "savedAt": 1781400937,
+    "worldId": "generated_continent",
+    "savedAt": 1781406538,
     "gameTick": 0,
     "round": 0
   },
