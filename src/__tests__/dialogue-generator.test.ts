@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { SaveManager } from "../core/save-manager.ts";
 import type { NPCEntity, PlayerEntity } from "../core/types.ts";
 import {
   addEntity,
@@ -21,6 +22,20 @@ function mockAdapter(
     chat: vi.fn().mockResolvedValue({ text: responseText, toolCalls }),
     generate: vi.fn().mockResolvedValue({ text: responseText, toolCalls }),
   } as unknown as LLMAdapter;
+}
+
+function mockSaveManager(): SaveManager {
+  return {
+    getConversationSummary: vi.fn().mockReturnValue(null),
+    setConversationSummary: vi.fn(),
+    save: vi.fn(),
+    data: {
+      meta: { slotId: "test", worldId: "test", savedAt: 0, gameTick: 0, round: 0 },
+      conversations: { summaries: {} },
+    },
+    getMeta: vi.fn(),
+    updateMeta: vi.fn(),
+  } as unknown as SaveManager;
 }
 
 function setupWorld(opts?: { npcTags?: string[]; npcInventory?: boolean }) {
@@ -92,21 +107,21 @@ function setupWorld(opts?: { npcTags?: string[]; npcInventory?: boolean }) {
 describe("DialogueGenerator.generateFixedChatMenu", () => {
   it("NPC 有 inventory → 固定菜单不含交易入口", () => {
     const world = setupWorld({ npcInventory: true });
-    const gen = new DialogueGenerator(mockAdapter(""));
+    const gen = new DialogueGenerator(mockAdapter(""), mockSaveManager());
     const options = gen.generateFixedChatMenu(world, "p1", "npc1");
     expect(options.every((o) => o.type !== "functional_menu")).toBe(true);
   });
 
   it("NPC 无 inventory → 固定菜单为空", () => {
     const world = setupWorld();
-    const gen = new DialogueGenerator(mockAdapter(""));
+    const gen = new DialogueGenerator(mockAdapter(""), mockSaveManager());
     const options = gen.generateFixedChatMenu(world, "p1", "npc1");
     expect(options).toHaveLength(0);
   });
 
   it("NPC tags 匹配 entityActionsByTag → 包含 functional_menu", () => {
     const world = setupWorld({ npcTags: ["tavern_keeper"] });
-    const gen = new DialogueGenerator(mockAdapter(""));
+    const gen = new DialogueGenerator(mockAdapter(""), mockSaveManager());
     const options = gen.generateFixedChatMenu(world, "p1", "npc1");
     const func = options.find((o) => o.type === "functional_menu");
     expect(func).toBeDefined();
@@ -115,14 +130,14 @@ describe("DialogueGenerator.generateFixedChatMenu", () => {
 
   it("NPC 无 tags → 不含 functional_menu", () => {
     const world = setupWorld();
-    const gen = new DialogueGenerator(mockAdapter(""));
+    const gen = new DialogueGenerator(mockAdapter(""), mockSaveManager());
     const options = gen.generateFixedChatMenu(world, "p1", "npc1");
     expect(options.find((o) => o.type === "functional_menu")).toBeUndefined();
   });
 
   it("conversationDirections 不进入固定菜单", () => {
     const world = setupWorld();
-    const gen = new DialogueGenerator(mockAdapter(""));
+    const gen = new DialogueGenerator(mockAdapter(""), mockSaveManager());
     const options = gen.generateFixedChatMenu(world, "p1", "npc1");
     const chat = options.filter((o) => o.type === "idle_chat");
     expect(chat).toEqual([]);
@@ -130,7 +145,7 @@ describe("DialogueGenerator.generateFixedChatMenu", () => {
 
   it("固定菜单只包含系统入口（functional）", () => {
     const world = setupWorld({ npcTags: ["tavern_keeper"] });
-    const gen = new DialogueGenerator(mockAdapter(""));
+    const gen = new DialogueGenerator(mockAdapter(""), mockSaveManager());
     const options = gen.generateFixedChatMenu(world, "p1", "npc1");
     expect(options.map((o) => o.type)).toEqual(["functional_menu"]);
   });
@@ -145,6 +160,7 @@ describe("DialogueGenerator.generateFixedChatMenu", () => {
           {"key": "freeform", "label": "你怎么看这座莫高窟？"}
         ]
       }`),
+      mockSaveManager(),
     );
 
     const options = await gen.generateChatMenu(world, "p1", "npc1");
@@ -180,7 +196,11 @@ describe("DialogueGenerator.generateFixedChatMenu", () => {
   it("generateMenu: LLM 失败时退回内容池方向", async () => {
     const world = setupWorld({ npcTags: ["tavern_keeper"] });
     const adapter = mockAdapter("not json");
-    const options = await new DialogueGenerator(adapter).generateChatMenu(world, "p1", "npc1");
+    const options = await new DialogueGenerator(adapter, mockSaveManager()).generateChatMenu(
+      world,
+      "p1",
+      "npc1",
+    );
 
     expect(options).toHaveLength(3);
     expect(options.slice(1).map((o) => o.label)).toEqual([
@@ -191,14 +211,14 @@ describe("DialogueGenerator.generateFixedChatMenu", () => {
 
   it("NPC 不存在 → 返回空", () => {
     const world = setupWorld();
-    const gen = new DialogueGenerator(mockAdapter(""));
+    const gen = new DialogueGenerator(mockAdapter(""), mockSaveManager());
     const options = gen.generateFixedChatMenu(world, "p1", "nonexistent");
     expect(options).toHaveLength(0);
   });
 
   it("player 不存在 → 返回空", () => {
     const world = setupWorld();
-    const gen = new DialogueGenerator(mockAdapter(""));
+    const gen = new DialogueGenerator(mockAdapter(""), mockSaveManager());
     const options = gen.generateFixedChatMenu(world, "nonexistent", "npc1");
     expect(options).toHaveLength(0);
   });
@@ -237,7 +257,7 @@ describe("DialogueGenerator.generateFixedChatMenu", () => {
         options: [{ key: "quest_trigger__story_1", label: "听说你有麻烦？" }],
       }),
     );
-    const gen = new DialogueGenerator(adapter);
+    const gen = new DialogueGenerator(adapter, mockSaveManager());
     const options = await gen.generateChatMenu(world, "p1", "npc1");
     expect(options.find((o) => o.type === "quest_trigger_menu")).toBeDefined();
   });
@@ -270,7 +290,7 @@ describe("DialogueGenerator.generateFixedChatMenu", () => {
       },
     ];
     (world.entities.get("p1") as PlayerEntity).completedQuests = ["story_1"];
-    const gen = new DialogueGenerator(mockAdapter(""));
+    const gen = new DialogueGenerator(mockAdapter(""), mockSaveManager());
     const options = gen.generateFixedChatMenu(world, "p1", "npc1");
     expect(options.find((o) => o.type === "quest_trigger_menu")).toBeUndefined();
   });
@@ -307,7 +327,7 @@ describe("DialogueGenerator.generateFixedChatMenu", () => {
         options: [{ key: "quest_deliver__q1", label: "信送到了！" }],
       }),
     );
-    const gen = new DialogueGenerator(adapter);
+    const gen = new DialogueGenerator(adapter, mockSaveManager());
     const options = await gen.generateChatMenu(world, "p1", "npc1");
     expect(options.find((o) => o.type === "quest_deliver_menu")).toBeDefined();
   });
@@ -379,7 +399,7 @@ describe("DialogueGenerator.generateTradeMenu + handleTradeAction — buy", () =
 
   it("generateTradeMenu → 显示价格", () => {
     const world = setupWithTrade();
-    const gen = new DialogueGenerator(mockAdapter(""));
+    const gen = new DialogueGenerator(mockAdapter(""), mockSaveManager());
     const options = gen.generateTradeMenu(world, "p1", "npc1");
     expect(options).toHaveLength(2); // 1 item + 1 sell entry
     expect(options[0].action).toBe("buy");
@@ -395,7 +415,7 @@ describe("DialogueGenerator.generateTradeMenu + handleTradeAction — buy", () =
 
   it("handleTradeAction buy → 正常购买（扣铜币 + 转物品）", async () => {
     const world = setupWithTrade({ startCoins: 15 });
-    const gen = new DialogueGenerator(mockAdapter("成交了"));
+    const gen = new DialogueGenerator(mockAdapter("成交了"), mockSaveManager());
     const result = await gen.handleTradeAction(world, "p1", "npc1", "buy", "sword1");
     expect(result.delta.dialogues).toBeDefined();
     expect(result.delta.dialogues![0].content).toBe("成交了");
@@ -412,7 +432,7 @@ describe("DialogueGenerator.generateTradeMenu + handleTradeAction — buy", () =
 
   it("handleTradeAction buy → 钱不够", async () => {
     const world = setupWithTrade({ startCoins: 3 });
-    const gen = new DialogueGenerator(mockAdapter("你钱不够"));
+    const gen = new DialogueGenerator(mockAdapter("你钱不够"), mockSaveManager());
     const result = await gen.handleTradeAction(world, "p1", "npc1", "buy", "sword1");
     expect(result.delta.itemChanges).toBeUndefined();
     expect(result.delta.dialogues![0].content).toBe("你钱不够");
@@ -425,7 +445,7 @@ describe("DialogueGenerator.generateTradeMenu + handleTradeAction — buy", () =
       npcTraits: [{ name: "generous", value: 5 }],
       relationLevel: 80,
     });
-    const gen = new DialogueGenerator(mockAdapter("算了，差一点当交朋友"));
+    const gen = new DialogueGenerator(mockAdapter("算了，差一点当交朋友"), mockSaveManager());
     const result = await gen.handleTradeAction(world, "p1", "npc1", "buy", "sword1");
     expect(result.delta.dialogues).toBeDefined();
     const ics = result.delta.itemChanges!;
@@ -442,7 +462,7 @@ describe("DialogueGenerator.generateTradeMenu + handleTradeAction — buy", () =
       npcTraits: [{ name: "generous", value: 5 }],
       relationLevel: 95,
     });
-    const gen = new DialogueGenerator(mockAdapter("送你吧"));
+    const gen = new DialogueGenerator(mockAdapter("送你吧"), mockSaveManager());
     const result = await gen.handleTradeAction(world, "p1", "npc1", "buy", "sword1");
     expect(result.delta.dialogues).toBeDefined();
     const ics = result.delta.itemChanges!;
@@ -454,14 +474,14 @@ describe("DialogueGenerator.generateTradeMenu + handleTradeAction — buy", () =
 
   it("handleTradeAction buy 物品不存在 → 返回空 delta", async () => {
     const world = setupWithTrade();
-    const gen = new DialogueGenerator(mockAdapter(""));
+    const gen = new DialogueGenerator(mockAdapter(""), mockSaveManager());
     const result = await gen.handleTradeAction(world, "p1", "npc1", "buy", "nonexistent");
     expect(result.delta.itemChanges).toBeUndefined();
   });
 
   it("handleTradeAction buy 物品无 value → 返回空 delta", async () => {
     const world = setupWorld({ npcInventory: true });
-    const gen = new DialogueGenerator(mockAdapter(""));
+    const gen = new DialogueGenerator(mockAdapter(""), mockSaveManager());
     const result = await gen.handleTradeAction(world, "p1", "npc1", "buy", "sword1");
     expect(result.delta.itemChanges).toBeUndefined();
   });
@@ -554,7 +574,7 @@ describe("DialogueGenerator.handleTradeAction — sell", () => {
 
   it("generateTradeMenu → 列出玩家可卖物品（排除铜币）", () => {
     const world = setupSellTest();
-    const gen = new DialogueGenerator(mockAdapter(""));
+    const gen = new DialogueGenerator(mockAdapter(""), mockSaveManager());
     const options = gen.generateTradeMenu(world, "p1", "npc1");
     // generateTradeMenu 返回 NPC 商品 + 卖出入口，不含玩家物品
     // 卖出入口是 sell_menu 类型
@@ -565,7 +585,7 @@ describe("DialogueGenerator.handleTradeAction — sell", () => {
 
   it("handleTradeAction sell → 成功卖出", async () => {
     const world = setupSellTest({ npcCoins: 15 });
-    const gen = new DialogueGenerator(mockAdapter("好东西，我收了"));
+    const gen = new DialogueGenerator(mockAdapter("好东西，我收了"), mockSaveManager());
     const result = await gen.handleTradeAction(world, "p1", "npc1", "sell", "p1_gem");
     expect(result.delta.dialogues).toBeDefined();
     const ics = result.delta.itemChanges!;
@@ -579,7 +599,7 @@ describe("DialogueGenerator.handleTradeAction — sell", () => {
 
   it("handleTradeAction sell → NPC 买不起", async () => {
     const world = setupSellTest({ npcCoins: 2 });
-    const gen = new DialogueGenerator(mockAdapter("我买不起"));
+    const gen = new DialogueGenerator(mockAdapter("我买不起"), mockSaveManager());
     const result = await gen.handleTradeAction(world, "p1", "npc1", "sell", "p1_gem");
     expect(result.delta.itemChanges).toBeUndefined();
     expect(result.delta.dialogues![0].content).toBe("我买不起");
@@ -587,7 +607,10 @@ describe("DialogueGenerator.handleTradeAction — sell", () => {
 
   it("handleTradeAction sell → NPC 打折收货（高关系）", async () => {
     const world = setupSellTest({ npcCoins: 4, relationLevel: 85 });
-    const gen = new DialogueGenerator(mockAdapter("钱不太够但交情好，有多少给多少"));
+    const gen = new DialogueGenerator(
+      mockAdapter("钱不太够但交情好，有多少给多少"),
+      mockSaveManager(),
+    );
     const result = await gen.handleTradeAction(world, "p1", "npc1", "sell", "p1_gem");
     expect(result.delta.dialogues).toBeDefined();
     const ics = result.delta.itemChanges!;
@@ -645,21 +668,21 @@ describe("DialogueGenerator.generateTradeMenu — pricing", () => {
 
   it("挚友(100) → 买价打折", () => {
     const world = setupPricingTest(100, 20);
-    const gen = new DialogueGenerator(mockAdapter(""));
+    const gen = new DialogueGenerator(mockAdapter(""), mockSaveManager());
     const options = gen.generateTradeMenu(world, "p1", "npc1");
     expect(options[0].label).toContain("8"); // 10 * 0.8 = 8
   });
 
   it("仇敌(-100) → 买价加价", () => {
     const world = setupPricingTest(-100, 20);
-    const gen = new DialogueGenerator(mockAdapter(""));
+    const gen = new DialogueGenerator(mockAdapter(""), mockSaveManager());
     const options = gen.generateTradeMenu(world, "p1", "npc1");
     expect(options[0].label).toContain("12"); // 10 * 1.2 = 12
   });
 
   it("陌生人(0) → 标价不变", () => {
     const world = setupPricingTest(0, 20);
-    const gen = new DialogueGenerator(mockAdapter(""));
+    const gen = new DialogueGenerator(mockAdapter(""), mockSaveManager());
     const options = gen.generateTradeMenu(world, "p1", "npc1");
     expect(options[0].label).toContain("10"); // 10 * 1.0 = 10
   });
@@ -672,7 +695,7 @@ describe("DialogueGenerator.generateTradeMenu — pricing", () => {
 describe("DialogueGenerator.handleChatOption — functional", () => {
   it("functional_menu → 返回 entityActionsByTag 子菜单", async () => {
     const world = setupWorld({ npcTags: ["tavern_keeper"] });
-    const gen = new DialogueGenerator(mockAdapter(""));
+    const gen = new DialogueGenerator(mockAdapter(""), mockSaveManager());
     const result = await gen.handleChatOption(
       world,
       "p1",
@@ -691,7 +714,7 @@ describe("DialogueGenerator.handleChatOption — functional", () => {
     world.contentPool.actionEffects = [
       { action: "serve_ale", needDeltas: { social: 5 }, itemDeltas: { ale: 1 } },
     ];
-    const gen = new DialogueGenerator(mockAdapter("来，尝尝新酿的麦酒。"));
+    const gen = new DialogueGenerator(mockAdapter("来，尝尝新酿的麦酒。"), mockSaveManager());
     const result = await gen.handleChatOption(
       world,
       "p1",
@@ -707,7 +730,7 @@ describe("DialogueGenerator.handleChatOption — functional", () => {
 
   it("functional_select actionId 不在 actionEffects → 返回空", async () => {
     const world = setupWorld({ npcTags: ["tavern_keeper"] });
-    const gen = new DialogueGenerator(mockAdapter(""));
+    const gen = new DialogueGenerator(mockAdapter(""), mockSaveManager());
     const result = await gen.handleChatOption(
       world,
       "p1",
@@ -727,7 +750,7 @@ describe("DialogueGenerator.handleChatOption — idle_chat", () => {
   it("返回 LLM 对话文本", async () => {
     const world = setupWorld();
     const adapter = mockAdapter("你好啊，年轻人。今天酒馆生意不错。");
-    const gen = new DialogueGenerator(adapter);
+    const gen = new DialogueGenerator(adapter, mockSaveManager());
     const result = await gen.handleChatOption(world, "p1", "npc1", "idle_chat", "menu:chat");
     expect(result.delta.dialogues).toBeDefined();
     expect(result.delta.dialogues![0].speakerId).toBe("npc1");
@@ -746,7 +769,7 @@ describe("DialogueGenerator.handleChatOption — idle_chat", () => {
       },
     ];
     const adapter = mockAdapter("聊得很开心。", toolCalls);
-    const gen = new DialogueGenerator(adapter);
+    const gen = new DialogueGenerator(adapter, mockSaveManager());
     const result = await gen.handleChatOption(world, "p1", "npc1", "idle_chat", "menu:chat");
     expect(result.delta.relationChanges).toBeDefined();
     expect(result.delta.relationChanges![0].delta).toBeGreaterThan(0);
@@ -764,7 +787,7 @@ describe("DialogueGenerator.handleChatOption — idle_chat", () => {
       },
     ];
     const adapter = mockAdapter("（笑了笑）", toolCalls);
-    const gen = new DialogueGenerator(adapter);
+    const gen = new DialogueGenerator(adapter, mockSaveManager());
     const result = await gen.handleChatOption(world, "p1", "npc1", "idle_chat", "menu:chat");
     expect(result.delta.worldEvents).toBeDefined();
     expect(result.delta.worldEvents![0].type).toBe("emotion");
@@ -776,7 +799,7 @@ describe("DialogueGenerator.handleChatOption — idle_chat", () => {
       chat: vi.fn().mockRejectedValue(new Error("LLM down")),
       generate: vi.fn(),
     } as unknown as LLMAdapter;
-    const gen = new DialogueGenerator(adapter);
+    const gen = new DialogueGenerator(adapter, mockSaveManager());
     const result = await gen.handleChatOption(world, "p1", "npc1", "idle_chat", "menu:chat");
     expect(result.delta.dialogues).toBeDefined();
     expect(result.delta.dialogues![0].content).toContain("困惑");
@@ -799,7 +822,7 @@ describe("DialogueGenerator.handleChatOption — idle_chat", () => {
       },
     ];
     const adapter = mockAdapter("给你这个。", toolCalls);
-    const gen = new DialogueGenerator(adapter);
+    const gen = new DialogueGenerator(adapter, mockSaveManager());
     const result = await gen.handleChatOption(world, "p1", "npc1", "idle_chat", "menu:chat");
     expect(result.delta.itemChanges).toBeUndefined();
   });
@@ -816,7 +839,7 @@ describe("DialogueGenerator.handleChatOption — idle_chat", () => {
       },
     ];
     const adapter = mockAdapter("我有个任务。", toolCalls);
-    const gen = new DialogueGenerator(adapter);
+    const gen = new DialogueGenerator(adapter, mockSaveManager());
     const result = await gen.handleChatOption(world, "p1", "npc1", "idle_chat", "menu:chat");
     expect(result.delta.questChanges).toBeUndefined();
   });
@@ -840,7 +863,7 @@ describe("DialogueGenerator.handleChatOption — idle_chat", () => {
       },
     ];
     const adapter = mockAdapter("很开心的对话。", toolCalls);
-    const gen = new DialogueGenerator(adapter);
+    const gen = new DialogueGenerator(adapter, mockSaveManager());
     const result = await gen.handleChatOption(world, "p1", "npc1", "idle_chat", "menu:chat");
     expect(result.delta.relationChanges).toBeDefined();
     expect(result.delta.worldEvents).toBeDefined();
@@ -850,7 +873,7 @@ describe("DialogueGenerator.handleChatOption — idle_chat", () => {
   it("JSON 带 reply 字段 → 提取 reply 文本", async () => {
     const world = setupWorld();
     const adapter = mockAdapter('{"reply":"你好，年轻人。"}');
-    const gen = new DialogueGenerator(adapter);
+    const gen = new DialogueGenerator(adapter, mockSaveManager());
     const result = await gen.handleChatOption(world, "p1", "npc1", "idle_chat", "menu:chat");
     expect(result.delta.dialogues![0].content).toBe("你好，年轻人。");
   });
@@ -863,21 +886,21 @@ describe("DialogueGenerator.handleChatOption — idle_chat", () => {
 describe("DialogueGenerator.handleChatOption — 边缘情况", () => {
   it("未知 optionType → 返回 fallback delta", async () => {
     const world = setupWorld();
-    const gen = new DialogueGenerator(mockAdapter(""));
+    const gen = new DialogueGenerator(mockAdapter(""), mockSaveManager());
     const result = await gen.handleChatOption(world, "p1", "npc1", "unknown_type" as any, "x");
     expect(result.delta.dialogues).toBeDefined();
   });
 
   it("NPC 不存在 → 返回空", async () => {
     const world = setupWorld();
-    const gen = new DialogueGenerator(mockAdapter(""));
+    const gen = new DialogueGenerator(mockAdapter(""), mockSaveManager());
     const result = await gen.handleChatOption(world, "p1", "nonexistent", "idle_chat", "menu:chat");
     expect(result.delta).toEqual({});
   });
 
   it("player 不存在 → 返回空", async () => {
     const world = setupWorld();
-    const gen = new DialogueGenerator(mockAdapter(""));
+    const gen = new DialogueGenerator(mockAdapter(""), mockSaveManager());
     const result = await gen.handleChatOption(
       world,
       "nonexistent",
@@ -917,7 +940,7 @@ describe("DialogueGenerator.handleChatOption — 连续对话", () => {
     const world = setupWorld();
     const topics = ["最近有什么事？", "这酒馆开了多久？", "你认识镇上的人吗？"];
     const adapter = mockAdapterWithTopics("今天酒馆很热闹。", topics);
-    const gen = new DialogueGenerator(adapter);
+    const gen = new DialogueGenerator(adapter, mockSaveManager());
     const result = await gen.handleChatOption(world, "p1", "npc1", "idle_chat", "menu:chat");
 
     expect(result.delta.dialogues).toBeDefined();
@@ -941,7 +964,7 @@ describe("DialogueGenerator.handleChatOption — 连续对话", () => {
   it('idle_chat + "chat:goodbye" optionId → 不返回 subOptions', async () => {
     const world = setupWorld();
     const adapter = mockAdapterWithTopics("后会有期。", ["嗯，再见"]);
-    const gen = new DialogueGenerator(adapter);
+    const gen = new DialogueGenerator(adapter, mockSaveManager());
     const result = await gen.handleChatOption(world, "p1", "npc1", "idle_chat", "chat:goodbye");
 
     expect(result.delta.dialogues).toBeDefined();
@@ -951,7 +974,7 @@ describe("DialogueGenerator.handleChatOption — 连续对话", () => {
   it("LLM 未调用 suggest_followup_topics → 仅含系统注入 + 告别", async () => {
     const world = setupWorld({ npcInventory: true });
     const adapter = mockAdapter("今天没什么特别的。");
-    const gen = new DialogueGenerator(adapter);
+    const gen = new DialogueGenerator(adapter, mockSaveManager());
     const result = await gen.handleChatOption(world, "p1", "npc1", "idle_chat", "menu:chat");
 
     expect(result.subOptions).toBeDefined();
@@ -964,7 +987,7 @@ describe("DialogueGenerator.handleChatOption — 连续对话", () => {
     const world = setupWorld({ npcInventory: true });
     const topics = ["看看你的货", "有什么好东西", "这些怎么卖"];
     const adapter = mockAdapterWithTopics("需要买点什么？", topics);
-    const gen = new DialogueGenerator(adapter);
+    const gen = new DialogueGenerator(adapter, mockSaveManager());
     const result = await gen.handleChatOption(world, "p1", "npc1", "idle_chat", "menu:chat");
 
     const types = result.subOptions!.map((o) => o.type);
@@ -982,7 +1005,7 @@ describe("DialogueGenerator.handleChatOption — 连续对话", () => {
   it("close 类型 → 返回告别 delta，不调 LLM", async () => {
     const world = setupWorld();
     const adapter = mockAdapter("");
-    const gen = new DialogueGenerator(adapter);
+    const gen = new DialogueGenerator(adapter, mockSaveManager());
     const result = await gen.handleChatOption(world, "p1", "npc1", "close", "chat:goodbye");
 
     expect(result.delta.dialogues).toBeDefined();
@@ -994,7 +1017,10 @@ describe("DialogueGenerator.handleChatOption — 连续对话", () => {
 
   it("conversation history 在连续对话中追加", async () => {
     const world = setupWorld();
-    const gen = new DialogueGenerator(mockAdapterWithTopics("我是老马。", ["你在哪工作？"]));
+    const gen = new DialogueGenerator(
+      mockAdapterWithTopics("我是老马。", ["你在哪工作？"]),
+      mockSaveManager(),
+    );
 
     // 第一轮
     await gen.handleChatOption(world, "p1", "npc1", "idle_chat", "menu:chat", "你是谁？");
@@ -1012,7 +1038,7 @@ describe("DialogueGenerator.handleChatOption — 连续对话", () => {
 
   it("close 类型 → 清除对话历史", async () => {
     const world = setupWorld();
-    const gen = new DialogueGenerator(mockAdapter("再见。"));
+    const gen = new DialogueGenerator(mockAdapter("再见。"), mockSaveManager());
     // 先建立一些历史
     await gen.handleChatOption(world, "p1", "npc1", "idle_chat", "menu:chat", "你好");
     // 告别 → 清除历史
@@ -1046,7 +1072,7 @@ describe("DialogueGenerator.handleChatOption — 连续对话", () => {
       }),
       generate: vi.fn(),
     } as unknown as LLMAdapter;
-    const gen = new DialogueGenerator(adapter);
+    const gen = new DialogueGenerator(adapter, mockSaveManager());
     const result = await gen.handleChatOption(world, "p1", "npc1", "idle_chat", "menu:chat");
 
     // 降级：只有 告别（无系统注入因为没有 inventory/quests）

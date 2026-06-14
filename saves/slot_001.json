@@ -1,0 +1,12 @@
+{
+  "meta": {
+    "slotId": "slot_001",
+    "worldId": "test_world",
+    "savedAt": 1781400937,
+    "gameTick": 0,
+    "round": 0
+  },
+  "conversations": {
+    "summaries": {}
+  }
+}

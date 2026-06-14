@@ -15,7 +15,6 @@
 - [ ] 复制 `src/client-tui/components/*` → `src/tui/components/*`（7 个文件）
 - [ ] 创建最小 `src/tui/index.tsx`（入口：render App）
 - [ ] 创建最小 `src/tui/app.tsx`（空壳 App，暂渲染 LoadingHint）
-- [ ] `package.json` 新增 `"dev:tui-new": "bun --watch src/tui/index.tsx"`
 - [ ] `.dependency-cruiser.js` 更新 `tui-no-direct-engine-import` 的 `from.path` 覆盖 `src/(client-tui|tui)`
 
 **验证**: `npm run build -- --noEmit && npm test && npm run lint`
@@ -59,11 +58,6 @@
 ### panels/event-log/event-log.tsx
 - [ ] 从 app.tsx 提取 `EventLog` 组件
 - [ ] 日志列表渲染 + pendingEvent 占位
-
-### layout/main-layout.tsx
-- [ ] 实现 `WideLayout`：RoomPanel 左 + Sidebar 右 + EventLog 底
-- [ ] 实现 `NarrowLayout`：RoomPanel + EventLog + Sidebar 堆叠
-- [ ] 添加注释说明布局不读游戏状态
 
 ### features/inventory/grouping.ts
 - [ ] 从 key-layer.ts 迁出 `GroupedItem` 类型
@@ -158,6 +152,5 @@
 - [ ] `npm run lint` — biome + depcruise 零错误
 - [ ] `start.sh` 启动新 TUI 正常
 - [ ] 新 TUI 主界面：房间/出口/目标/事件日志/基础按键正常
-- [ ] `src/tui/app.tsx` 行数 ≤ 80
 - [ ] `useKeyboard` 只在 `controllers/keyboard-controller.tsx` 出现
 - [ ] `src/tui/` 不 import `src/client-tui/`

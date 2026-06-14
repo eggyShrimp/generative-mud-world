@@ -71,5 +71,46 @@ export default {
       from: { path: "src", pathNot: "src/(__tests__|engine/delta-registry\\.ts)" },
       to: { path: "src/engine/delta-registry\\.ts" },
     },
+    {
+      name: "save-data-schema-only-save-layer",
+      comment:
+        "SaveData schema is a persistence boundary detail. Runtime modules should use SaveData DAO APIs instead of importing the raw schema.",
+      severity: "error",
+      from: {
+        path: "src",
+        pathNot: "src/(core/(save-manager|schemas)|__tests__)",
+      },
+      to: { path: "src/core/schemas/save-data\\.ts" },
+    },
+    {
+      name: "save-manager-no-ui-import",
+      comment:
+        "UI code must not depend on SaveManager. SaveData is a server/runtime persistence concern exposed through protocol or DAO-backed services.",
+      severity: "error",
+      from: { path: "src/(client-tui|tui)" },
+      to: { path: "src/core/save-manager\\.ts" },
+    },
+    {
+      name: "save-manager-only-wired-at-boundaries",
+      comment:
+        "Runtime features should depend on narrow SaveData DAO interfaces. SaveManager itself should only be wired at entry points, tests, or the current dialogue integration boundary.",
+      severity: "error",
+      from: {
+        path: "src",
+        pathNot: "src/(index\\.ts|llm/dialogue-generator\\.ts|__tests__)",
+      },
+      to: { path: "src/core/save-manager\\.ts" },
+    },
+    {
+      name: "content-pool-loader-only-load-and-evolve",
+      comment:
+        "ContentPool loader is a database boundary. Runtime modules should query ContentPool through world state or DAO APIs, not import the loader directly.",
+      severity: "error",
+      from: {
+        path: "src",
+        pathNot: "src/(core/world-loader\\.ts|simulation/content-pool-materializer\\.ts|__tests__)",
+      },
+      to: { path: "src/core/content-pool-loader\\.ts" },
+    },
   ],
 };

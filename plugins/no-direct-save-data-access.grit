@@ -1,0 +1,30 @@
+language js(typescript, jsx)
+
+file($name, $body) where {
+    or {
+        $filename <: r".*src/engine/.*",
+        $filename <: r".*src/llm/.*",
+        $filename <: r".*src/combat/.*",
+        $filename <: r".*src/simulation/.*",
+        $filename <: r".*src/core/.*",
+        $filename <: r".*src/server/.*",
+        $filename <: r".*src/tui/.*",
+        $filename <: r".*src/client-tui/.*"
+    },
+    not $filename <: r".*src/core/save-manager\.ts.*",
+    not $filename <: r".*src/core/save-data-dao\.ts.*",
+    not $filename <: r".*src/core/save-data/.*",
+    not $filename <: r".*src/core/schemas/save-data\.ts.*",
+    not $filename <: r".*src/core/types\.ts.*",
+    not $filename <: r".*src/__tests__/.*",
+    or {
+        $body <: contains `$obj.data.conversations` as $access,
+        $body <: contains `$obj.data.meta` as $access,
+        $body <: contains `$obj.data.version` as $access,
+        $body <: contains `$obj.conversations.summaries` as $access
+    },
+    register_diagnostic(
+        span = $access,
+        message = "不要直接访问 SaveData 原始结构。运行时代码必须通过 SaveData DAO（例如 saveManager.conversations.*、capture、restore）读写存档，避免绕过 schema、迁移和 meta 更新。"
+    )
+}

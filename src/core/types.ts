@@ -653,6 +653,8 @@ export interface NarrativeTemplates {
   settlementMessages: SettlementMessages;
   questMessages: QuestMessages;
   traveloguePrompt: string;
+  conversationSummaryLabel: string;
+  conversationSummaryPrompt: string;
 }
 
 export interface CalendarConfig {
@@ -828,6 +830,30 @@ export interface Encounter {
   trigger: string; // "披斗篷的人拍了拍你的肩"
   context: Record<string, unknown>;
   resolved: boolean;
+}
+
+// ============================================================
+// SaveData: 运行时持久层 — 跨重启存档（非 ContentPool 配置）
+// ============================================================
+
+export interface SaveMeta {
+  slotId: string;
+  worldId: string;
+  savedAt: number;
+  gameTick: number;
+  round: number;
+}
+
+export interface ConversationSummaryEntry {
+  summary: string;
+  lastTick: number;
+}
+
+export interface SaveData {
+  meta: SaveMeta;
+  conversations: {
+    summaries: Record<string, ConversationSummaryEntry[]>;
+  };
 }
 
 // ============================================================

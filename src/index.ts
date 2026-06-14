@@ -1,7 +1,9 @@
 import "dotenv/config";
+import { basename, extname } from "node:path";
 import { EventBus } from "./core/event-bus";
 import { createDailyRoutineMemory } from "./core/memory.ts";
 import { RoundEngine } from "./core/round-engine";
+import { SaveManager } from "./core/save-manager.ts";
 import type { NPCEntity, SimulationDelta, WorldState } from "./core/types";
 import { applyDelta } from "./core/world";
 import { loadWorldFromYaml } from "./core/world-loader";
@@ -16,6 +18,9 @@ import { decayNeeds } from "./simulation/index";
 async function main() {
   const worldFile = process.env.WORLD_FILE ?? "worlds/generated_continent.yaml";
   const world = loadWorldFromYaml(worldFile);
+  const worldId = basename(worldFile, extname(worldFile));
+  const saveSlot = process.env.SAVE_SLOT ?? "slot_001";
+  const saveManager = SaveManager.load(saveSlot, worldId);
   hookEventLog(world);
   const eventBus = new EventBus();
 
@@ -93,6 +98,7 @@ async function main() {
       model: process.env.LLM_DIALOGUE_MODEL ?? process.env.LLM_MODEL ?? "llama3",
       disableThinking: true,
     }),
+    saveManager,
   );
   engine.setDialogueGenerator(dialogueGenerator);
 
@@ -140,6 +146,14 @@ async function main() {
     logWrite("srv", "info", `LLM: ${ok ? "reachable" : "unreachable"}`);
     server.broadcastStatus(ok);
   });
+
+  const gracefulShutdown = () => {
+    logWrite("srv", "info", "Shutting down, saving...");
+    saveManager.save();
+    process.exit(0);
+  };
+  process.on("SIGINT", gracefulShutdown);
+  process.on("SIGTERM", gracefulShutdown);
 
   await gameLoop;
 }

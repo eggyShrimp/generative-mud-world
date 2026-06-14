@@ -1155,6 +1155,13 @@ export function createDefaultContentPool(): ContentPool {
 
 输出格式为严格的JSON:
 {"title": "章回标题", "narrative": "正文内容"}`,
+      conversationSummaryLabel: "此前对话概要",
+      conversationSummaryPrompt: `你正在为一个 MUD 游戏生成 NPC 对话的简要总结。
+根据以下对话历史，生成一句中文总结（不超过40字），概括这次对话的主要内容。
+只需要返回总结文本，不要多余内容。
+
+对话历史:
+{history}`,
     },
 
     calendar: {

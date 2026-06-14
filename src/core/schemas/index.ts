@@ -43,6 +43,7 @@ export {
   NewRoomDefSchema,
   WorldMutationSchema,
 } from "./mutation.ts";
+export { ConversationSummaryEntrySchema, SaveDataSchema, SaveMetaSchema } from "./save-data.ts";
 export type { TerrainConfigEntry, TerrainType } from "./terrain.ts";
 export { TerrainConfigEntrySchema, TerrainConfigSchema, TerrainTypeSchema } from "./terrain.ts";
 export type { WorldConfig } from "./world-config.ts";

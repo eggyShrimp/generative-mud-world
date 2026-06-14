@@ -1,0 +1,33 @@
+language js(typescript, jsx)
+
+file($name, $body) where {
+    or {
+        $filename <: r".*src/engine/.*",
+        $filename <: r".*src/llm/.*",
+        $filename <: r".*src/combat/.*",
+        $filename <: r".*src/simulation/.*",
+        $filename <: r".*src/core/.*",
+        $filename <: r".*src/server/.*"
+    },
+    not $filename <: r".*src/core/world\.ts.*",
+    not $filename <: r".*src/core/world-loader\.ts.*",
+    not $filename <: r".*src/core/content-pool-loader\.ts.*",
+    not $filename <: r".*src/core/content-pool-dao\.ts.*",
+    not $filename <: r".*src/core/content-queries\.ts.*",
+    not $filename <: r".*src/core/content-pool/.*",
+    not $filename <: r".*src/simulation/content-pool-materializer\.ts.*",
+    not $filename <: r".*src/__tests__/.*",
+    or {
+        $body <: contains `$world.contentPool = $value` as $write,
+        $body <: contains `$world.contentPool.$field = $value` as $write,
+        $body <: contains `$world.contentPool.$field.push($args)` as $write,
+        $body <: contains `$world.contentPool.$field.splice($args)` as $write,
+        $body <: contains `$world.contentPool.$field.pop()` as $write,
+        $body <: contains `$world.contentPool.$field.shift()` as $write,
+        $body <: contains `$world.contentPool.$field.unshift($args)` as $write
+    },
+    register_diagnostic(
+        span = $write,
+        message = "不要在运行时代码直接写 ContentPool。ContentPool 是内容数据库；写入应通过 loader、materializer 或明确的 ContentPool DAO/写入入口，避免配置数据多源维护。"
+    )
+}

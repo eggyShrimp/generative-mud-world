@@ -4,7 +4,9 @@
     "./plugins/no-empty-catch.grit",
     "./plugins/no-create-default-outside-world.grit",
     "./plugins/no-hardcoded-labels.grit",
-    "./plugins/no-direct-world-mutation.grit"
+    "./plugins/no-direct-world-mutation.grit",
+    "./plugins/no-direct-save-data-access.grit",
+    "./plugins/no-direct-contentpool-write.grit"
   ],
   "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "formatter": {

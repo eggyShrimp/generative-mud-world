@@ -16,6 +16,7 @@
  *   - 逻辑常量 (Math.PI, 方向数组)
  */
 
+import type { SaveManager } from "../core/save-manager.ts";
 import type {
   DialogueEffectMapping,
   Entity,
@@ -63,10 +64,12 @@ const MAX_HISTORY_ROUNDS = 10;
  */
 export class DialogueGenerator {
   private adapter: LLMAdapter;
+  private saveManager: SaveManager;
   private conversationHistories: Map<string, ConversationEntry[]> = new Map();
 
-  constructor(adapter: LLMAdapter) {
+  constructor(adapter: LLMAdapter, saveManager: SaveManager) {
     this.adapter = adapter;
+    this.saveManager = saveManager;
   }
 
   /**
@@ -397,12 +400,12 @@ ${directionLines}
             ),
           };
         }
-        this.conversationHistories.delete(this.getHistoryKey(playerId, npcId));
+        await this.generateAndSaveConversationSummary(world, playerId, npcId);
         return { delta };
       }
 
       case "close":
-        this.conversationHistories.delete(this.getHistoryKey(playerId, npcId));
+        await this.generateAndSaveConversationSummary(world, playerId, npcId);
         return {
           delta: {
             dialogues: [
@@ -1241,7 +1244,8 @@ ${directionLines}
     const context = this.buildContext(world, player, npc);
     const historyKey = this.getHistoryKey(player.id, npc.id);
     const history = this.conversationHistories.get(historyKey) ?? [];
-    const prompt = this.buildIdleChatPrompt(context, history, playerMessage, world);
+    const summary = this.saveManager.getConversationSummary(player.id, npc.id);
+    const prompt = this.buildIdleChatPrompt(context, history, playerMessage, world, summary);
 
     try {
       const response = await this.adapter.chat(
@@ -1362,6 +1366,7 @@ ${directionLines}
     conversationHistory: ConversationEntry[],
     playerMessage: string | undefined,
     world: WorldState,
+    conversationSummary: string | null,
   ) {
     const memorySection =
       context.npcMemories.length > 0
@@ -1373,6 +1378,12 @@ ${directionLines}
       directions.length > 0
         ? `\n对话方向参考:\n${directions.map((d) => `  - ${d.instruction}`).join("\n")}`
         : "";
+
+    const summaryLabel =
+      world.contentPool.narrativeTemplates.conversationSummaryLabel || "此前对话概要";
+    const summarySection = conversationSummary
+      ? `\n${summaryLabel}:\n  ${conversationSummary}`
+      : "";
 
     const historySection = this.formatConversationHistory(conversationHistory, context.npcName);
 
@@ -1386,7 +1397,7 @@ ${directionLines}
 心情: ${context.npcMood}
 需求: ${context.npcNeeds}
 关系: ${context.relationshipLabel} (${context.relationshipLevel})
-场景: ${context.roomName}${memorySection}${directionSection}
+场景: ${context.roomName}${memorySection}${directionSection}${summarySection}
 ${historySection}
 ---
 ${userLine}
@@ -1408,6 +1419,51 @@ ${userLine}
 
   private getHistoryKey(playerId: EntityId, npcId: EntityId): string {
     return `${playerId}:${npcId}`;
+  }
+
+  private async generateAndSaveConversationSummary(
+    world: WorldState,
+    playerId: EntityId,
+    npcId: EntityId,
+  ): Promise<void> {
+    const key = this.getHistoryKey(playerId, npcId);
+    const history = this.conversationHistories.get(key);
+    if (!history || history.length === 0) return;
+
+    const npc = world.entities.get(npcId);
+    const npcName = npc?.name ?? "NPC";
+
+    const summaryPrompt =
+      world.contentPool.narrativeTemplates.conversationSummaryPrompt ||
+      "请概括以下对话的内容，生成一句中文总结（不超过40字）：\n{history}";
+
+    const historyText = history
+      .map((e) => `${e.speaker === "player" ? "玩家" : npcName}: ${e.content}`)
+      .join("\n");
+
+    const prompt = summaryPrompt.replace("{history}", historyText);
+
+    try {
+      const response = await this.adapter.chat(
+        prompt,
+        "",
+        [],
+        undefined,
+        "dialogue-summary",
+        false,
+      );
+      const summary = response.text?.trim() || "";
+      if (summary) {
+        this.saveManager.setConversationSummary(playerId, npcId, summary, world.tick);
+        this.saveManager.save();
+      }
+    } catch (err) {
+      logWrite(
+        "srv",
+        "warn",
+        `DialogueGenerator: summary generation failed for ${playerId}/${npcId}: ${String(err)}`,
+      );
+    }
   }
 
   private recordConversationHistory(

@@ -5,17 +5,15 @@
 ### Component: src/client-tui/game-client.ts
 
 - [ ] 新增 `DialogueHistoryEntry` 接口：`{speaker: "player" | "npc"; content: string}`
-- [ ] 新增 `DialogueTab = "chat" | "trade" | "observe"` 类型
-- [ ] 新增 `TradeItemDisplay`、`NpcObserveInfo` 接口
-- [ ] `DialogueState` 新增字段：`history: DialogueHistoryEntry[]`、`activeTab: DialogueTab`、`availableTabs: DialogueTab[]`、`npcInfo?: NpcObserveInfo`
+- [ ] 新增 `DialogueTab = "chat" | "trade"` 类型
+- [ ] 新增 `TradeItemDisplay` 接口
+- [ ] `DialogueState` 新增字段：`history: DialogueHistoryEntry[]`、`activeTab: DialogueTab`、`availableTabs: DialogueTab[]`
 - [ ] `DialogueState` 移除 `lastNpcReply`
 - [ ] 导出 `appendToHistory(state, speaker, content)` 纯函数
 - [ ] 导出 `computeContentHeight(bodyHeight, interactionHeight)` 纯函数
 - [ ] 更新 `buildLoadingDialogueState`：保留 history，移除 lastNpcReply
 - [ ] 更新 `chooseDialogueOption`：append player entry to history
-- [ ] 更新 `startDialogueDirect`：同上
 - [ ] 更新 `buildTalkHandlers.onCommandResult`：append npc entry to history
-- [ ] 新增 `setDialogueTab(tab)` 和 handler 方法
 
 ### Component: src/client-tui/app.tsx
 
@@ -62,7 +60,7 @@
 
 ---
 
-## Phase 3: Tab 切换 + 观察 Tab
+## Phase 3: Tab 切换
 
 ### Component: src/client-tui/key-layer.ts
 
@@ -73,7 +71,6 @@
 ### Component: src/client-tui/game-client.ts
 
 - [ ] 新增 `switchDialogueTab(direction)` 方法
-- [ ] 新增 `refreshNpcInfo(npcId)` 方法：调用 `execute("look", {target})` 填充 `npcInfo`
 
 ### Component: src/client-tui/app.tsx
 
@@ -81,8 +78,6 @@
   - 当前 tab 高亮（`THEME.focus`），其他 dim
   - `←` `→` 端点标记
   - 仅 `availableTabs` 中存在的 tab 才显示
-- [ ] 观察 Tab 的 content slot：NPC 情报卡（性格/描述/特质/关系/持有/传闻）
-- [ ] 观察 Tab 进入时 lazy-load `npcInfo`（调用 `execute("look")`）
 
 ### Verification (Phase 3)
 
@@ -107,26 +102,6 @@
 - [ ] 切换至交易 Tab 时 lazy-load（调用 `requestTrade`）
 
 ### Verification (Phase 4)
-
-- [ ] Run `npm run lint`
-- [ ] Run `npx vitest run`
-- [ ] Run `npx depcruise src`
-
----
-
-## Phase 5: 入口简化
-
-### Component: src/client-tui/key-layer.ts
-
-- [ ] `getEntityActions()` 修改：选中 NPC 后直接调用 `client.startDialogueDirect()` 进入 DialoguePanel
-- [ ] 或：修改 `handleEntitySelect`，NPC 直接 `showDialogue` 而非 `setSelectedEntityId`
-
-### Component: src/client-tui/game-client.ts
-
-- [ ] 进入 DialoguePanel 时自动触发情景判断（talk idle_chat / quest_trigger）
-- [ ] 预取 `npcInfo`（并行 execute look）
-
-### Verification (Phase 5)
 
 - [ ] Run `npm run lint`
 - [ ] Run `npx vitest run`

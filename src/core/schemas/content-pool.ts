@@ -157,6 +157,8 @@ export const NarrativeTemplatesSchema = z.object({
   settlementMessages: SettlementMessagesSchema,
   questMessages: QuestMessagesSchema,
   traveloguePrompt: z.string(),
+  conversationSummaryLabel: z.string(),
+  conversationSummaryPrompt: z.string(),
 });
 
 // calendar
