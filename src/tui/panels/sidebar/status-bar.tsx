@@ -1,12 +1,10 @@
 // ── StatusBar ──
 // 顶部状态栏：角色名、日期、连接状态、退出提示。
-// compact=true 时用于窄屏，单行无边框。
-// compact=false 时用于宽屏，3 行带边框。
 
 import type { GameClient } from "../../client/game-client.ts";
 import { THEME } from "../../theme/theme.ts";
 
-export function StatusBar(props: { client: GameClient; compact?: boolean }) {
+export function StatusBar(props: { client: GameClient }) {
   const entity = () => props.client.entity();
   const status = () => props.client.status();
 
@@ -23,27 +21,6 @@ export function StatusBar(props: { client: GameClient; compact?: boolean }) {
     if (state === "error") return "连接失败";
     return "未连接";
   };
-
-  if (props.compact) {
-    return (
-      <box
-        height={1}
-        paddingX={1}
-        backgroundColor={THEME.panelAlt}
-        flexDirection="row"
-        alignItems="center"
-      >
-        <text fg={dotColor()} width={2}>
-          ●
-        </text>
-        <text fg={THEME.title}>{entity()?.name ?? "未绑定角色"}</text>
-        <text fg={THEME.muted} wrapMode="word">
-          {"  "}第 {status()?.round ?? "-"} 天 · {status()?.date ?? "-"} · {connectionText()}
-          {" · Ctrl+C 退出"}
-        </text>
-      </box>
-    );
-  }
 
   return (
     <box

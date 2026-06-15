@@ -11,22 +11,13 @@ import { THEME } from "../theme/theme.ts";
 import { KeyHint } from "./key-hint.tsx";
 import { LoadingHint } from "./loading-hint.tsx";
 
-export function TargetActionPopup(props: {
-  client: GameClient;
-  entity: RoomEntity | null;
-  narrow: boolean;
-}) {
+export function TargetActionPopup(props: { client: GameClient; entity: RoomEntity | null }) {
   const isLoadingDialogue = () => props.client.hasActiveRequest();
 
   return (
     <Show when={props.entity}>
       {(entity: () => RoomEntity) => (
-        <PopupPanel
-          title={entity().name}
-          borderColor={THEME.focus}
-          width={props.narrow ? 28 : 26}
-          zIndex={25}
-        >
+        <PopupPanel title={entity().name} borderColor={THEME.focus} width={26} zIndex={25}>
           <Show
             when={!isLoadingDialogue()}
             fallback={<LoadingHint color={THEME.muted} text="加载中..." />}

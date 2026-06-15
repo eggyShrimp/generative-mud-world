@@ -40,19 +40,8 @@ export function QuestsPanel(props: { client: GameClient; metrics: ModalMetrics }
             </text>
           }
         >
-          <box
-            flexDirection={props.metrics.narrow ? "column" : "row"}
-            height={props.metrics.bodyHeight}
-          >
-            <scrollbox
-              height={
-                props.metrics.narrow
-                  ? Math.max(3, Math.floor(props.metrics.bodyHeight / 2))
-                  : props.metrics.bodyHeight
-              }
-              width={props.metrics.narrow ? "100%" : 28}
-              scrollY
-            >
+          <box flexDirection={"row"} height={props.metrics.bodyHeight}>
+            <scrollbox height={props.metrics.bodyHeight} width={28} scrollY>
               <For each={quests()}>
                 {(quest, i) => {
                   const selected = () => selectedIndex() === i();
@@ -84,15 +73,7 @@ export function QuestsPanel(props: { client: GameClient; metrics: ModalMetrics }
                   borderColor={THEME.borderMuted}
                   paddingLeft={1}
                   marginLeft={1}
-                  height={
-                    props.metrics.narrow
-                      ? Math.max(
-                          3,
-                          props.metrics.bodyHeight -
-                            Math.max(3, Math.floor(props.metrics.bodyHeight / 2)),
-                        )
-                      : props.metrics.bodyHeight
-                  }
+                  height={props.metrics.bodyHeight}
                   flexGrow={1}
                   scrollY
                 >

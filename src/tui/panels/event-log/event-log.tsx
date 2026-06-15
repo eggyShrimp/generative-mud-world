@@ -11,6 +11,7 @@ import { THEME } from "../../theme/theme.ts";
 export function EventLog(props: {
   events: LogEntry[];
   height: number;
+  width?: number;
   pendingEvent?: { type: string; description: string } | null;
 }) {
   return (
@@ -21,6 +22,7 @@ export function EventLog(props: {
       title="事件日志"
       padding={1}
       height={props.height}
+      width={props.width}
       stickyScroll
       stickyStart="bottom"
     >

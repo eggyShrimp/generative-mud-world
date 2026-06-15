@@ -24,11 +24,9 @@ const EXIT_W = 0b1000;
 
 /**
  * 区域视图：房间名 + 路径连接线。
- * 窄屏模式下房间名替换为首字符/地图字符。
  */
 export function renderRegionRows(
   minimap: MinimapData,
-  narrow: boolean,
   colors: { focus: string; exit: string; dim: string },
 ): MapLine[] {
   const regionTiles = minimap.tiles.filter(
@@ -59,11 +57,7 @@ export function renderRegionRows(
       const w = colWidths[xi];
 
       if (tile) {
-        const displayName = narrow
-          ? tile.char === "@"
-            ? (tile.roomName?.[0] ?? "?")
-            : tile.char
-          : (tile.roomName ?? tile.char);
+        const displayName = tile.roomName ?? tile.char;
         roomLine += displayName.padEnd(w);
       } else {
         roomLine += " ".repeat(w);
@@ -79,7 +73,7 @@ export function renderRegionRows(
           nextTile.known &&
           (tile.hasExit & EXIT_E) !== 0 &&
           (nextTile.hasExit & EXIT_W) !== 0;
-        if (!narrow && tile && nextTile) {
+        if (tile && nextTile) {
           roomLine += hasHExit ? " ── " : "    ";
         }
       }
@@ -98,7 +92,7 @@ export function renderRegionRows(
         const w = colWidths[xi];
         const center = Math.floor(w / 2);
 
-        if (!narrow && tile && belowTile) {
+        if (tile && belowTile) {
           const hasVExit =
             tile.known &&
             belowTile.known &&

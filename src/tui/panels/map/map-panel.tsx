@@ -19,11 +19,10 @@ const MAP_COLORS = {
   text: THEME.text,
 };
 
-export function MapPanel(props: { client: GameClient; metrics: ModalMetrics; narrow?: boolean }) {
+export function MapPanel(props: { client: GameClient; metrics: ModalMetrics }) {
   const data = () => props.client.room()?.minimap;
   const granularity = () => props.client.mapGranularity();
   const cursor = () => props.client.mapCursor();
-  const isNarrow = () => props.narrow ?? props.metrics.narrow;
 
   const breadcrumb = createMemo(() => {
     const g = granularity();
@@ -75,7 +74,7 @@ export function MapPanel(props: { client: GameClient; metrics: ModalMetrics; nar
     if (!minimap) return [];
     return granularity() === "world"
       ? renderWorldRows(minimap, cursor(), MAP_COLORS)
-      : renderRegionRows(minimap, isNarrow(), MAP_COLORS);
+      : renderRegionRows(minimap, MAP_COLORS);
   });
 
   const infoLines = createMemo(() => {

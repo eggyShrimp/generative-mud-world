@@ -1,5 +1,5 @@
 import { useTerminalDimensions } from "@opentui/solid";
-import { createMemo, onCleanup, onMount, Show } from "solid-js";
+import { createMemo, onCleanup, onMount } from "solid-js";
 import type { GameClient } from "./client/game-client.ts";
 import { KeyboardController } from "./controllers/keyboard-controller.tsx";
 import { findGroupForItem, groupInventory } from "./features/inventory/grouping.ts";
@@ -22,12 +22,9 @@ import { StatusPanel } from "./panels/status/status-panel.tsx";
 import { TraveloguePanel } from "./panels/travelogue/travelogue-panel.tsx";
 import { THEME } from "./theme/theme.ts";
 
-// App 是 TUI 的组装根。只负责连接生命周期、布局计算和面板挂载，
-// 不包含任何面板内部逻辑。
 export function App(props: { client: GameClient }) {
   const dimensions = useTerminalDimensions();
-  const narrow = createMemo(() => dimensions().width < 100);
-  const layoutMetrics = createMemo(() => getLayoutMetrics(dimensions().height, narrow()));
+  const layoutMetrics = createMemo(() => getLayoutMetrics(dimensions().height));
 
   const visibleEntities = createMemo(() => {
     const playerId = props.client.entity()?.id;
@@ -50,10 +47,10 @@ export function App(props: { client: GameClient }) {
   });
 
   const modalMetrics = createMemo(() =>
-    getModalMetrics(dimensions().width, dimensions().height, layoutMetrics(), narrow()),
+    getModalMetrics(dimensions().width, dimensions().height, layoutMetrics()),
   );
   const statusMetrics = createMemo(() =>
-    getStatusPanelMetrics(dimensions().width, dimensions().height, layoutMetrics(), narrow()),
+    getStatusPanelMetrics(dimensions().width, dimensions().height, layoutMetrics()),
   );
 
   onMount(() => props.client.connect());
@@ -64,50 +61,29 @@ export function App(props: { client: GameClient }) {
       flexDirection="column"
       width="100%"
       height="100%"
-      padding={narrow() ? 0 : 1}
+      padding={1}
       backgroundColor={THEME.background}
     >
       <KeyboardController client={props.client} />
-      <StatusBar client={props.client} compact={narrow()} />
-      <Show
-        when={!narrow()}
-        fallback={
-          <box flexDirection="column" flexGrow={1} gap={0}>
-            <RoomPanel
-              client={props.client}
-              entities={visibleEntities()}
-              selectedEntity={selectedEntity()}
-              height={layoutMetrics().roomHeight}
-              narrow
-            />
-            <EventLog
-              events={props.client.events()}
-              pendingEvent={pendingEvent()}
-              height={layoutMetrics().eventLogHeight}
-            />
-            <Sidebar client={props.client} narrow />
-          </box>
-        }
-      >
-        <box flexDirection="column" flexGrow={1} gap={0}>
-          <box flexDirection="row" height={layoutMetrics().roomHeight} gap={1}>
-            <RoomPanel
-              client={props.client}
-              entities={visibleEntities()}
-              selectedEntity={selectedEntity()}
-              height={layoutMetrics().roomHeight}
-            />
-            <Sidebar client={props.client} height={layoutMetrics().roomHeight} />
-          </box>
+      <StatusBar client={props.client} />
+      <box flexDirection="column" flexGrow={1} gap={0}>
+        <box flexDirection="row" height={layoutMetrics().roomHeight} gap={1}>
+          <RoomPanel
+            client={props.client}
+            entities={visibleEntities()}
+            selectedEntity={selectedEntity()}
+            height={layoutMetrics().roomHeight}
+          />
           <EventLog
             events={props.client.events()}
             pendingEvent={pendingEvent()}
-            height={layoutMetrics().eventLogHeight}
+            height={layoutMetrics().roomHeight}
+            width={layoutMetrics().sidebarWidth}
           />
         </box>
-      </Show>
+        <Sidebar client={props.client} />
+      </box>
 
-      {/* 弹窗面板：由 key-layer 激活控制 */}
       <StatusPanel client={props.client} metrics={statusMetrics()} />
       <QuestsPanel client={props.client} metrics={modalMetrics()} />
       <TraveloguePanel client={props.client} metrics={modalMetrics()} />
@@ -119,12 +95,11 @@ export function App(props: { client: GameClient }) {
         metrics={modalMetrics()}
       />
       <DialoguePanel client={props.client} metrics={modalMetrics()} />
-      <MapPanel client={props.client} metrics={modalMetrics()} narrow={narrow()} />
+      <MapPanel client={props.client} metrics={modalMetrics()} />
       <SavePanel client={props.client} metrics={modalMetrics()} />
       <BookReaderPanel client={props.client} metrics={modalMetrics()} />
       <CombatPanel client={props.client} entities={visibleEntities()} metrics={modalMetrics()} />
 
-      {/* 浮层通知 */}
       <QuestNotificationOverlay client={props.client} />
       <ItemChangeNotificationOverlay client={props.client} />
     </box>

@@ -36,19 +36,8 @@ export function TraveloguePanel(props: { client: GameClient; metrics: ModalMetri
             </text>
           }
         >
-          <box
-            flexDirection={props.metrics.narrow ? "column" : "row"}
-            height={props.metrics.bodyHeight}
-          >
-            <scrollbox
-              height={
-                props.metrics.narrow
-                  ? Math.max(3, Math.floor(props.metrics.bodyHeight / 2))
-                  : props.metrics.bodyHeight
-              }
-              width={props.metrics.narrow ? "100%" : 28}
-              scrollY
-            >
+          <box flexDirection={"row"} height={props.metrics.bodyHeight}>
+            <scrollbox height={props.metrics.bodyHeight} width={28} scrollY>
               <For each={entries()}>
                 {(entry, i) => {
                   const selected = () => selectedIndex() === i();
@@ -76,17 +65,8 @@ export function TraveloguePanel(props: { client: GameClient; metrics: ModalMetri
                   borderColor={THEME.borderMuted}
                   paddingLeft={1}
                   marginLeft={1}
-                  height={
-                    props.metrics.narrow
-                      ? Math.max(
-                          3,
-                          props.metrics.bodyHeight -
-                            Math.max(3, Math.floor(props.metrics.bodyHeight / 2)),
-                        )
-                      : props.metrics.bodyHeight
-                  }
-                  width={props.metrics.narrow ? "100%" : undefined}
-                  flexGrow={props.metrics.narrow ? undefined : 1}
+                  height={props.metrics.bodyHeight}
+                  flexGrow={1}
                   scrollY
                 >
                   <text fg="#d4a574">{entry().title}</text>

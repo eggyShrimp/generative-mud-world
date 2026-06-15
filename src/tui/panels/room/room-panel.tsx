@@ -181,7 +181,6 @@ export function RoomPanel(props: {
   entities: RoomEntity[];
   selectedEntity: RoomEntity | null;
   height: number;
-  narrow?: boolean;
 }) {
   const room = () => props.client.room();
 
@@ -193,7 +192,7 @@ export function RoomPanel(props: {
       title="当前地点"
       padding={1}
       flexDirection="column"
-      flexGrow={props.narrow ? 0 : 1}
+      flexGrow={1}
       height={props.height}
       position="relative"
     >
@@ -219,11 +218,7 @@ export function RoomPanel(props: {
         relations={props.client.entity()?.relations}
       />
 
-      <TargetActionPopup
-        client={props.client}
-        entity={props.selectedEntity}
-        narrow={Boolean(props.narrow)}
-      />
+      <TargetActionPopup client={props.client} entity={props.selectedEntity} />
     </box>
   );
 }

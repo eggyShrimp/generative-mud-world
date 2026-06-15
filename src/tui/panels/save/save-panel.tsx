@@ -19,14 +19,6 @@ export function SavePanel(props: { client: GameClient; metrics: ModalMetrics }) 
     const idx = selectedIndex();
     return idx !== null ? (slots()[idx] ?? null) : null;
   };
-  const leftHeight = () =>
-    props.metrics.narrow
-      ? Math.max(4, Math.floor(props.metrics.bodyHeight / 2))
-      : props.metrics.bodyHeight;
-  const rightHeight = () =>
-    props.metrics.narrow
-      ? Math.max(4, props.metrics.bodyHeight - leftHeight())
-      : props.metrics.bodyHeight;
 
   return (
     <Show when={props.client.isLayerActive("save")}>
@@ -44,15 +36,11 @@ export function SavePanel(props: { client: GameClient; metrics: ModalMetrics }) 
           when={!props.client.savePanelLoading()}
           fallback={<LoadingHint color={THEME.muted} text="正在处理..." />}
         >
-          <box
-            flexDirection={props.metrics.narrow ? "column" : "row"}
-            height={props.metrics.bodyHeight}
-          >
+          <box flexDirection="row" height={props.metrics.bodyHeight}>
             <scrollbox
-              height={leftHeight()}
-              width={props.metrics.narrow ? "100%" : 34}
+              height={props.metrics.bodyHeight}
+              width={34}
               scrollY
-              border={props.metrics.narrow ? ["bottom"] : undefined}
               borderColor={THEME.borderMuted}
             >
               <Show
@@ -91,13 +79,12 @@ export function SavePanel(props: { client: GameClient; metrics: ModalMetrics }) 
             </scrollbox>
 
             <scrollbox
-              border={props.metrics.narrow ? undefined : ["left"]}
+              border={["left"]}
               borderColor={THEME.borderMuted}
-              paddingLeft={props.metrics.narrow ? 1 : 2}
-              marginLeft={props.metrics.narrow ? 0 : 1}
-              height={rightHeight()}
-              width={props.metrics.narrow ? "100%" : undefined}
-              flexGrow={props.metrics.narrow ? undefined : 1}
+              paddingLeft={2}
+              marginLeft={1}
+              height={props.metrics.bodyHeight}
+              flexGrow={1}
               scrollY
             >
               <Show

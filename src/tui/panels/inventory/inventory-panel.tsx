@@ -126,19 +126,8 @@ export function InventoryPanel(props: {
           }
         >
           {(group: () => GroupedItem) => (
-            <box
-              flexDirection={props.metrics.narrow ? "column" : "row"}
-              height={props.metrics.bodyHeight}
-            >
-              <scrollbox
-                height={
-                  props.metrics.narrow
-                    ? Math.max(3, Math.floor(props.metrics.bodyHeight / 2))
-                    : props.metrics.bodyHeight
-                }
-                width={props.metrics.narrow ? "100%" : 24}
-                scrollY
-              >
+            <box flexDirection={"row"} height={props.metrics.bodyHeight}>
+              <scrollbox height={props.metrics.bodyHeight} width={24} scrollY>
                 <InventoryList
                   items={props.items}
                   selectedGroupName={group().name}
@@ -150,15 +139,7 @@ export function InventoryPanel(props: {
               <InventoryDetail
                 client={props.client}
                 group={group()}
-                height={
-                  props.metrics.narrow
-                    ? Math.max(
-                        3,
-                        props.metrics.bodyHeight -
-                          Math.max(3, Math.floor(props.metrics.bodyHeight / 2)),
-                      )
-                    : props.metrics.bodyHeight
-                }
+                height={props.metrics.bodyHeight}
               />
             </box>
           )}
