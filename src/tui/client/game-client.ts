@@ -318,6 +318,7 @@ export interface GameClient {
   activeLayer: () => KeyLayer;
   layerStack: () => KeyLayer[];
   setSelectedEntityId: (id: string | null) => void;
+  interactWithEntity: (id: string) => void;
   openInventory: () => void;
   closeInventory: () => void;
   openQuests: () => void;
@@ -1097,6 +1098,15 @@ export function createGameClient(url: string): GameClient {
     });
   };
 
+  const selectEntity = (id: string | null) => {
+    setSelectedEntityId(id);
+    if (id !== null) {
+      pushLayer("entity-selected");
+    } else {
+      if (hasLayer("entity-selected")) popLayer("entity-selected");
+    }
+  };
+
   return {
     connectionState,
     entity,
@@ -1115,48 +1125,44 @@ export function createGameClient(url: string): GameClient {
     isLayerActive: (id: string) => hasLayer(id),
     activeLayer: () => activeLayer(),
     layerStack: () => getLayerStack(),
-    setSelectedEntityId: (id: string | null) => {
-      setSelectedEntityId(id);
-      if (id !== null) {
-        const targetEntity = room()?.entities?.find((e) => e.id === id);
-        const hasTalk = capabilities().some(
-          (c) => c.action === "talk" && (c.params?.values ?? []).includes(id),
+    setSelectedEntityId: selectEntity,
+    interactWithEntity: (id: string) => {
+      const targetEntity = room()?.entities?.find((e) => e.id === id);
+      const hasTalk = capabilities().some(
+        (c) => c.action === "talk" && (c.params?.values ?? []).includes(id),
+      );
+      if (targetEntity?.type === "npc" && hasTalk) {
+        const npcName = targetEntity.name;
+        showDialogue(
+          createDialogueState({
+            npcId: id,
+            npcName,
+            activeTab: "chat",
+            availableTabs: ["chat", "trade"],
+            npcDescription: targetEntity.description ?? targetEntity.typeLabel ?? "人物",
+            chatLoading: true,
+          }),
         );
-        if (targetEntity?.type === "npc" && hasTalk) {
-          const npcName = targetEntity.name;
-          showDialogue(
-            createDialogueState({
-              npcId: id,
-              npcName,
-              activeTab: "chat",
-              availableTabs: ["chat", "trade"],
-              npcDescription: targetEntity.description ?? targetEntity.typeLabel ?? "人物",
-              chatLoading: true,
-            }),
-          );
-          sendRequest({ type: "request_chat_options", npcId: id }, (req) => {
-            req.onChatOptions = (msg) => {
-              setDialogue((prev) =>
-                prev
-                  ? applyDialogueOptionsToTab(prev, "chat", msg.options, {
-                      id: msg.npcId,
-                      name: msg.npcName,
-                    })
-                  : createDialogueState({
-                      npcId: msg.npcId,
-                      npcName: msg.npcName,
-                      chatOptions: msg.options,
-                      activeTab: "chat",
-                      availableTabs: ["chat", "trade"],
-                    }),
-              );
-            };
-          });
-        } else {
-          pushLayer("entity-selected");
-        }
+        sendRequest({ type: "request_chat_options", npcId: id }, (req) => {
+          req.onChatOptions = (msg) => {
+            setDialogue((prev) =>
+              prev
+                ? applyDialogueOptionsToTab(prev, "chat", msg.options, {
+                    id: msg.npcId,
+                    name: msg.npcName,
+                  })
+                : createDialogueState({
+                    npcId: msg.npcId,
+                    npcName: msg.npcName,
+                    chatOptions: msg.options,
+                    activeTab: "chat",
+                    availableTabs: ["chat", "trade"],
+                  }),
+            );
+          };
+        });
       } else {
-        if (hasLayer("entity-selected")) popLayer("entity-selected");
+        selectEntity(id);
       }
     },
     openInventory: () => {

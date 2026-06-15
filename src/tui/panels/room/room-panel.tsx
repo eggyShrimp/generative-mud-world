@@ -181,8 +181,10 @@ export function RoomPanel(props: {
   entities: RoomEntity[];
   selectedEntity: RoomEntity | null;
   height: number;
+  width: number;
 }) {
   const room = () => props.client.room();
+  const contentWidth = () => Math.max(1, props.width - 2);
 
   return (
     <box
@@ -190,33 +192,34 @@ export function RoomPanel(props: {
       borderColor={THEME.border}
       backgroundColor={THEME.panel}
       title="当前地点"
-      padding={1}
       flexDirection="column"
-      flexGrow={1}
+      width={props.width}
       height={props.height}
       position="relative"
     >
-      <text fg={THEME.title}>{room()?.name ?? "未进入房间"}</text>
-      <text fg={THEME.text} wrapMode="word">
-        {room()?.description ?? "等待世界回应。"}
-      </text>
+      <box flexDirection="column" width={contentWidth()} padding={1} overflow="hidden">
+        <text fg={THEME.title}>{room()?.name ?? "未进入房间"}</text>
+        <text fg={THEME.text} wrapMode="word">
+          {room()?.description ?? "等待世界回应。"}
+        </text>
 
-      <box height={1} />
+        <box height={1} />
 
-      <RoomActionList room={room()} onExecute={(actionId) => props.client.execute(actionId)} />
+        <RoomActionList room={room()} onExecute={(actionId) => props.client.execute(actionId)} />
 
-      <SectionTitle label="出口" color={THEME.muted} />
-      <ExitList exits={room()?.exits ?? {}} />
+        <SectionTitle label="出口" color={THEME.muted} />
+        <ExitList exits={room()?.exits ?? {}} />
 
-      <box height={1} />
+        <box height={1} />
 
-      <SectionTitle label="眼前" color={THEME.muted} />
-      <EntityList
-        entities={props.entities}
-        selectedEntityId={props.selectedEntity?.id}
-        onSelect={(entity) => props.client.setSelectedEntityId(entity.id)}
-        relations={props.client.entity()?.relations}
-      />
+        <SectionTitle label="眼前" color={THEME.muted} />
+        <EntityList
+          entities={props.entities}
+          selectedEntityId={props.selectedEntity?.id}
+          onSelect={(entity) => props.client.interactWithEntity(entity.id)}
+          relations={props.client.entity()?.relations}
+        />
+      </box>
 
       <TargetActionPopup client={props.client} entity={props.selectedEntity} />
     </box>

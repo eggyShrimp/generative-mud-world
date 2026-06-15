@@ -35,6 +35,7 @@ function mockClient(overrides: Partial<GameClient> = {}): GameClient {
     mapGranularity: () => "region",
     mapCursor: () => ({ x: 0, y: 0 }),
     setSelectedEntityId: vi.fn(),
+    interactWithEntity: vi.fn(),
     setSelectedInventoryItemId: vi.fn(),
     setSelectedQuestIndex: vi.fn(),
     closeInventory: vi.fn(),
@@ -289,7 +290,7 @@ describe("dispatchKey", () => {
     });
     const key = mockKey("1");
     dispatchKey(key, client);
-    expect(client.setSelectedEntityId).toHaveBeenCalledWith("npc1");
+    expect(client.interactWithEntity).toHaveBeenCalledWith("npc1");
   });
 
   it("base 层: 1-9 无实体时不触发", () => {
@@ -299,7 +300,7 @@ describe("dispatchKey", () => {
     });
     const key = mockKey("1");
     dispatchKey(key, client);
-    expect(client.setSelectedEntityId).not.toHaveBeenCalled();
+    expect(client.interactWithEntity).not.toHaveBeenCalled();
   });
 
   it("combat 层: 仅 f/d/escape 生效", () => {
@@ -1005,6 +1006,7 @@ describe("entity selection flow (integration)", () => {
       mapGranularity: () => "region",
       mapCursor: () => ({ x: 0, y: 0 }),
       setSelectedEntityId,
+      interactWithEntity: (id: string) => setSelectedEntityId(id),
       setSelectedInventoryItemId: vi.fn(),
       setSelectedQuestIndex: vi.fn(),
       closeInventory: vi.fn(),

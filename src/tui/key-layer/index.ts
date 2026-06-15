@@ -98,7 +98,7 @@ function handleEntitySelect(client: GameClient, keyName: string) {
   const entities = (client.room()?.entities ?? []).filter((e) => e.id !== player?.id);
   const target = entities[idx];
   if (target) {
-    client.setSelectedEntityId(target.id);
+    client.interactWithEntity(target.id);
   }
 }
 
