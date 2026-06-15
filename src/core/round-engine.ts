@@ -364,7 +364,7 @@ export class RoundEngine {
         const entry = await generateTravelogueEntry(
           this.world,
           playerId,
-          this.dispatcher.getAdapter(),
+          this.dispatcher.getSettlementAdapter() ?? this.dispatcher.getAdapter(),
         );
         if (entry) {
           (player as PlayerEntity).travelogue.push(entry);
@@ -518,15 +518,15 @@ export class RoundEngine {
       if (visibleEvents.length > 0) {
         try {
           const eventTexts = visibleEvents.map((e) => e.description);
-          const result = await this.dispatcher
-            .getAdapter()
-            .chat(
-              "你是日报汇总引擎。将以下事件列表总结为一段简洁的日报。用第三人称，3-5句话，概括当天的主要事件。直接输出文本。",
-              `${entity.name}今天经历了以下事件:\n${eventTexts.map((t, i) => `${i + 1}. ${t}`).join("\n")}`,
-              undefined,
-              undefined,
-              "day-summary",
-            );
+          const result = await (
+            this.dispatcher.getSettlementAdapter() ?? this.dispatcher.getAdapter()
+          ).chat(
+            "你是日报汇总引擎。将以下事件列表总结为一段简洁的日报。用第三人称，3-5句话，概括当天的主要事件。直接输出文本。",
+            `${entity.name}今天经历了以下事件:\n${eventTexts.map((t, i) => `${i + 1}. ${t}`).join("\n")}`,
+            undefined,
+            undefined,
+            "day-summary",
+          );
           summary = result.text.trim() || visibleEvents.map((e) => e.description).join("\n\n");
         } catch {
           summary = visibleEvents.map((e) => e.description).join("\n\n");

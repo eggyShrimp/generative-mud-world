@@ -224,6 +224,7 @@ export interface SettlementBatchResult {
 
 export class InteractionDispatcher {
   private adapter: LLMAdapter;
+  private settlementAdapter?: LLMAdapter;
   private detector: TriggerDetector;
   private config: DispatcherConfig;
   public reachable = false;
@@ -236,6 +237,14 @@ export class InteractionDispatcher {
 
   getAdapter(): LLMAdapter {
     return this.adapter;
+  }
+
+  setSettlementAdapter(adapter: LLMAdapter): void {
+    this.settlementAdapter = adapter;
+  }
+
+  getSettlementAdapter(): LLMAdapter | undefined {
+    return this.settlementAdapter;
   }
 
   async checkReachable(): Promise<boolean> {
@@ -258,6 +267,8 @@ export class InteractionDispatcher {
   ): Promise<SettlementBatchResult> {
     if (!this.reachable) return { deltas: [], worldMutations: [], contentPoolMutations: [] };
 
+    const activeAdapter = this.settlementAdapter ?? this.adapter;
+
     const triggers = this.detector.check(world, delta);
     const deltas: SimulationDelta[] = [];
     const worldMutations: WorldMutation[] = [];
@@ -265,7 +276,9 @@ export class InteractionDispatcher {
 
     const batches = this.partition(triggers, this.config.maxBatchSize);
     for (const batch of batches) {
-      const batchResults = await Promise.all(batch.map((req) => this.execute(world, req)));
+      const batchResults = await Promise.all(
+        batch.map((req) => this.execute(world, req, activeAdapter)),
+      );
       for (const result of batchResults) {
         if (result.delta) deltas.push(result.delta);
         if (result.worldMutation) worldMutations.push(result.worldMutation);
@@ -314,19 +327,18 @@ export class InteractionDispatcher {
     }
   }
 
-  private async execute(_world: WorldState, request: InteractionRequest): Promise<ExecuteResult> {
+  private async execute(
+    _world: WorldState,
+    request: InteractionRequest,
+    adapter?: LLMAdapter,
+  ): Promise<ExecuteResult> {
+    const llm = adapter ?? this.adapter;
     try {
       switch (request.type) {
         case "world_event": {
           // biome-ignore lint/suspicious/noExplicitAny: context 类型安全，由 trigger detector 保证
           const { system, user } = buildWorldEventPrompt(request.context as any);
-          const response = await this.adapter.chat(
-            system,
-            user,
-            undefined,
-            undefined,
-            "world_event",
-          );
+          const response = await llm.chat(system, user, undefined, undefined, "world_event");
           return { ...emptyResult(), delta: parseWorldEventOutput(response.text) };
         }
 
@@ -337,26 +349,14 @@ export class InteractionDispatcher {
         case "memory_compression": {
           // biome-ignore lint/suspicious/noExplicitAny: context 类型安全，由 trigger detector 保证
           const { system, user } = buildMemoryCompressionPrompt(request.context as any);
-          const response = await this.adapter.chat(
-            system,
-            user,
-            undefined,
-            undefined,
-            "memory_compression",
-          );
+          const response = await llm.chat(system, user, undefined, undefined, "memory_compression");
           return { ...emptyResult(), delta: parseWorldEventOutput(response.text) };
         }
 
         case "settlement_growth": {
           // biome-ignore lint/suspicious/noExplicitAny: context 类型安全，由 trigger detector 保证
           const { system, user } = buildSettlementGrowthPrompt(request.context as any);
-          const response = await this.adapter.chat(
-            system,
-            user,
-            undefined,
-            undefined,
-            "settlement_growth",
-          );
+          const response = await llm.chat(system, user, undefined, undefined, "settlement_growth");
           const mutation = await parseSettlementGrowthOutput(response.text);
           if (mutation) {
             logWrite("srv", "info", "[SettlementGrowth] parsed mutation for later materialization");
@@ -368,7 +368,7 @@ export class InteractionDispatcher {
         case "content_pool_evolve": {
           // biome-ignore lint/suspicious/noExplicitAny: context 类型安全，由 trigger detector 保证
           const { system, user } = buildContentPoolEvolvePrompt(request.context as any);
-          const response = await this.adapter.chat(
+          const response = await llm.chat(
             system,
             user,
             CONTENT_POOL_EVOLVE_TOOLS,

@@ -86,6 +86,17 @@ async function main() {
   });
   const dispatcher = new InteractionDispatcher(llmAdapter);
 
+  const settlementModel = process.env.LLM_SETTLEMENT_MODEL;
+  if (settlementModel) {
+    dispatcher.setSettlementAdapter(
+      new LLMAdapter({
+        baseUrl: process.env.LLM_BASE_URL ?? "http://localhost:11434/v1",
+        apiKey: process.env.LLM_API_KEY ?? "ollama",
+        model: settlementModel,
+      }),
+    );
+  }
+
   const engine = new RoundEngine(world, eventBus, dispatcher, simulation);
 
   const serverPort = Number(process.env.WORLD_SERVER_PORT ?? 3000);
