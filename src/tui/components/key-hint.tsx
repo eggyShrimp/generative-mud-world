@@ -1,3 +1,5 @@
+import { createMemo } from "solid-js";
+
 export function KeyHint(props: {
   shortcut: string | number;
   label?: string;
@@ -8,11 +10,11 @@ export function KeyHint(props: {
   wrapMode?: "none" | "char" | "word";
 }) {
   const suffix = props.tag === "quest" ? "!" : "";
-  const fg = props.tag === "quest" ? "#e6a850" : props.color;
+  const fg = createMemo(() => (props.tag === "quest" ? "#e6a850" : props.color));
   const labelPart = props.label ? ` ${props.label}` : "";
   return (
     <text
-      fg={fg}
+      fg={fg()}
       selectable={props.selectable}
       onMouseDown={props.onMouseDown}
       wrapMode={props.wrapMode}

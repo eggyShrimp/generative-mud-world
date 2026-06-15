@@ -712,6 +712,7 @@ export function createGameClient(url: string): GameClient {
         pushEvents([{ type: "system", description: `当前角色：${message.entityName}` }]);
         break;
       case "state_update":
+        logWrite("cli", "dbg", `[DIAG] state_update recv, caps=${message.capabilities?.length}`);
         setEntity(message.entity);
         setRoom(message.room);
         setCapabilities(message.capabilities);

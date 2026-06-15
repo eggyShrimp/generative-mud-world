@@ -3,7 +3,8 @@
 // narrow=true 时单行横向排列（仅操作按钮，无需求条）。
 // narrow=false 时竖向排列，30 列宽带边框。
 
-import { createMemo, For, Show } from "solid-js";
+import { createEffect, createMemo, For, Show } from "solid-js";
+import { logWrite } from "../../../shared/log.ts";
 import type { GameClient } from "../../client/game-client.ts";
 import { KeyHint, SectionTitle } from "../../components/index.ts";
 import { bindingLabel, getGlobalBindings } from "../../key-layer/index.ts";
@@ -36,6 +37,15 @@ export function Sidebar(props: { client: GameClient; height?: number; narrow?: b
               : binding.key.toUpperCase();
             const available = () =>
               !disabled() && (!binding.enabled || binding.enabled(props.client));
+
+            createEffect(() => {
+              const keyStr = Array.isArray(binding.key) ? binding.key[0] : binding.key;
+              logWrite(
+                "cli",
+                "dbg",
+                `${keyStr}: available=${available()} disabled=${disabled()} caps=${props.client.capabilities()?.length}`,
+              );
+            });
             return (
               <KeyHint
                 shortcut={displayKey}
@@ -104,6 +114,15 @@ export function Sidebar(props: { client: GameClient; height?: number; narrow?: b
               : binding.key.toUpperCase();
             const available = () =>
               !disabled() && (!binding.enabled || binding.enabled(props.client));
+
+            createEffect(() => {
+              const keyStr = Array.isArray(binding.key) ? binding.key[0] : binding.key;
+              logWrite(
+                "cli",
+                "dbg",
+                `${keyStr}: available=${available()} disabled=${disabled()} caps=${props.client.capabilities()?.length}`,
+              );
+            });
             return (
               <KeyHint
                 shortcut={displayKey}

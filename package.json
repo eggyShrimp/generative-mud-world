@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "dev:tui": "bun src/tui/index.tsx",
+    "dev:tui": "bun --hot src/tui/index.tsx",
     "dev:web": "npm run dev --prefix web",
     "start": "tsx src/index.ts",
     "build": "tsc",
