@@ -1,6 +1,7 @@
 import {
   ActionEffectSchema,
   BookContentSchema,
+  ClueDefinitionSchema,
   NamePoolSchema,
   NewNPCDefSchema,
   NewRoomDefSchema,
@@ -175,6 +176,20 @@ export function contentPoolMutationFromToolCalls(
         }
         mutation.addQuestTemplates = mutation.addQuestTemplates ?? [];
         mutation.addQuestTemplates.push(result.data);
+        break;
+      }
+      case "add_clue_definition": {
+        const result = ClueDefinitionSchema.safeParse(args);
+        if (!result.success) {
+          logWrite(
+            "srv",
+            "warn",
+            `[LLMTool] invalid add_clue_definition ignored: ${result.error.message}`,
+          );
+          break;
+        }
+        mutation.addClueDefinitions = mutation.addClueDefinitions ?? [];
+        mutation.addClueDefinitions.push(result.data);
         break;
       }
     }

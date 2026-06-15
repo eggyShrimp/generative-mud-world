@@ -76,8 +76,38 @@ export const ADD_BOOK_CONTENT_TOOL: ToolDefinition = {
   },
 };
 
+export const ADD_CLUE_DEFINITION_TOOL: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "add_clue_definition",
+    description: "向内容池添加一条新的世界线索定义，NPC 可在对话中分享此线索给玩家",
+    parameters: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "线索稳定 ID，如 cave_17_secret" },
+        description: {
+          type: "string",
+          description: "线索的自然语言描述，NPC 在对话中引用此线索时使用",
+        },
+        knownByNpcIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "知道此线索的 NPC ID 列表",
+          minItems: 1,
+        },
+        relatedRoomId: {
+          type: "string",
+          description: "线索关联的房间 ID（可选）",
+        },
+      },
+      required: ["id", "description", "knownByNpcIds"],
+    },
+  },
+};
+
 export const CONTENT_POOL_EVOLVE_TOOLS: ToolDefinition[] = [
   ADD_ACTION_TOOL,
   ADD_SCHEDULE_TOOL,
   ADD_BOOK_CONTENT_TOOL,
+  ADD_CLUE_DEFINITION_TOOL,
 ];

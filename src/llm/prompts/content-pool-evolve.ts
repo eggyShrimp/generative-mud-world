@@ -64,6 +64,14 @@ export function buildContentPoolEvolvePrompt(context: {
 	      "pages": ["第一页正文", "第二页正文", "第三页正文"]
 	    }
 	  ],
+	  "addClueDefinitions": [
+	    {
+	      "id": "clue_stable_id",
+	      "description": "线索的自然语言描述，NPC 在对话中引用此线索时使用",
+	      "knownByNpcIds": ["npc_id_who_knows"],
+	      "relatedRoomId": "optional_room_id"
+	    }
+	  ],
 	  "narrativeContext": "描述这次演化的叙事意义"
 	}
 
