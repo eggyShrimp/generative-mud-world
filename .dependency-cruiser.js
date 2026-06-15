@@ -97,7 +97,8 @@ export default {
       severity: "error",
       from: {
         path: "src",
-        pathNot: "src/(index\\.ts|llm/dialogue-generator\\.ts|__tests__)",
+        pathNot:
+          "src/(index\\.ts|core/save-slot-selection\\.ts|llm/dialogue-generator\\.ts|__tests__)",
       },
       to: { path: "src/core/save-manager\\.ts" },
     },

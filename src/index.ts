@@ -4,6 +4,7 @@ import { EventBus } from "./core/event-bus";
 import { createDailyRoutineMemory } from "./core/memory.ts";
 import { RoundEngine } from "./core/round-engine";
 import { SaveManager } from "./core/save-manager.ts";
+import { resolveSaveSlot } from "./core/save-slot-selection.ts";
 import type { NPCEntity, SimulationDelta, WorldState } from "./core/types";
 import { applyDelta } from "./core/world";
 import { loadWorldFromYaml } from "./core/world-loader";
@@ -19,12 +20,12 @@ async function main() {
   const worldFile = process.env.WORLD_FILE ?? "worlds/generated_continent.yaml";
   const world = loadWorldFromYaml(worldFile);
   const worldId = basename(worldFile, extname(worldFile));
-  const saveSlot = process.env.SAVE_SLOT ?? "slot_001";
   const saveRoot = process.env.SAVE_DIR ?? "saves";
-  const saveSelect = process.env.SAVE_SELECT ?? "skip";
-  if (saveSelect !== "skip") {
-    logWrite("srv", "warn", `SAVE_SELECT=${saveSelect} is not implemented yet; using SAVE_SLOT`);
-  }
+  const saveSlot = await resolveSaveSlot({
+    mode: process.env.SAVE_SELECT ?? "skip",
+    configuredSlot: process.env.SAVE_SLOT ?? "slot_001",
+    rootDir: saveRoot,
+  });
   const saveManager = SaveManager.load({
     rootDir: saveRoot,
     slotId: saveSlot,

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -37,35 +37,35 @@ describe("SaveManager", () => {
     });
   });
 
-  describe("getConversationSummary / setConversationSummary", () => {
+  describe("conversations", () => {
     it("returns null when no summary exists", () => {
       const mgr = SaveManager.create({ rootDir, slotId: "slot_001", worldId: "test_world" });
-      expect(mgr.getConversationSummary("player1", "npc1")).toBeNull();
+      expect(mgr.conversations.getSummary("player1", "npc1")).toBeNull();
     });
 
     it("roundtrips a summary", () => {
       const mgr = SaveManager.create({ rootDir, slotId: "slot_001", worldId: "test_world" });
-      mgr.setConversationSummary("player1", "npc1", "老马跟你聊了北山土匪的事。", 42);
-      expect(mgr.getConversationSummary("player1", "npc1")).toBe("老马跟你聊了北山土匪的事。");
+      mgr.conversations.setSummary("player1", "npc1", "老马跟你聊了北山土匪的事。", 42);
+      expect(mgr.conversations.getSummary("player1", "npc1")).toBe("老马跟你聊了北山土匪的事。");
     });
 
     it("returns latest summary when multiple exist for the same pair", () => {
       const mgr = SaveManager.create({ rootDir, slotId: "slot_001", worldId: "test_world" });
-      mgr.setConversationSummary("player1", "npc1", "第一次对话总结", 10);
-      mgr.setConversationSummary("player1", "npc1", "第二次对话总结", 20);
-      expect(mgr.getConversationSummary("player1", "npc1")).toBe("第二次对话总结");
+      mgr.conversations.setSummary("player1", "npc1", "第一次对话总结", 10);
+      mgr.conversations.setSummary("player1", "npc1", "第二次对话总结", 20);
+      expect(mgr.conversations.getSummary("player1", "npc1")).toBe("第二次对话总结");
     });
 
     it("stores summaries for different player-npc pairs independently", () => {
       const mgr = SaveManager.create({ rootDir, slotId: "slot_001", worldId: "test_world" });
-      mgr.setConversationSummary("p1", "npc1", "玩家1与NPC1的对话", 10);
-      mgr.setConversationSummary("p1", "npc2", "玩家1与NPC2的对话", 20);
-      mgr.setConversationSummary("p2", "npc1", "玩家2与NPC1的对话", 30);
+      mgr.conversations.setSummary("p1", "npc1", "玩家1与NPC1的对话", 10);
+      mgr.conversations.setSummary("p1", "npc2", "玩家1与NPC2的对话", 20);
+      mgr.conversations.setSummary("p2", "npc1", "玩家2与NPC1的对话", 30);
 
-      expect(mgr.getConversationSummary("p1", "npc1")).toBe("玩家1与NPC1的对话");
-      expect(mgr.getConversationSummary("p1", "npc2")).toBe("玩家1与NPC2的对话");
-      expect(mgr.getConversationSummary("p2", "npc1")).toBe("玩家2与NPC1的对话");
-      expect(mgr.getConversationSummary("p2", "npc2")).toBeNull();
+      expect(mgr.conversations.getSummary("p1", "npc1")).toBe("玩家1与NPC1的对话");
+      expect(mgr.conversations.getSummary("p1", "npc2")).toBe("玩家1与NPC2的对话");
+      expect(mgr.conversations.getSummary("p2", "npc1")).toBe("玩家2与NPC1的对话");
+      expect(mgr.conversations.getSummary("p2", "npc2")).toBeNull();
     });
   });
 
@@ -97,6 +97,69 @@ describe("SaveManager", () => {
       expect(mgr.data.meta.gameTick).toBe(0);
       expect(mgr.data.conversations.summaries).toEqual({});
     });
+
+    it("loads valid JSON from the configured directory", () => {
+      const mgr = SaveManager.create({
+        rootDir,
+        slotId: "slot_001",
+        worldId: "test_world",
+        currentTick: 3,
+        currentRound: 2,
+      });
+      mgr.conversations.setSummary("p1", "npc1", "聊过北山。", 3);
+      mgr.save();
+
+      const loaded = SaveManager.load({ rootDir, slotId: "slot_001", worldId: "test_world" });
+
+      expect(loaded.getMeta()).toMatchObject({ slotId: "slot_001", gameTick: 3, round: 2 });
+      expect(loaded.conversations.getSummary("p1", "npc1")).toBe("聊过北山。");
+    });
+
+    it("recovers from malformed JSON by creating a fresh save", () => {
+      writeFileSync(join(rootDir, "slot_001.json"), "{ bad json", "utf-8");
+
+      const mgr = SaveManager.load({ rootDir, slotId: "slot_001", worldId: "test_world" });
+
+      expect(mgr.getMeta()).toMatchObject({ slotId: "slot_001", worldId: "test_world" });
+      expect(mgr.conversations.getSummary("p1", "npc1")).toBeNull();
+    });
+
+    it("rejects saves from another world", () => {
+      const mgr = SaveManager.create({ rootDir, slotId: "slot_001", worldId: "other_world" });
+      mgr.conversations.setSummary("p1", "npc1", "旧世界摘要", 1);
+      mgr.save();
+
+      const loaded = SaveManager.load({ rootDir, slotId: "slot_001", worldId: "test_world" });
+
+      expect(loaded.getMeta().worldId).toBe("test_world");
+      expect(loaded.conversations.getSummary("p1", "npc1")).toBeNull();
+    });
+
+    it("migrates legacy saves without a version field", () => {
+      writeFileSync(
+        join(rootDir, "slot_001.json"),
+        JSON.stringify({
+          meta: {
+            slotId: "slot_001",
+            worldId: "test_world",
+            savedAt: 1,
+            gameTick: 7,
+            round: 4,
+          },
+          conversations: {
+            summaries: {
+              "p1:npc1": [{ summary: "旧格式摘要", lastTick: 7 }],
+            },
+          },
+        }),
+        "utf-8",
+      );
+
+      const loaded = SaveManager.load({ rootDir, slotId: "slot_001", worldId: "test_world" });
+
+      expect(loaded.data.version).toBe(1);
+      expect(loaded.conversations.getSummary("p1", "npc1")).toBe("旧格式摘要");
+    });
   });
 
   describe("save", () => {
@@ -113,7 +176,7 @@ describe("SaveManager", () => {
         currentTick: 10,
         currentRound: 2,
       });
-      mgr.setConversationSummary("p1", "npc1", "聊过一次", 10);
+      mgr.conversations.setSummary("p1", "npc1", "聊过一次", 10);
       mgr.save();
 
       const slots = mgr.listSlots();
@@ -139,7 +202,7 @@ describe("SaveManager", () => {
         currentTick: 10,
         currentRound: 2,
       });
-      mgr.setConversationSummary("p1", "npc1", "聊过一次", 10);
+      mgr.conversations.setSummary("p1", "npc1", "聊过一次", 10);
 
       const slot = mgr.saveAs("slot_002", { tick: 20, round: 4 } as WorldState);
       const slots = mgr.listSlots();
@@ -152,6 +215,41 @@ describe("SaveManager", () => {
         summaryCount: 1,
       });
       expect(slots.map((s) => s.slotId)).toContain("slot_002");
+    });
+
+    it("writes formatted JSON with a trailing newline", () => {
+      const mgr = SaveManager.create({ rootDir, slotId: "slot_001", worldId: "test_world" });
+      mgr.save();
+
+      const raw = readFileSync(join(rootDir, "slot_001.json"), "utf-8");
+
+      expect(raw.endsWith("\n")).toBe(true);
+      expect(() => JSON.parse(raw)).not.toThrow();
+      expect(raw).toContain('\n  "version": 1,');
+    });
+
+    it("does not leave the temporary file after a successful save", () => {
+      const mgr = SaveManager.create({ rootDir, slotId: "slot_001", worldId: "test_world" });
+      mgr.save();
+
+      expect(existsSync(join(rootDir, ".slot_001.tmp"))).toBe(false);
+      expect(readdirSync(rootDir)).toEqual(["slot_001.json"]);
+    });
+
+    it("capture updates the persisted tick and round", () => {
+      const mgr = SaveManager.create({ rootDir, slotId: "slot_001", worldId: "test_world" });
+      mgr.capture({ tick: 25, round: 6 } as WorldState);
+
+      expect(mgr.getMeta()).toMatchObject({ gameTick: 25, round: 6 });
+    });
+
+    it("data returns a copy instead of mutable raw SaveData", () => {
+      const mgr = SaveManager.create({ rootDir, slotId: "slot_001", worldId: "test_world" });
+      const data = mgr.data;
+
+      data.conversations.summaries["p1:npc1"] = [{ summary: "外部写入", lastTick: 1 }];
+
+      expect(mgr.conversations.getSummary("p1", "npc1")).toBeNull();
     });
   });
 });

@@ -42,19 +42,60 @@ function emptySaveData(slotId: string, worldId: string, tick: number, round: num
   };
 }
 
+function cloneSaveData(data: SaveData): SaveData {
+  return JSON.parse(JSON.stringify(data)) as SaveData;
+}
+
+function conversationKey(playerId: string, npcId: string): string {
+  return `${playerId}:${npcId}`;
+}
+
+function migrateSaveData(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object") return raw;
+  const data = raw as Record<string, unknown>;
+  if (data.version === undefined) {
+    return { ...data, version: 1 };
+  }
+  return data;
+}
+
+export class ConversationSaveDao {
+  readonly #getData: () => SaveData;
+
+  constructor(getData: () => SaveData) {
+    this.#getData = getData;
+  }
+
+  getSummary(playerId: string, npcId: string): string | null {
+    const entries = this.#getData().conversations.summaries[conversationKey(playerId, npcId)];
+    if (!entries || entries.length === 0) return null;
+    return entries[entries.length - 1].summary;
+  }
+
+  setSummary(playerId: string, npcId: string, summary: string, tick: number): void {
+    const data = this.#getData();
+    const key = conversationKey(playerId, npcId);
+    const entries = data.conversations.summaries[key] ?? [];
+    entries.push({ summary, lastTick: tick });
+    data.conversations.summaries[key] = entries;
+  }
+}
+
 export class SaveManager {
   #data: SaveData;
   readonly #rootDir: string;
   readonly #slotId: string;
+  readonly conversations: ConversationSaveDao;
 
   private constructor(data: SaveData, rootDir: string) {
     this.#data = data;
     this.#rootDir = rootDir;
     this.#slotId = data.meta.slotId;
+    this.conversations = new ConversationSaveDao(() => this.#data);
   }
 
   get data(): SaveData {
-    return this.#data;
+    return cloneSaveData(this.#data);
   }
 
   static load(slotId: string, worldId: string): SaveManager;
@@ -90,7 +131,7 @@ export class SaveManager {
 
     try {
       const raw = readFileSync(filePath, "utf-8");
-      const parsed = JSON.parse(raw);
+      const parsed = migrateSaveData(JSON.parse(raw));
       const result = SaveDataSchema.safeParse(parsed);
 
       if (!result.success) {
@@ -200,7 +241,7 @@ export class SaveManager {
   }
 
   saveAs(slotId: string, world: WorldState): SaveSlotInfo {
-    const data = JSON.parse(JSON.stringify(this.#data)) as SaveData;
+    const data = cloneSaveData(this.#data);
     data.meta = {
       ...data.meta,
       slotId,
@@ -248,17 +289,11 @@ export class SaveManager {
   }
 
   getConversationSummary(playerId: string, npcId: string): string | null {
-    const key = `${playerId}:${npcId}`;
-    const entries = this.#data.conversations.summaries[key];
-    if (!entries || entries.length === 0) return null;
-    return entries[entries.length - 1].summary;
+    return this.conversations.getSummary(playerId, npcId);
   }
 
   setConversationSummary(playerId: string, npcId: string, summary: string, tick: number): void {
-    const key = `${playerId}:${npcId}`;
-    const entries = this.#data.conversations.summaries[key] ?? [];
-    entries.push({ summary, lastTick: tick });
-    this.#data.conversations.summaries[key] = entries;
+    this.conversations.setSummary(playerId, npcId, summary, tick);
   }
 
   private readSlotInfo(slotId: string): SaveSlotInfo | null {

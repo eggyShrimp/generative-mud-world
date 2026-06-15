@@ -400,12 +400,12 @@ ${directionLines}
             ),
           };
         }
-        await this.generateAndSaveConversationSummary(world, playerId, npcId);
+        this.scheduleConversationSummary(world, playerId, npcId);
         return { delta };
       }
 
       case "close":
-        await this.generateAndSaveConversationSummary(world, playerId, npcId);
+        this.scheduleConversationSummary(world, playerId, npcId);
         return {
           delta: {
             dialogues: [
@@ -1244,7 +1244,7 @@ ${directionLines}
     const context = this.buildContext(world, player, npc);
     const historyKey = this.getHistoryKey(player.id, npc.id);
     const history = this.conversationHistories.get(historyKey) ?? [];
-    const summary = this.saveManager.getConversationSummary(player.id, npc.id);
+    const summary = this.saveManager.conversations.getSummary(player.id, npc.id);
     const prompt = this.buildIdleChatPrompt(context, history, playerMessage, world, summary);
 
     try {
@@ -1421,15 +1421,26 @@ ${userLine}
     return `${playerId}:${npcId}`;
   }
 
-  private async generateAndSaveConversationSummary(
+  private scheduleConversationSummary(
     world: WorldState,
     playerId: EntityId,
     npcId: EntityId,
-  ): Promise<void> {
+  ): void {
     const key = this.getHistoryKey(playerId, npcId);
     const history = this.conversationHistories.get(key);
     if (!history || history.length === 0) return;
 
+    this.conversationHistories.delete(key);
+    const historySnapshot = history.map((entry) => ({ ...entry }));
+    void this.generateAndSaveConversationSummary(world, playerId, npcId, historySnapshot);
+  }
+
+  private async generateAndSaveConversationSummary(
+    world: WorldState,
+    playerId: EntityId,
+    npcId: EntityId,
+    history: ConversationEntry[],
+  ): Promise<void> {
     const npc = world.entities.get(npcId);
     const npcName = npc?.name ?? "NPC";
 
@@ -1454,7 +1465,8 @@ ${userLine}
       );
       const summary = response.text?.trim() || "";
       if (summary) {
-        this.saveManager.setConversationSummary(playerId, npcId, summary, world.tick);
+        this.saveManager.conversations.setSummary(playerId, npcId, summary, world.tick);
+        this.saveManager.capture(world);
         this.saveManager.save();
       }
     } catch (err) {

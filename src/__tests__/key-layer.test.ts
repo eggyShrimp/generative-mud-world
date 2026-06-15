@@ -348,6 +348,48 @@ describe("dispatchKey", () => {
     expect(key.wasPrevented).toBe(true);
   });
 
+  it("save 层: 保存、刷新、新建、选择和关闭都接到客户端", () => {
+    pushLayer("save");
+    const client = mockClient({
+      saveSlots: () => [
+        {
+          slotId: "slot_001",
+          worldId: "test",
+          savedAt: 1,
+          gameTick: 0,
+          round: 0,
+          version: 1,
+          isCurrent: true,
+          summaryCount: 0,
+          valid: true,
+        },
+        {
+          slotId: "slot_002",
+          worldId: "test",
+          savedAt: 2,
+          gameTick: 0,
+          round: 0,
+          version: 1,
+          isCurrent: false,
+          summaryCount: 0,
+          valid: true,
+        },
+      ],
+    });
+
+    dispatchKey(mockKey("s"), client);
+    dispatchKey(mockKey("r"), client);
+    dispatchKey(mockKey("n"), client);
+    dispatchKey(mockKey("2"), client);
+    dispatchKey(mockKey("escape"), client);
+
+    expect(client.manualSave).toHaveBeenCalled();
+    expect(client.requestSaveSlots).toHaveBeenCalled();
+    expect(client.createSaveSlot).toHaveBeenCalled();
+    expect(client.setSelectedSaveSlotIndex).toHaveBeenCalledWith(1);
+    expect(client.closeSavePanel).toHaveBeenCalled();
+  });
+
   it("dialogue 层: escape 关闭对话", () => {
     pushLayer("dialogue");
     const client = mockClient();

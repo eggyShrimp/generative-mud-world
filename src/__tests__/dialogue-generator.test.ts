@@ -24,11 +24,24 @@ function mockAdapter(
   } as unknown as LLMAdapter;
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
 function mockSaveManager(): SaveManager {
   return {
-    getConversationSummary: vi.fn().mockReturnValue(null),
-    setConversationSummary: vi.fn(),
+    conversations: {
+      getSummary: vi.fn().mockReturnValue(null),
+      setSummary: vi.fn(),
+    },
     save: vi.fn(),
+    capture: vi.fn(),
     data: {
       meta: { slotId: "test", worldId: "test", savedAt: 0, gameTick: 0, round: 0 },
       conversations: { summaries: {} },
@@ -969,6 +982,73 @@ describe("DialogueGenerator.handleChatOption — 连续对话", () => {
 
     expect(result.delta.dialogues).toBeDefined();
     expect(result.subOptions).toBeUndefined();
+  });
+
+  it("idle_chat + goodbye → 不等待后台 summary 完成", async () => {
+    const world = setupWorld();
+    const summary = deferred<{ text: string }>();
+    const adapter = {
+      chat: vi
+        .fn()
+        .mockResolvedValueOnce({ text: "后会有期。", toolCalls: [] })
+        .mockImplementationOnce(() => summary.promise),
+      generate: vi.fn(),
+    } as unknown as LLMAdapter;
+    const saveManager = mockSaveManager();
+    const gen = new DialogueGenerator(adapter, saveManager);
+
+    const result = await Promise.race([
+      gen.handleChatOption(world, "p1", "npc1", "idle_chat", "chat:goodbye", "再见").then(() => {
+        return "closed";
+      }),
+      summary.promise.then(() => {
+        return "summary";
+      }),
+    ]);
+
+    expect(result).toBe("closed");
+    expect(saveManager.conversations.setSummary).not.toHaveBeenCalled();
+
+    summary.resolve({ text: "玩家和老马告别。" });
+    await summary.promise;
+    await Promise.resolve();
+
+    expect(saveManager.conversations.setSummary).toHaveBeenCalledWith(
+      "p1",
+      "npc1",
+      "玩家和老马告别。",
+      world.tick,
+    );
+    expect(saveManager.capture).toHaveBeenCalledWith(world);
+    expect(saveManager.save).toHaveBeenCalled();
+  });
+
+  it("background summary failure → 不影响关闭结果", async () => {
+    const world = setupWorld();
+    const adapter = {
+      chat: vi
+        .fn()
+        .mockResolvedValueOnce({ text: "回头见。", toolCalls: [] })
+        .mockRejectedValueOnce(new Error("summary failed")),
+      generate: vi.fn(),
+    } as unknown as LLMAdapter;
+    const saveManager = mockSaveManager();
+    const gen = new DialogueGenerator(adapter, saveManager);
+
+    const result = await gen.handleChatOption(
+      world,
+      "p1",
+      "npc1",
+      "idle_chat",
+      "chat:goodbye",
+      "再见",
+    );
+    await Promise.resolve();
+
+    expect(result.delta.dialogues?.[0].content).toBe("回头见。");
+    expect(result.subOptions).toBeUndefined();
+    expect(saveManager.conversations.setSummary).not.toHaveBeenCalled();
+    expect(saveManager.save).not.toHaveBeenCalled();
   });
 
   it("LLM 未调用 suggest_followup_topics → 仅含系统注入 + 告别", async () => {
