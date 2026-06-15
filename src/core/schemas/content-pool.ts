@@ -316,6 +316,13 @@ export const QuestAutoTriggerSchema = z.object({
   conditions: z.array(TriggerConditionSchema),
 });
 
+export const ClueDefinitionSchema = z.object({
+  id: z.string().min(1),
+  description: z.string().min(1),
+  knownByNpcIds: z.array(z.string()),
+  relatedRoomId: z.string().optional(),
+});
+
 export const QuestTemplateSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),

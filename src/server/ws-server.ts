@@ -438,7 +438,15 @@ export class GameServer {
             description: room.description,
             exits: Object.fromEntries(
               Array.from(room.exits.entries())
-                .filter(([, exit]) => !exit.hidden)
+                .filter(([, exit]) => {
+                  if (!exit.hidden) return true;
+                  if (!exit.conditions || !player) return false;
+                  return exit.conditions.some(
+                    (cond) =>
+                      cond.type === "clue" &&
+                      player.knownClues.some((c) => c.clueId === cond.value),
+                  );
+                })
                 .map(([dir, exit]) => [
                   dir,
                   {
@@ -456,7 +464,7 @@ export class GameServer {
                   },
                 ]),
             ),
-            entities: getRoomEntitiesInfo(this.world, room.id),
+            entities: getRoomEntitiesInfo(this.world, room.id, entityId),
             minimap: player ? buildMinimap(this.world, player) : undefined,
             roomActions,
           }

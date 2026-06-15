@@ -3,6 +3,7 @@ export {
   ActionEffectSchema,
   BookContentSchema,
   CalendarConfigSchema,
+  ClueDefinitionSchema,
   ConversationDirectionSchema,
   DialogueEffectMappingSchema,
   EmotionLabelsSchema,

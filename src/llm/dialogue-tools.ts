@@ -15,6 +15,7 @@ export const SuggestFollowupTopicsArgs = z.object({
 const ShareInformationArgs = z.object({
   info_type: z.enum(["rumor", "warning", "gossip", "lore", "quest_hint"]),
   summary: z.string().min(1),
+  clue_id: z.string().optional(),
 });
 
 function buildAffectNeedArgs(needTypes: string[]) {
@@ -91,7 +92,8 @@ export function buildDialogueTools(pool: ContentPool): ToolDefinition[] {
       type: "function",
       function: {
         name: "share_information",
-        description: "NPC向玩家分享信息。信息会存为记忆，后续可能通过社会网络传播。",
+        description:
+          "NPC向玩家分享信息。信息会存为记忆，后续可能通过社会网络传播。如果有与NPC相关的线索需要分享，通过clue_id参数指定，clue_id来自NPC已知线索列表。",
         parameters: zodSchemaToOpenAiParams(ShareInformationArgs),
       },
     },

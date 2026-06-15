@@ -20,6 +20,7 @@ import {
   buildTraveloguePrompt,
   collectPlayerEvents,
   extractLocationsVisited,
+  extractTodayClues,
   generateTravelogueEntry,
   parseTravelogueOutput,
 } from "../llm/travelogue-generator.ts";
@@ -328,6 +329,151 @@ describe("buildTraveloguePrompt — prompt 构建", () => {
 });
 
 // ============================================================
+// extractTodayClues — 线索提取
+// ============================================================
+
+describe("extractTodayClues — 线索提取", () => {
+  it("无游记记录时返回所有已知线索", () => {
+    const world = setupBaseWorld();
+    const npc = createNPC("npc1", { name: "法显", roomId: "market" });
+    addEntity(world, npc);
+    const player = createPlayer("p1", "赵行舟", "market", world.contentPool);
+    player.knownClues = [{ clueId: "cave_17_secret", sourceNpcId: "npc1", learnedAt: 5 }];
+    world.contentPool.clueDefinitions = [
+      { id: "cave_17_secret", description: "第十七窟不只是藏经洞", knownByNpcIds: ["npc1"] },
+    ];
+    addEntity(world, player);
+
+    const clues = extractTodayClues(player, world);
+    expect(clues).toHaveLength(1);
+    expect(clues[0].description).toBe("第十七窟不只是藏经洞");
+    expect(clues[0].sourceNpcName).toBe("法显");
+  });
+
+  it("只返回上一条游记之后获得的线索", () => {
+    const world = setupBaseWorld();
+    const npc = createNPC("npc1", { name: "法显", roomId: "market" });
+    addEntity(world, npc);
+    const player = createPlayer("p1", "赵行舟", "market", world.contentPool);
+    player.travelogue.push({
+      day: 1,
+      month: 1,
+      year: 1,
+      date: "大历1年 初春月 第1日",
+      title: "第一回",
+      location: "market",
+      locations: [],
+      narrative: "...",
+      keyEvents: [],
+      createdAt: 100,
+    });
+    player.knownClues = [
+      { clueId: "old_clue", sourceNpcId: "npc1", learnedAt: 50 },
+      { clueId: "new_clue", sourceNpcId: "npc1", learnedAt: 150 },
+    ];
+    world.contentPool.clueDefinitions = [
+      { id: "old_clue", description: "旧线索", knownByNpcIds: ["npc1"] },
+      { id: "new_clue", description: "新线索", knownByNpcIds: ["npc1"] },
+    ];
+    addEntity(world, player);
+
+    const clues = extractTodayClues(player, world);
+    expect(clues).toHaveLength(1);
+    expect(clues[0].description).toBe("新线索");
+  });
+
+  it("缺失 clueDefinition 的线索被跳过", () => {
+    const world = setupBaseWorld();
+    const player = createPlayer("p1", "赵行舟", "market", world.contentPool);
+    player.knownClues = [
+      { clueId: "missing_clue", sourceNpcId: "npc1", learnedAt: 5 },
+      { clueId: "valid_clue", sourceNpcId: "npc1", learnedAt: 5 },
+    ];
+    world.contentPool.clueDefinitions = [
+      { id: "valid_clue", description: "有效线索", knownByNpcIds: ["npc1"] },
+    ];
+    addEntity(world, player);
+
+    const clues = extractTodayClues(player, world);
+    expect(clues).toHaveLength(1);
+    expect(clues[0].description).toBe("有效线索");
+  });
+
+  it("无已知线索时返回空数组", () => {
+    const world = setupBaseWorld();
+    const player = createPlayer("p1", "赵行舟", "market", world.contentPool);
+    addEntity(world, player);
+
+    const clues = extractTodayClues(player, world);
+    expect(clues).toEqual([]);
+  });
+});
+
+// ============================================================
+// buildTraveloguePrompt — 线索注入
+// ============================================================
+
+describe("buildTraveloguePrompt — 线索注入", () => {
+  it("有今日线索时 prompt 包含'今日获悉的线索'", () => {
+    const world = setupBaseWorld();
+    const npc = createNPC("npc1", { name: "法显", roomId: "market" });
+    addEntity(world, npc);
+    const player = createPlayer("p1", "赵行舟", "market", world.contentPool);
+    player.knownClues = [{ clueId: "cave_17_secret", sourceNpcId: "npc1", learnedAt: 5 }];
+    world.contentPool.clueDefinitions = [
+      { id: "cave_17_secret", description: "第十七窟不只是藏经洞", knownByNpcIds: ["npc1"] },
+    ];
+    addEntity(world, player);
+
+    const { user } = buildTraveloguePrompt([], [], player, world);
+    expect(user).toContain("今日获悉的线索");
+    expect(user).toContain("第十七窟不只是藏经洞");
+    expect(user).toContain("法显");
+  });
+
+  it("无线索时 prompt 不包含'今日获悉的线索'", () => {
+    const world = setupBaseWorld();
+    const player = createPlayer("p1", "赵行舟", "market", world.contentPool);
+    addEntity(world, player);
+
+    const { user } = buildTraveloguePrompt([], [], player, world);
+    expect(user).not.toContain("今日获悉的线索");
+  });
+
+  it("旧线索不重复出现在 prompt 中", () => {
+    const world = setupBaseWorld();
+    const npc = createNPC("npc1", { name: "法显", roomId: "market" });
+    addEntity(world, npc);
+    const player = createPlayer("p1", "赵行舟", "market", world.contentPool);
+    player.travelogue.push({
+      day: 1,
+      month: 1,
+      year: 1,
+      date: "大历1年 初春月 第1日",
+      title: "第一回",
+      location: "market",
+      locations: [],
+      narrative: "...",
+      keyEvents: [],
+      createdAt: 100,
+    });
+    player.knownClues = [
+      { clueId: "old_clue", sourceNpcId: "npc1", learnedAt: 50 },
+      { clueId: "new_clue", sourceNpcId: "npc1", learnedAt: 150 },
+    ];
+    world.contentPool.clueDefinitions = [
+      { id: "old_clue", description: "旧线索", knownByNpcIds: ["npc1"] },
+      { id: "new_clue", description: "新线索", knownByNpcIds: ["npc1"] },
+    ];
+    addEntity(world, player);
+
+    const { user } = buildTraveloguePrompt([], [], player, world);
+    expect(user).not.toContain("旧线索");
+    expect(user).toContain("新线索");
+  });
+});
+
+// ============================================================
 // parseTravelogueOutput
 // ============================================================
 
@@ -505,6 +651,25 @@ describe("generateTravelogueEntry — 生成完整 entry", () => {
 
     expect(result).not.toBeNull();
     expect(result!.keyEvents).toEqual(["事件A", "事件B"]);
+  });
+
+  it("entry.keyEvents 包含今日线索描述", async () => {
+    const world = setupBaseWorld();
+    const npc = createNPC("npc1", { name: "法显", roomId: "market" });
+    addEntity(world, npc);
+    const player = createPlayer("p1", "赵行舟", "market", world.contentPool);
+    player.knownClues = [{ clueId: "cave_17_secret", sourceNpcId: "npc1", learnedAt: 5 }];
+    world.contentPool.clueDefinitions = [
+      { id: "cave_17_secret", description: "第十七窟不只是藏经洞", knownByNpcIds: ["npc1"] },
+    ];
+    addEntity(world, player);
+    logEvent(world, makeEvent({ description: "到达集市", type: "move", data: { actorId: "p1" } }));
+
+    const adapter = mockAdapter(JSON.stringify({ title: "测试", narrative: "正文" }));
+    const result = await generateTravelogueEntry(world, "p1", adapter);
+
+    expect(result).not.toBeNull();
+    expect(result!.keyEvents).toContain("获悉线索：第十七窟不只是藏经洞");
   });
 
   it("非玩家 entity 返回 null", async () => {

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TerrainTypeSchema } from "./terrain.ts";
 
 export const ExitConditionSchema = z.object({
-  type: z.enum(["skill", "item", "trait", "time", "season", "quest"]),
+  type: z.enum(["skill", "item", "trait", "time", "season", "quest", "clue"]),
   value: z.string(),
 });
 

@@ -181,6 +181,19 @@ export function applyContentPoolMutation(
     log.push("更新LLM触发配置");
   }
 
+  if (mutation.addClueDefinitions?.length) {
+    for (const clue of mutation.addClueDefinitions) {
+      const exists = pool.clueDefinitions.find((c) => c.id === clue.id);
+      if (exists) {
+        Object.assign(exists, clue);
+        log.push(`更新线索定义: ${clue.id}`);
+      } else {
+        pool.clueDefinitions.push(clue);
+        log.push(`新增线索定义: ${clue.id}`);
+      }
+    }
+  }
+
   if (mutation.replaceTerrainConfig) {
     pool.terrainConfig = mutation.replaceTerrainConfig;
     log.push("更新地形配置");

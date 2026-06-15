@@ -295,7 +295,17 @@ function executeMove(
   const direction = params.direction as string;
   const exit = room.exits.get(direction);
   if (!exit) return fail(`${direction} 方向没有出口`);
-  if (exit.hidden) return fail(`${direction} 方向没有出口`);
+
+  if (exit.hidden) {
+    let clueAccess = false;
+    if (exit.conditions && entity.type === "player") {
+      const player = entity as PlayerEntity;
+      clueAccess = exit.conditions.some(
+        (cond) => cond.type === "clue" && player.knownClues.some((c) => c.clueId === cond.value),
+      );
+    }
+    if (!clueAccess) return fail(`${direction} 方向没有出口`);
+  }
 
   // 检查通行条件
   if (exit.conditions && exit.conditions.length > 0) {
@@ -1385,6 +1395,27 @@ function executeRoomAction(world: WorldState, entityId: EntityId, action: string
   }
 
   const delta = resolveActionEffect(entityId, world.contentPool, action);
+
+  if (entity.type === "player" && room) {
+    const player = entity as PlayerEntity;
+    for (const eid of room.entities) {
+      const roomEntity = world.entities.get(eid);
+      if (roomEntity?.type !== "item") continue;
+      const item = roomEntity as import("../core/types.ts").ItemEntity;
+      if (!item.discoverable) continue;
+      if (player.discoveredEntities.includes(item.id)) continue;
+      const clueId = (item.discoverable as import("../core/types.ts").DiscoverableCondition)
+        .requiredClueId;
+      const hasClue = player.knownClues.some((c) => c.clueId === clueId);
+      if (!hasClue) continue;
+      delta.discoverableChanges = delta.discoverableChanges ?? [];
+      delta.discoverableChanges.push({
+        playerId: entityId,
+        entityId: item.id,
+        operation: "discover",
+      });
+    }
+  }
 
   const label = world.contentPool.entityActionLabels[action] ?? action;
   const effectText = formatNeedDeltas(effect.needDeltas, world.contentPool.needLabels);

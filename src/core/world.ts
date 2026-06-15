@@ -478,6 +478,50 @@ export function applyDelta(world: WorldState, delta: SimulationDelta): void {
     }
     discoverRoom(entity, reveal.roomId);
   }
+
+  for (const clueChange of delta.knownClueChanges ?? []) {
+    const entity = world.entities.get(clueChange.playerId);
+    if (entity?.type !== "player") {
+      logWrite(
+        "srv",
+        "warn",
+        `[applyDelta] ignored clue change, unknown player: ${clueChange.playerId}`,
+      );
+      continue;
+    }
+    const player = entity as PlayerEntity;
+    if (!player.knownClues.some((c) => c.clueId === clueChange.clueId)) {
+      player.knownClues.push({
+        clueId: clueChange.clueId,
+        sourceNpcId: clueChange.sourceNpcId,
+        learnedAt: world.tick,
+      });
+    }
+  }
+
+  for (const discChange of delta.discoverableChanges ?? []) {
+    const entity = world.entities.get(discChange.playerId);
+    if (entity?.type !== "player") {
+      logWrite(
+        "srv",
+        "warn",
+        `[applyDelta] ignored discoverable change, unknown player: ${discChange.playerId}`,
+      );
+      continue;
+    }
+    const player = entity as PlayerEntity;
+    if (!world.entities.has(discChange.entityId)) {
+      logWrite(
+        "srv",
+        "warn",
+        `[applyDelta] ignored discoverable change, unknown entity: ${discChange.entityId}`,
+      );
+      continue;
+    }
+    if (!player.discoveredEntities.includes(discChange.entityId)) {
+      player.discoveredEntities.push(discChange.entityId);
+    }
+  }
 }
 
 function applyTraitRewards(
@@ -664,6 +708,8 @@ export function createPlayer(
     activeStorylines: [],
     questCooldowns: {},
     travelogue: [],
+    knownClues: [],
+    discoveredEntities: [],
   };
 }
 
@@ -1434,5 +1480,6 @@ export function createDefaultContentPool(): ContentPool {
     entityTagLabels: {},
 
     conversationDirections: [],
+    clueDefinitions: [],
   };
 }

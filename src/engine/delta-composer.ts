@@ -59,6 +59,15 @@ export function composeDeltas(...deltas: SimulationDelta[]): SimulationDelta {
     if (delta.revealRooms?.length) {
       result.revealRooms = [...(result.revealRooms ?? []), ...delta.revealRooms];
     }
+    if (delta.knownClueChanges?.length) {
+      result.knownClueChanges = [...(result.knownClueChanges ?? []), ...delta.knownClueChanges];
+    }
+    if (delta.discoverableChanges?.length) {
+      result.discoverableChanges = [
+        ...(result.discoverableChanges ?? []),
+        ...delta.discoverableChanges,
+      ];
+    }
   }
 
   return result;
@@ -95,7 +104,9 @@ function isEmptyDelta(delta: SimulationDelta): boolean {
     !delta.combatHpChanges?.length &&
     !delta.questChanges?.length &&
     !delta.itemChanges?.length &&
-    !delta.revealRooms?.length
+    !delta.revealRooms?.length &&
+    !delta.knownClueChanges?.length &&
+    !delta.discoverableChanges?.length
   );
 }
 

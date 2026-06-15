@@ -7,6 +7,7 @@ import {
   ActionEffectSchema,
   BookContentSchema,
   CalendarConfigSchema,
+  ClueDefinitionSchema,
   CombatConfigSchema,
   CombatSkillSchema,
   ConversationDirectionSchema,
@@ -58,6 +59,7 @@ const DOMAIN_FIELDS: Record<string, (keyof ContentPool)[]> = {
     "traitLabels",
     "itemPropertyLabels",
     "conversationDirections",
+    "clueDefinitions",
   ],
   "culture-narrative": ["namePools", "narrativeTemplates", "calendar"],
   "room-templates": ["roomTemplates"],
@@ -91,6 +93,7 @@ const DOMAIN_SCHEMAS: Record<string, Record<string, unknown>> = {
     traitLabels: TraitLabelsSchema,
     itemPropertyLabels: ItemPropertyLabelsSchema,
     conversationDirections: z.array(ConversationDirectionSchema),
+    clueDefinitions: z.array(ClueDefinitionSchema),
   },
   "culture-narrative": {
     namePools: z.array(NamePoolSchema),
@@ -301,7 +304,8 @@ export function writeEvolveDeltas(
     mutation.replaceItemPropertyLabels ||
     mutation.replaceSocialRippleConfig ||
     mutation.replaceDialogueEffectMapping ||
-    mutation.replaceEmotionLabels
+    mutation.replaceEmotionLabels ||
+    mutation.addClueDefinitions?.length
   ) {
     const existing = affectedDomains.get("social-dialogue") ?? {};
     affectedDomains.set("social-dialogue", {
@@ -318,6 +322,9 @@ export function writeEvolveDeltas(
         ? { dialogueEffectMapping: currentPool.dialogueEffectMapping }
         : {}),
       ...(mutation.replaceEmotionLabels ? { emotionLabels: currentPool.emotionLabels } : {}),
+      ...(mutation.addClueDefinitions?.length
+        ? { clueDefinitions: currentPool.clueDefinitions }
+        : {}),
     });
   }
 

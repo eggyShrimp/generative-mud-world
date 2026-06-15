@@ -42,10 +42,19 @@ export function deriveCapabilities(world: WorldState, entityId: EntityId): Capab
 
   // Not in combat: standard capabilities + attack
 
-  // move: 出口方向 (过滤隐藏出口)
+  // move: 出口方向 (过滤隐藏出口, 但线索门控的隐藏出口在玩家知道线索时显示)
   if (room) {
+    const playerForExit =
+      entity.type === "player" ? (entity as import("../core/types.ts").PlayerEntity) : null;
     const directions = Array.from(room.exits.entries())
-      .filter(([, exit]) => !exit.hidden)
+      .filter(([, exit]) => {
+        if (!exit.hidden) return true;
+        if (!exit.conditions || !playerForExit) return false;
+        return exit.conditions.some(
+          (cond) =>
+            cond.type === "clue" && playerForExit.knownClues.some((c) => c.clueId === cond.value),
+        );
+      })
       .map(([dir]) => dir);
     if (directions.length > 0) {
       caps.push({
@@ -59,9 +68,21 @@ export function deriveCapabilities(world: WorldState, entityId: EntityId): Capab
   // look: 房间 + 房间内实体
   const lookTargets = ["房间"];
   if (room) {
+    const playerDiscovered =
+      entity.type === "player"
+        ? (entity as import("../core/types.ts").PlayerEntity).discoveredEntities
+        : [];
     for (const eid of room.entities) {
       const e = world.entities.get(eid);
-      if (e && e.id !== entityId) lookTargets.push(e.name);
+      if (!e || e.id === entityId) continue;
+      if (
+        e.type === "item" &&
+        "discoverable" in e &&
+        (e as import("../core/types.ts").ItemEntity).discoverable &&
+        !playerDiscovered.includes(e.id)
+      )
+        continue;
+      lookTargets.push(e.name);
     }
   }
   caps.push({
@@ -89,9 +110,19 @@ export function deriveCapabilities(world: WorldState, entityId: EntityId): Capab
   // take: 房间内可拾取物品
   if (room) {
     const takeTargets: string[] = [];
+    const playerDiscoveredForTake =
+      entity.type === "player"
+        ? (entity as import("../core/types.ts").PlayerEntity).discoveredEntities
+        : [];
     for (const eid of room.entities) {
       const e = world.entities.get(eid);
       if (e && e.type === "item") {
+        if (
+          "discoverable" in e &&
+          (e as import("../core/types.ts").ItemEntity).discoverable &&
+          !playerDiscoveredForTake.includes(e.id)
+        )
+          continue;
         takeTargets.push(e.id);
         if (e.properties.readable === true) readableTargets.push(e.id);
       }
@@ -220,6 +251,7 @@ export function deriveCapabilities(world: WorldState, entityId: EntityId): Capab
 export function getRoomEntitiesInfo(
   world: WorldState,
   roomId: string,
+  viewerId?: string,
 ): Array<{
   id: string;
   name: string;
@@ -258,6 +290,24 @@ export function getRoomEntitiesInfo(
   for (const eid of room.entities) {
     const e = world.entities.get(eid);
     if (!e) continue;
+
+    if (
+      e.type === "item" &&
+      "discoverable" in e &&
+      (e as import("../core/types.ts").ItemEntity).discoverable
+    ) {
+      if (viewerId) {
+        const viewer = world.entities.get(viewerId);
+        const discoveredEntities =
+          viewer?.type === "player"
+            ? (viewer as import("../core/types.ts").PlayerEntity).discoveredEntities
+            : [];
+        if (!discoveredEntities.includes(e.id)) continue;
+      } else {
+        continue;
+      }
+    }
+
     const entry: (typeof result)[number] = {
       id: e.id,
       name: e.name,

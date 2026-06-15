@@ -223,3 +223,13 @@ conversationDirections:
     instruction: 询问附近地点或环境相关的情报
   - key: request_advice
     instruction: 向NPC征求意见或指引
+
+clueDefinitions:
+  - id: cave_17_secret
+    description: 莫高窟第十七窟不只是藏经洞，壁画后似乎藏着什么
+    knownByNpcIds:
+      - npc_faxian
+  - id: hidden_pass_rumor
+    description: 传闻玉门关外有一条废弃的商道，可绕过守卫
+    knownByNpcIds:
+      - npc_faxian

@@ -110,6 +110,8 @@ function isEmptyDelta(delta: SimulationDelta): boolean {
     !delta.combatHpChanges?.length &&
     !delta.questChanges?.length &&
     !delta.itemChanges?.length &&
-    !delta.revealRooms?.length
+    !delta.revealRooms?.length &&
+    !delta.knownClueChanges?.length &&
+    !delta.discoverableChanges?.length
   );
 }

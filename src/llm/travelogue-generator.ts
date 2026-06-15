@@ -62,6 +62,33 @@ export function extractLocationsVisited(events: WorldEvent[], world: WorldState)
 }
 
 /**
+ * 提取玩家自上一条游记之后获得的线索。
+ * 边界：上一条游记.createdAt < learnedAt（不包含旧游记已收录的线索）。
+ */
+export function extractTodayClues(
+  player: PlayerEntity,
+  world: WorldState,
+): Array<{ description: string; sourceNpcName?: string }> {
+  const lastTick = player.travelogue.at(-1)?.createdAt;
+  const todayClues =
+    lastTick !== undefined
+      ? player.knownClues.filter((c) => c.learnedAt > lastTick)
+      : player.knownClues;
+
+  const results: Array<{ description: string; sourceNpcName?: string }> = [];
+  for (const clue of todayClues) {
+    const def = world.contentPool.clueDefinitions.find((d) => d.id === clue.clueId);
+    if (!def) continue;
+    const sourceNpc = world.entities.get(clue.sourceNpcId);
+    results.push({
+      description: def.description,
+      sourceNpcName: sourceNpc?.name,
+    });
+  }
+  return results;
+}
+
+/**
  * 构建旅行者 prompt：系统消息来自 ContentPool 模板，用户消息包含日期/事件/地点/NPC/上下文。
  */
 export function buildTraveloguePrompt(
@@ -104,6 +131,16 @@ export function buildTraveloguePrompt(
     lines.push("前情回顾:");
     for (const entry of prevEntries) {
       lines.push(`  [${entry.date}] ${entry.title}`);
+    }
+  }
+
+  const todayClues = extractTodayClues(player, world);
+  if (todayClues.length > 0) {
+    lines.push("");
+    lines.push("今日获悉的线索:");
+    for (const clue of todayClues) {
+      const source = clue.sourceNpcName ? `（来源：${clue.sourceNpcName}）` : "";
+      lines.push(`- ${clue.description}${source}`);
     }
   }
 
@@ -186,6 +223,9 @@ export async function generateTravelogueEntry(
 
     const primaryLocation = locations.length > 0 ? locations[locations.length - 1] : player.roomId;
 
+    const todayClues = extractTodayClues(player as PlayerEntity, world);
+    const clueEvents = todayClues.map((c) => `获悉线索：${c.description}`);
+
     return {
       day: world.time.day,
       month: world.time.month,
@@ -195,7 +235,7 @@ export async function generateTravelogueEntry(
       location: primaryLocation,
       locations,
       narrative: parsed.narrative,
-      keyEvents: events.map((e) => e.description),
+      keyEvents: [...events.map((e) => e.description), ...clueEvents],
       createdAt: world.tick,
     };
   } catch {

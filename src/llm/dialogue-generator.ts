@@ -1271,6 +1271,7 @@ ${directionLines}
         world.contentPool.emotionLabels,
         world.contentPool.needDefinitions.map((n) => n.type),
         Object.keys(world.contentPool.emotionLabels),
+        world.contentPool.clueDefinitions,
       );
 
       const delta: SimulationDelta = { ...toolDelta };
@@ -1336,6 +1337,10 @@ ${directionLines}
 
     const npcMemories = npc.memories.slice(-5).map((m) => m.content);
 
+    const npcKnownClues = world.contentPool.clueDefinitions
+      .filter((c) => c.knownByNpcIds.includes(npc.id))
+      .map((c) => ({ id: c.id, description: c.description }));
+
     return {
       playerName: player.name,
       npcName: npc.name,
@@ -1358,6 +1363,7 @@ ${directionLines}
       playerItems,
       connectedRooms,
       npcMemories,
+      npcKnownClues,
     };
   }
 
@@ -1379,6 +1385,11 @@ ${directionLines}
         ? `\n对话方向参考:\n${directions.map((d) => `  - ${d.instruction}`).join("\n")}`
         : "";
 
+    const clueSection =
+      context.npcKnownClues.length > 0
+        ? `\nNPC 已知线索（可在对话中分享, share_information 的 clue_id 必须来自此列表）:\n${context.npcKnownClues.map((c) => `  - [${c.id}] ${c.description}`).join("\n")}`
+        : "";
+
     const summaryLabel =
       world.contentPool.narrativeTemplates.conversationSummaryLabel || "此前对话概要";
     const summarySection = conversationSummary
@@ -1397,7 +1408,7 @@ ${directionLines}
 心情: ${context.npcMood}
 需求: ${context.npcNeeds}
 关系: ${context.relationshipLabel} (${context.relationshipLevel})
-场景: ${context.roomName}${memorySection}${directionSection}${summarySection}
+场景: ${context.roomName}${memorySection}${directionSection}${clueSection}${summarySection}
 ${historySection}
 ---
 ${userLine}
@@ -1410,7 +1421,8 @@ ${userLine}
 - 结合 NPC 的性格和身份自然延伸对话，避免重复已聊内容
 - 根据对话效果调用 shift_relation/affect_need/share_information/express_emotion
 - 只在有明确的副作用时才调用工具，不必每次对话都调用
-- 不要调用 exchange_item 或 activate_quest`,
+- 不要调用 exchange_item 或 activate_quest
+- 若分享已知线索，在 share_information 中使用 clue_id 参数`,
       user: userLine,
     };
   }
@@ -1570,6 +1582,7 @@ ${userLine}
     emotionLabels: Record<string, string>,
     needTypes: string[],
     emotions: string[],
+    clueDefinitions: import("../core/types.ts").ClueDefinition[],
   ): SimulationDelta {
     const delta: SimulationDelta = {};
     const affectNeedSchema = buildAffectNeedArgs(needTypes);
@@ -1633,6 +1646,17 @@ ${userLine}
                 spreadChance: infoConfig.spreadChance,
               },
             });
+          }
+          if (args.clue_id) {
+            const clueDef = clueDefinitions.find((c) => c.id === args.clue_id);
+            if (clueDef?.knownByNpcIds.includes(npcId)) {
+              delta.knownClueChanges = delta.knownClueChanges ?? [];
+              delta.knownClueChanges.push({
+                playerId,
+                clueId: args.clue_id,
+                sourceNpcId: npcId,
+              });
+            }
           }
           break;
         }

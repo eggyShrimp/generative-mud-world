@@ -115,6 +115,8 @@ export interface PlayerEntity extends BaseEntity {
   activeStorylines: StorylineState[];
   questCooldowns: Record<string, number>;
   travelogue: TravelogueEntry[];
+  knownClues: KnownClue[];
+  discoveredEntities: EntityId[];
 }
 
 // Item
@@ -125,6 +127,7 @@ export interface ItemEntity extends BaseEntity {
   templateId: string; // ContentPool.itemTemplates 的 id → 类型归属
   properties: Record<string, unknown>;
   tags?: string[]; // 实体能力标签（如 forge, cooking_tool），用于功能交互路由
+  discoverable?: DiscoverableCondition; // 需要线索才能发现
 }
 
 // Faction
@@ -226,6 +229,8 @@ export interface SimulationDelta {
   questChanges?: QuestChange[];
   itemChanges?: ItemChange[];
   revealRooms?: RevealRoom[];
+  knownClueChanges?: KnownClueChange[];
+  discoverableChanges?: DiscoverableChange[];
   // 叙事记录
   worldEvents?: WorldEvent[];
   dialogues?: DialogueLine[];
@@ -342,6 +347,35 @@ export interface QuestStage {
 export interface QuestAutoTrigger {
   type: "time" | "trait" | "relation" | "world_event" | "player_action";
   conditions: TriggerCondition[];
+}
+
+export interface ClueDefinition {
+  id: string;
+  description: string;
+  knownByNpcIds: string[];
+  relatedRoomId?: string;
+}
+
+export interface KnownClue {
+  clueId: string;
+  sourceNpcId: string;
+  learnedAt: Tick;
+}
+
+export interface KnownClueChange {
+  playerId: EntityId;
+  clueId: string;
+  sourceNpcId: string;
+}
+
+export interface DiscoverableCondition {
+  requiredClueId: string;
+}
+
+export interface DiscoverableChange {
+  playerId: EntityId;
+  entityId: EntityId;
+  operation: "discover";
 }
 
 export interface QuestTemplate {
@@ -507,6 +541,9 @@ export interface ContentPool {
 
   // 对话方向池: 闲聊话题建议方向 (LLM 可演化)
   conversationDirections: ConversationDirection[];
+
+  // 线索定义: 世界中存在的信息线索，NPC 可在对话中分享给玩家 (LLM 可演化)
+  clueDefinitions: ClueDefinition[];
 }
 
 export interface ConversationDirection {
@@ -546,6 +583,7 @@ export interface ContentPoolMutation {
   replaceEmotionLabels?: Record<string, string>;
   replaceLlmTriggerConfig?: LLMTriggerConfig;
   replaceTerrainConfig?: TerrainConfigEntry[];
+  addClueDefinitions?: ClueDefinition[];
   narrativeContext?: string;
 }
 
