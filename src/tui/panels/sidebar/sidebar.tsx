@@ -1,87 +1,51 @@
 // ── Sidebar ──
-// 底部 2 行横栏：需求行 + 行动行。
+// 左侧控制区：角色/状态摘要 + 单行动作栏。
 
-import { createEffect, createMemo, For, Show } from "solid-js";
-import { logWrite } from "../../../shared/log.ts";
+import { createMemo } from "solid-js";
 import type { GameClient } from "../../client/game-client.ts";
-import { KeyHint } from "../../components/index.ts";
-import { bindingLabel, getGlobalBindings } from "../../key-layer/index.ts";
-import { percentBar } from "../../theme/progress-format.ts";
-import { THEME } from "../../theme/theme.ts";
-import { needColor } from "../../theme/tone.ts";
+import { ActionBar } from "./action-bar.tsx";
+import { RoleCard } from "./role-card.tsx";
+import { StatusCard } from "./status-card.tsx";
 
-export function Sidebar(props: { client: GameClient; height?: number }) {
-  const needs = () => props.client.entity()?.needs ?? [];
+const DEFAULT_HEIGHT = 10;
+const ACTION_BAR_HEIGHT = 5;
+const PANEL_GAP = 1;
+const ROLE_MIN_WIDTH = 22;
+const STATUS_MIN_WIDTH = 24;
+
+export function Sidebar(props: { client: GameClient; width?: number; height?: number }) {
   const topLayer = createMemo(() => props.client.activeLayer());
   const disabled = createMemo(
     () => props.client.hasActiveRequest() || (topLayer().id !== "base" && !topLayer().passthrough),
   );
 
-  const ActionButtons = () => (
-    <For each={getGlobalBindings()}>
-      {(binding) => {
-        const displayKey = Array.isArray(binding.key)
-          ? binding.key[0].toUpperCase()
-          : binding.key.toUpperCase();
-        const available = () => !disabled() && (!binding.enabled || binding.enabled(props.client));
-
-        createEffect(() => {
-          const keyStr = Array.isArray(binding.key) ? binding.key[0] : binding.key;
-          logWrite(
-            "cli",
-            "dbg",
-            `${keyStr}: available=${available()} disabled=${disabled()} caps=${props.client.capabilities()?.length}`,
-          );
-        });
-        return (
-          <KeyHint
-            shortcut={displayKey}
-            label={bindingLabel(props.client, binding)}
-            color={available() ? (binding.color ?? THEME.text) : THEME.disabled}
-            selectable={false}
-            onMouseDown={() => {
-              if (!available()) return;
-              if (binding.handler) binding.handler(props.client, "");
-              else if (binding.action) props.client.execute(binding.action, binding.params);
-            }}
-          />
-        );
-      }}
-    </For>
-  );
+  const panelWidth = () => Math.max(1, props.width ?? 80);
+  const panelHeight = () => Math.max(4, props.height ?? DEFAULT_HEIGHT);
+  const actionBarHeight = () =>
+    Math.min(ACTION_BAR_HEIGHT, Math.max(2, panelHeight() - PANEL_GAP - 1));
+  const infoHeight = () => Math.max(1, panelHeight() - actionBarHeight() - PANEL_GAP);
+  const infoContentWidth = () => Math.max(1, panelWidth() - PANEL_GAP);
+  const roleWidth = () => {
+    const availableWidth = infoContentWidth();
+    if (availableWidth >= ROLE_MIN_WIDTH + PANEL_GAP + STATUS_MIN_WIDTH) {
+      return Math.max(ROLE_MIN_WIDTH, Math.floor((availableWidth - PANEL_GAP) * 0.42));
+    }
+    return Math.max(1, Math.floor((availableWidth - PANEL_GAP) / 2));
+  };
+  const statusWidth = () => Math.max(1, infoContentWidth() - roleWidth() - PANEL_GAP);
 
   return (
-    <box
-      border={["top"]}
-      borderColor={THEME.borderMuted}
-      backgroundColor={THEME.panelAlt}
-      height={3}
-      paddingX={1}
-      flexDirection="column"
-      gap={0}
-    >
-      <Show when={needs().length > 0}>
-        <box flexDirection="row" gap={3} height={1} paddingX={1}>
-          <For each={needs()}>
-            {(need) => (
-              <box flexDirection="row" gap={1}>
-                <text selectable={false} fg={needColor(need.value)}>
-                  {need.label}
-                </text>
-                <text selectable={false} fg={needColor(need.value)}>
-                  {percentBar(need.value)}
-                </text>
-                <text selectable={false} fg={THEME.text}>
-                  {Math.round(need.value)}
-                </text>
-              </box>
-            )}
-          </For>
-        </box>
-      </Show>
-      <box flexDirection="row" gap={2} height={1} paddingX={1} alignItems="center">
-        <ActionButtons />
+    <box height={panelHeight()} width={panelWidth()} flexDirection="column" gap={PANEL_GAP}>
+      <box flexDirection="row" height={infoHeight()} width={panelWidth()} gap={PANEL_GAP}>
+        <RoleCard client={props.client} width={roleWidth()} height={infoHeight()} />
+        <StatusCard client={props.client} width={statusWidth()} height={infoHeight()} />
       </box>
+      <ActionBar
+        client={props.client}
+        width={panelWidth()}
+        height={actionBarHeight()}
+        disabled={disabled()}
+      />
     </box>
   );
 }
