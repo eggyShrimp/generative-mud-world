@@ -61,6 +61,12 @@ export function extractLocationsVisited(events: WorldEvent[], world: WorldState)
   return locations;
 }
 
+export function getLocationNames(locationIds: EntityId[], world: WorldState): string[] {
+  return locationIds
+    .map((id) => world.rooms.get(id)?.name)
+    .filter((name): name is string => Boolean(name));
+}
+
 /**
  * 提取玩家自上一条游记之后获得的线索。
  * 边界：上一条游记.createdAt < learnedAt（不包含旧游记已收录的线索）。
@@ -101,7 +107,7 @@ export function buildTraveloguePrompt(
   const systemPrompt = pool.narrativeTemplates.traveloguePrompt || getFallbackTraveloguePrompt();
 
   const dateStr = formatDate(world.time, { calendar: pool.calendar });
-  const roomNames = locations.map((id) => world.rooms.get(id)?.name ?? id).filter(Boolean);
+  const roomNames = getLocationNames(locations, world);
 
   const npcEncounters = extractNpcEncounters(events, world);
 
@@ -222,6 +228,7 @@ export async function generateTravelogueEntry(
     if (!parsed) return null;
 
     const primaryLocation = locations.length > 0 ? locations[locations.length - 1] : player.roomId;
+    const locationNames = getLocationNames(locations, world);
 
     const todayClues = extractTodayClues(player as PlayerEntity, world);
     const clueEvents = todayClues.map((c) => `获悉线索：${c.description}`);
@@ -234,6 +241,7 @@ export async function generateTravelogueEntry(
       title: parsed.title,
       location: primaryLocation,
       locations,
+      locationNames,
       narrative: parsed.narrative,
       keyEvents: [...events.map((e) => e.description), ...clueEvents],
       createdAt: world.tick,

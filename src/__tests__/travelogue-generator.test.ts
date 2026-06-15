@@ -22,6 +22,7 @@ import {
   extractLocationsVisited,
   extractTodayClues,
   generateTravelogueEntry,
+  getLocationNames,
   parseTravelogueOutput,
 } from "../llm/travelogue-generator.ts";
 
@@ -207,6 +208,18 @@ describe("extractLocationsVisited — 地点提取", () => {
   });
 });
 
+describe("getLocationNames — 地点名转换", () => {
+  it("只返回世界中存在的房间名", () => {
+    const world = setupBaseWorld();
+    const tavern = createRoom("tavern", "酒馆", "test", "昏暗的酒馆");
+    addRoom(world, tavern);
+
+    const names = getLocationNames(["market", "missing_room", "tavern"], world);
+
+    expect(names).toEqual(["集市", "酒馆"]);
+  });
+});
+
 // ============================================================
 // buildTraveloguePrompt
 // ============================================================
@@ -303,6 +316,7 @@ describe("buildTraveloguePrompt — prompt 构建", () => {
       title: "第一回·初到边城",
       location: "market",
       locations: ["market"],
+      locationNames: ["集市"],
       narrative: "是日，赵行舟初到边城...",
       keyEvents: ["到达边城"],
       createdAt: 0,
@@ -363,6 +377,7 @@ describe("extractTodayClues — 线索提取", () => {
       title: "第一回",
       location: "market",
       locations: [],
+      locationNames: [],
       narrative: "...",
       keyEvents: [],
       createdAt: 100,
@@ -453,6 +468,7 @@ describe("buildTraveloguePrompt — 线索注入", () => {
       title: "第一回",
       location: "market",
       locations: [],
+      locationNames: [],
       narrative: "...",
       keyEvents: [],
       createdAt: 100,
@@ -579,6 +595,7 @@ describe("generateTravelogueEntry — 生成完整 entry", () => {
     expect(result!.year).toBe(world.time.year);
     expect(result!.location).toBe("market");
     expect(result!.locations).toContain("market");
+    expect(result!.locationNames).toEqual(["集市"]);
     expect(result!.keyEvents.length).toBe(1);
   });
 

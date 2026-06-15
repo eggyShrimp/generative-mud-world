@@ -384,6 +384,7 @@ export interface DailyReportMessage {
       title: string;
       location: string | null;
       locations: string[];
+      locationNames: string[];
       narrative: string;
       keyEvents: string[];
       createdAt: number;
@@ -421,6 +422,7 @@ export interface TravelogueDataMessage {
     title: string;
     location: string | null;
     locations: string[];
+    locationNames: string[];
     narrative: string;
     keyEvents: string[];
     createdAt: number;

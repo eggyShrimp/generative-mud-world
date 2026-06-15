@@ -93,6 +93,7 @@ export interface TravelogueEntry {
   title: string;
   location: RoomId | null;
   locations: RoomId[];
+  locationNames: string[];
   narrative: string;
   keyEvents: string[];
   createdAt: Tick;

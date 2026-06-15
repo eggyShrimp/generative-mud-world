@@ -4,6 +4,10 @@
 
 import { For, Show } from "solid-js";
 import type { GameClient, TravelogueEntry } from "../../client/game-client.ts";
+import {
+  formatTravelogueLocationLine,
+  getTraveloguePanelLayout,
+} from "../../features/travelogue/layout.ts";
 import type { ModalMetrics } from "../../layout/metrics.ts";
 import { PopupPanel } from "../../layout/popup-panel.tsx";
 import { THEME } from "../../theme/theme.ts";
@@ -15,6 +19,9 @@ export function TraveloguePanel(props: { client: GameClient; metrics: ModalMetri
     const idx = selectedIndex();
     return idx !== null ? (entries()[idx] ?? null) : null;
   };
+  const layout = () => getTraveloguePanelLayout(props.metrics.width);
+  const listWidth = () => layout().listWidth;
+  const detailWidth = () => layout().detailWidth;
 
   return (
     <Show when={props.client.isLayerActive("travelogue")}>
@@ -37,7 +44,7 @@ export function TraveloguePanel(props: { client: GameClient; metrics: ModalMetri
           }
         >
           <box flexDirection={"row"} height={props.metrics.bodyHeight}>
-            <scrollbox height={props.metrics.bodyHeight} width={28} scrollY>
+            <scrollbox height={props.metrics.bodyHeight} width={listWidth()} scrollY>
               <For each={entries()}>
                 {(entry, i) => {
                   const selected = () => selectedIndex() === i();
@@ -48,40 +55,57 @@ export function TraveloguePanel(props: { client: GameClient; metrics: ModalMetri
                       onMouseDown={() => props.client.setSelectedTravelogueIndex(i())}
                     >
                       <box flexDirection="row">
-                        <text fg={selected() ? "#d4a574" : THEME.title} wrapMode="word">
+                        <text
+                          fg={selected() ? "#d4a574" : THEME.title}
+                          width={listWidth()}
+                          wrapMode="word"
+                        >
                           {`${arrow}${i() + 1}. ${entry.title}`}
                         </text>
                       </box>
-                      <text fg={THEME.dim}>{`    ${entry.date}`}</text>
+                      <text fg={THEME.dim} width={listWidth()} wrapMode="word">
+                        {`    ${entry.date}`}
+                      </text>
                     </box>
                   );
                 }}
               </For>
             </scrollbox>
             <Show when={selectedEntry()}>
-              {(entry: () => TravelogueEntry) => (
-                <scrollbox
-                  border={["left"]}
-                  borderColor={THEME.borderMuted}
-                  paddingLeft={1}
-                  marginLeft={1}
-                  height={props.metrics.bodyHeight}
-                  flexGrow={1}
-                  scrollY
-                >
-                  <text fg="#d4a574">{entry().title}</text>
-                  <text fg={THEME.dim}>{entry().date}</text>
-                  <Show when={entry().locations.length > 0}>
-                    <text fg={THEME.muted} wrapMode="word">
-                      途经：{entry().locations.join(" → ")}
-                    </text>
-                  </Show>
-                  <box height={1} />
-                  <text fg={THEME.text} wrapMode="word">
-                    {entry().narrative}
-                  </text>
-                </scrollbox>
-              )}
+              {(entry: () => TravelogueEntry) =>
+                (() => {
+                  const locationLine = () => formatTravelogueLocationLine(entry().locationNames);
+                  return (
+                    <scrollbox
+                      border={["left"]}
+                      borderColor={THEME.borderMuted}
+                      paddingLeft={1}
+                      marginLeft={1}
+                      height={props.metrics.bodyHeight}
+                      width={detailWidth()}
+                      scrollY
+                    >
+                      <text fg="#d4a574" width={detailWidth()} wrapMode="word">
+                        {entry().title}
+                      </text>
+                      <text fg={THEME.dim} width={detailWidth()} wrapMode="word">
+                        {entry().date}
+                      </text>
+                      <Show when={locationLine()}>
+                        {(line: () => string) => (
+                          <text fg={THEME.muted} width={detailWidth()} wrapMode="word">
+                            {line()}
+                          </text>
+                        )}
+                      </Show>
+                      <box height={1} />
+                      <text fg={THEME.text} width={detailWidth()} wrapMode="word">
+                        {entry().narrative}
+                      </text>
+                    </scrollbox>
+                  );
+                })()
+              }
             </Show>
           </box>
         </Show>
