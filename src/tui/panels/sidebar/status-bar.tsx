@@ -38,8 +38,8 @@ export function StatusBar(props: { client: GameClient }) {
       </text>
       <text fg={THEME.title}>{entity()?.name ?? "未绑定角色"}</text>
       <text fg={THEME.muted} wrapMode="word">
-        {"  "}第 {status()?.round ?? "-"} 天 · {status()?.date ?? "-"} · {connectionText()} · Ctrl+C
-        退出
+        {"  "}
+        {status()?.date ?? "-"} · {connectionText()} · Ctrl+C 退出
       </text>
     </box>
   );

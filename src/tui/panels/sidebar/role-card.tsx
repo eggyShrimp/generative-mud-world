@@ -37,7 +37,7 @@ export function RoleCard(props: { client: GameClient; width: number; height: num
         </text>
       </box>
       <text selectable={false} fg={THEME.muted}>
-        第 {status()?.round ?? "-"} 天 · {status()?.date ?? "-"}
+        {status()?.date ?? "-"}
       </text>
       <text selectable={false} fg={THEME.text}>
         武器：{equipment()?.weapon?.name ?? "--"}
