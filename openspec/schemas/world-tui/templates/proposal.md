@@ -25,8 +25,17 @@
 - [ ] No imports from `src/simulation/`
 - [ ] No imports from `src/llm/`
 - [ ] No imports from `src/core/` (except `src/shared/` which is allowed)
-- [ ] All Chinese display text comes from server ContentPool label fields (never hardcoded in TUI)
+- [ ] Business/world display text comes from server ContentPool label fields
+- [ ] Structural UI text that remains hardcoded is listed in design.md
 
 ## Impact
 
 <!-- UX change, affected components, tests -->
+
+## Test Impact
+
+<!-- List test files to add/update. Include layout, interaction, narrow/wide modes, protocol handling, and regression cases where relevant. -->
+
+| Test File | Coverage |
+|-----------|----------|
+| `src/__tests__/...test.ts` | |

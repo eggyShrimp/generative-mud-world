@@ -10,7 +10,10 @@ const MODAL_MIN_WIDTH = 36;
 const MODAL_MAX_WIDTH = 96;
 const MODAL_MIN_HEIGHT = 8;
 const MODAL_MAX_HEIGHT = 21;
-const SIDEBAR_WIDTH = 52;
+const ROOM_MIN_WIDTH = 52;
+const EVENT_LOG_MIN_WIDTH = 30;
+const EVENT_LOG_EXCESS_RATIO = 0.4;
+const HORIZONTAL_OVERHEAD = 3; // 左右 padding(2) + gap(1)
 const BOTTOM_BAR_HEIGHT = 2;
 
 // ── 类型 ──
@@ -40,7 +43,7 @@ export function computeContentHeight(bodyHeight: number, interactionHeight: numb
   return Math.max(1, bodyHeight - interactionHeight);
 }
 
-export function getLayoutMetrics(terminalHeight: number): LayoutMetrics {
+export function getLayoutMetrics(terminalWidth: number, terminalHeight: number): LayoutMetrics {
   const rootVerticalPadding = 2;
   const statusHeight = 4;
   const availableHeight = Math.max(
@@ -49,11 +52,18 @@ export function getLayoutMetrics(terminalHeight: number): LayoutMetrics {
   );
   const roomHeight = clamp(availableHeight, DESKTOP_MIN_ROOM_HEIGHT, DESKTOP_MAX_ROOM_HEIGHT);
 
+  const availableWidth = Math.max(1, terminalWidth - HORIZONTAL_OVERHEAD);
+  const totalMinWidth = ROOM_MIN_WIDTH + EVENT_LOG_MIN_WIDTH;
+  const sidebarWidth =
+    availableWidth >= totalMinWidth
+      ? EVENT_LOG_MIN_WIDTH + Math.round((availableWidth - totalMinWidth) * EVENT_LOG_EXCESS_RATIO)
+      : Math.max(20, Math.round(availableWidth * EVENT_LOG_EXCESS_RATIO));
+
   return {
     roomHeight,
     eventLogHeight: roomHeight,
     bottomBarHeight: BOTTOM_BAR_HEIGHT,
-    sidebarWidth: SIDEBAR_WIDTH,
+    sidebarWidth,
   };
 }
 

@@ -17,17 +17,22 @@ artifacts:
       1. List which TUI component files are being changed
       2. State if shared/protocol.ts needs changes
       3. Confirm boundary: no imports from src/engine/, src/combat/, src/simulation/, src/llm/, src/core/ (except shared/)
-      4. Confirm all Chinese display text comes from server ContentPool labels (not hardcoded)
+      4. Confirm all business/world display text comes from server ContentPool labels; structural UI text may be hardcoded when listed explicitly
+      5. Summarize which tests will be added or updated
     requires: []
 
   - id: design
     generates: design.md
-    description: 组件树 + protocol surface + 边界检查
+    description: 组件树 + protocol surface + 边界检查 + 测试设计
     template: design.md
     instruction: |
       1. Show component hierarchy affected
       2. Show protocol message types involved
       3. Verify depcruise boundary rules are not violated
+      4. Include a Test Plan with specific test files and scenarios.
+         Do not rely only on manual visual checking for layout or interaction changes.
+      5. For component rendering tests, use `testRender` from `@opentui/solid`.
+         Split test files: `.test.ts` for pure functions, `.test.tsx` for rendered components.
     requires:
       - proposal
 
@@ -37,10 +42,26 @@ artifacts:
     template: tasks.md
     instruction: |
       Generate tasks grouped by component file.
+      Include a Tests section with exact test files and behavior assertions.
       Include verification: npm run lint, vitest, depcruise src.
     requires:
       - design
 
+  - id: spec
+    generates: specs/world-tui/spec.md
+    description: TUI 行为需求与测试场景
+    template: spec.md
+    instruction: |
+      Create OpenSpec requirements for the TUI behavior change.
+      Requirements MUST include scenarios for layout/state changes, interaction behavior,
+      narrow/wide or responsive modes when relevant, and regression behavior.
+      Scenarios SHOULD be directly mappable to automated tests using `testRender` from `@opentui/solid`
+      (component rendering) or vitest (pure functions). Avoid manual-only scenarios unless the behavior
+      is impossible to automate.
+      Each requirement MUST include at least one Scenario.
+    requires:
+      - design
+
 apply:
-  requires: [tasks]
+  requires: [tasks, spec]
   tracks: tasks.md

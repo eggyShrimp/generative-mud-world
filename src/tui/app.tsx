@@ -24,7 +24,7 @@ import { THEME } from "./theme/theme.ts";
 
 export function App(props: { client: GameClient }) {
   const dimensions = useTerminalDimensions();
-  const layoutMetrics = createMemo(() => getLayoutMetrics(dimensions().height));
+  const layoutMetrics = createMemo(() => getLayoutMetrics(dimensions().width, dimensions().height));
 
   const visibleEntities = createMemo(() => {
     const playerId = props.client.entity()?.id;
