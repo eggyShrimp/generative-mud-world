@@ -4,8 +4,7 @@
 
 // ── 布局常量 ──
 
-const DESKTOP_MIN_ROOM_HEIGHT = 16;
-const DESKTOP_MAX_ROOM_HEIGHT = 24;
+const DESKTOP_MIN_ROOM_HEIGHT = 12;
 const MODAL_MIN_WIDTH = 36;
 const MODAL_MAX_WIDTH = 96;
 const MODAL_MIN_HEIGHT = 8;
@@ -14,7 +13,8 @@ const ROOM_MIN_WIDTH = 52;
 const EVENT_LOG_MIN_WIDTH = 30;
 const EVENT_LOG_EXCESS_RATIO = 0.4;
 const HORIZONTAL_OVERHEAD = 3; // 左右 padding(2) + gap(1)
-const BOTTOM_BAR_HEIGHT = 2;
+const CONTROL_PANEL_HEIGHT = 14;
+const LEFT_COLUMN_GAP = 1;
 
 // ── 类型 ──
 
@@ -45,12 +45,12 @@ export function computeContentHeight(bodyHeight: number, interactionHeight: numb
 
 export function getLayoutMetrics(terminalWidth: number, terminalHeight: number): LayoutMetrics {
   const rootVerticalPadding = 2;
-  const statusHeight = 4;
-  const availableHeight = Math.max(
-    DESKTOP_MIN_ROOM_HEIGHT,
-    terminalHeight - rootVerticalPadding - statusHeight - BOTTOM_BAR_HEIGHT,
-  );
-  const roomHeight = clamp(availableHeight, DESKTOP_MIN_ROOM_HEIGHT, DESKTOP_MAX_ROOM_HEIGHT);
+  const contentHeight = Math.max(1, terminalHeight - rootVerticalPadding);
+  const bottomBarHeight =
+    contentHeight >= DESKTOP_MIN_ROOM_HEIGHT + LEFT_COLUMN_GAP + CONTROL_PANEL_HEIGHT
+      ? CONTROL_PANEL_HEIGHT
+      : Math.max(4, contentHeight - DESKTOP_MIN_ROOM_HEIGHT - LEFT_COLUMN_GAP);
+  const roomHeight = Math.max(1, contentHeight - bottomBarHeight - LEFT_COLUMN_GAP);
 
   const availableWidth = Math.max(1, terminalWidth - HORIZONTAL_OVERHEAD);
   const totalMinWidth = ROOM_MIN_WIDTH + EVENT_LOG_MIN_WIDTH;
@@ -61,8 +61,8 @@ export function getLayoutMetrics(terminalWidth: number, terminalHeight: number):
 
   return {
     roomHeight,
-    eventLogHeight: roomHeight,
-    bottomBarHeight: BOTTOM_BAR_HEIGHT,
+    eventLogHeight: contentHeight,
+    bottomBarHeight,
     sidebarWidth,
   };
 }

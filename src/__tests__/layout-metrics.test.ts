@@ -54,40 +54,41 @@ describe("getLayoutMetrics", () => {
     expect(m.sidebarWidth).toBe(60);
   });
 
-  it("returns bottomBarHeight=2", () => {
+  it("returns bottomBarHeight=14", () => {
     const m = getLayoutMetrics(120, 40);
-    expect(m.bottomBarHeight).toBe(2);
+    expect(m.bottomBarHeight).toBe(14);
   });
 
-  it("eventLogHeight equals roomHeight (same row)", () => {
+  it("eventLogHeight spans full content height", () => {
     const m = getLayoutMetrics(120, 40);
-    expect(m.eventLogHeight).toBe(m.roomHeight);
+    expect(m.eventLogHeight).toBe(38);
   });
 
-  it("room height accounts for status bar and bottom bar overhead", () => {
-    // 40 rows: 40 - rootPadding(2) - statusHeight(4) - bottomBar(2) = 32 avail
-    // roomHeight = clamp(32, 16, 24) = 24
+  it("room height accounts for left control area", () => {
+    // 40 rows: content 38 - control(14) - left gap(1) = 23
     const m = getLayoutMetrics(120, 40);
-    expect(m.roomHeight).toBe(24);
-    expect(m.eventLogHeight).toBe(24);
+    expect(m.roomHeight).toBe(23);
+    expect(m.eventLogHeight).toBe(38);
   });
 
   it("room height for 30-row terminal", () => {
-    // 30 - 2 - 4 - 2 = 22 avail, roomHeight = clamp(22, 16, 24) = 22
+    // 30 rows: content 28 - control(14) - left gap(1) = 13
     const m = getLayoutMetrics(120, 30);
-    expect(m.roomHeight).toBe(22);
+    expect(m.roomHeight).toBe(13);
   });
 
   it("room height for 24-row terminal (hits minimum)", () => {
-    // 24 - 2 - 4 - 2 = 16 avail, roomHeight = clamp(16, 16, 24) = 16
+    // 24 rows: content 22, control shrinks to 9 to preserve 12-row room
     const m = getLayoutMetrics(120, 24);
-    expect(m.roomHeight).toBe(16);
+    expect(m.roomHeight).toBe(12);
+    expect(m.bottomBarHeight).toBe(9);
   });
 
   it("room height for 20-row terminal (sub-minimum enforced)", () => {
-    // 20 - 2 - 4 - 2 = 12 avail, max(16, 12) = 16, clamp(16, 16, 24) = 16
+    // 20 rows: content 18, control shrinks to 5 to preserve 12-row room
     const m = getLayoutMetrics(120, 20);
-    expect(m.roomHeight).toBe(16);
+    expect(m.roomHeight).toBe(12);
+    expect(m.bottomBarHeight).toBe(5);
   });
 
   it("returns all 4 LayoutMetrics fields", () => {

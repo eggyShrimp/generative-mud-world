@@ -17,7 +17,6 @@ import { QuestsPanel } from "./panels/quests/quests-panel.tsx";
 import { RoomPanel } from "./panels/room/room-panel.tsx";
 import { SavePanel } from "./panels/save/save-panel.tsx";
 import { Sidebar } from "./panels/sidebar/sidebar.tsx";
-import { StatusBar } from "./panels/sidebar/status-bar.tsx";
 import { StatusPanel } from "./panels/status/status-panel.tsx";
 import { TraveloguePanel } from "./panels/travelogue/travelogue-panel.tsx";
 import { THEME } from "./theme/theme.ts";
@@ -25,6 +24,10 @@ import { THEME } from "./theme/theme.ts";
 export function App(props: { client: GameClient }) {
   const dimensions = useTerminalDimensions();
   const layoutMetrics = createMemo(() => getLayoutMetrics(dimensions().width, dimensions().height));
+  const contentWidth = createMemo(() => Math.max(1, dimensions().width - 2));
+  const roomPanelWidth = createMemo(() =>
+    Math.max(1, contentWidth() - layoutMetrics().sidebarWidth - 1),
+  );
 
   const visibleEntities = createMemo(() => {
     const playerId = props.client.entity()?.id;
@@ -65,23 +68,38 @@ export function App(props: { client: GameClient }) {
       backgroundColor={THEME.background}
     >
       <KeyboardController client={props.client} />
-      <StatusBar client={props.client} />
-      <box flexDirection="column" flexGrow={1} gap={0}>
-        <box flexDirection="row" height={layoutMetrics().roomHeight} gap={1}>
+      <box
+        flexDirection="row"
+        flexGrow={1}
+        width={contentWidth()}
+        height={layoutMetrics().eventLogHeight}
+        gap={1}
+      >
+        <box
+          flexDirection="column"
+          width={roomPanelWidth()}
+          height={layoutMetrics().eventLogHeight}
+          gap={1}
+        >
           <RoomPanel
             client={props.client}
             entities={visibleEntities()}
             selectedEntity={selectedEntity()}
             height={layoutMetrics().roomHeight}
+            width={roomPanelWidth()}
           />
-          <EventLog
-            events={props.client.events()}
-            pendingEvent={pendingEvent()}
-            height={layoutMetrics().roomHeight}
-            width={layoutMetrics().sidebarWidth}
+          <Sidebar
+            client={props.client}
+            width={roomPanelWidth()}
+            height={layoutMetrics().bottomBarHeight}
           />
         </box>
-        <Sidebar client={props.client} />
+        <EventLog
+          events={props.client.events()}
+          pendingEvent={pendingEvent()}
+          height={layoutMetrics().eventLogHeight}
+          width={layoutMetrics().sidebarWidth}
+        />
       </box>
 
       <StatusPanel client={props.client} metrics={statusMetrics()} />
