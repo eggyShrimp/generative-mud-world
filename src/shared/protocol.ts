@@ -272,6 +272,12 @@ export interface TalkMessage {
   optionType?: DialogueOptionType;
 }
 
+export interface RequestFollowUpOptionsMessage {
+  type: "request_follow_up_options";
+  npcId: EntityId;
+  context: string;
+}
+
 export interface TradeMessage {
   type: "trade";
   npcId: EntityId;
@@ -304,6 +310,7 @@ export type ClientMessage =
   | RequestChatOptionsMessage
   | RequestTradeOptionsMessage
   | TalkMessage
+  | RequestFollowUpOptionsMessage
   | TradeMessage
   | RequestTravelogueMessage
   | RequestSaveSlotsMessage
@@ -363,6 +370,14 @@ export interface TradeOptionsMessage {
   npcId: EntityId;
   npcName: string;
   options: TradeOption[];
+}
+
+export interface FollowUpOptionsMessage {
+  type: "follow_up_options";
+  npcId: EntityId;
+  npcName: string;
+  context: string;
+  options: DialogueOption[];
 }
 
 export interface DailyReportMessage {
@@ -449,6 +464,7 @@ export type ServerMessage =
   | DialogueOptionsMessage
   | ChatOptionsMessage
   | TradeOptionsMessage
+  | FollowUpOptionsMessage
   | DailyReportMessage
   | SettlementStartedMessage
   | StatusMessage

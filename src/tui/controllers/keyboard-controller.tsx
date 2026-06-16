@@ -26,6 +26,16 @@ export function KeyboardController(props: { client: GameClient }) {
       }
     }
 
+    if (name === "f" && props.client.isLayerActive("dialogue")) {
+      const selection = renderer.getSelection();
+      if (selection) {
+        const text = selection.getSelectedText();
+        if (text) {
+          props.client.stashFollowUpSelection(text);
+        }
+      }
+    }
+
     dispatchKey(key, props.client);
   });
 

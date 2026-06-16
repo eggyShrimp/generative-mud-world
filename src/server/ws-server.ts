@@ -103,6 +103,12 @@ const TradeSchema = z.object({
   itemId: z.string().min(1),
 });
 
+const RequestFollowUpOptionsSchema = z.object({
+  type: z.literal("request_follow_up_options"),
+  npcId: z.string().min(1),
+  context: z.string().min(1),
+});
+
 const EncounterResponseSchema = z
   .object({
     type: z.literal("encounter_response"),
@@ -134,6 +140,7 @@ const ClientMessageSchema = z.discriminatedUnion("type", [
   RequestChatOptionsSchema,
   RequestTradeOptionsSchema,
   TalkSchema,
+  RequestFollowUpOptionsSchema,
   TradeSchema,
   EncounterResponseSchema,
   RequestTravelogueSchema,
@@ -189,6 +196,11 @@ export type TradeOptionsHandler = (
   playerId: EntityId,
   npcId: string,
 ) => Promise<import("../shared/protocol.ts").TradeOption[]>;
+export type FollowUpOptionsHandler = (
+  playerId: EntityId,
+  npcId: string,
+  context: string,
+) => Promise<import("../shared/protocol.ts").DialogueOption[]>;
 export type SaveSlotsHandler = () => SaveSlotInfo[];
 export type ManualSaveHandler = (slotId?: string) => SaveSlotInfo;
 export type CreateSaveSlotHandler = (slotId: string) => SaveSlotInfo;
@@ -201,6 +213,7 @@ export class GameServer {
   private onCommandExecute?: CommandHandler;
   private onDialogueOptions?: DialogueOptionsHandler;
   private onChatOptions?: ChatOptionsHandler;
+  private onFollowUpOptions?: FollowUpOptionsHandler;
   private onTradeOptions?: TradeOptionsHandler;
   private onSaveSlots?: SaveSlotsHandler;
   private onManualSave?: ManualSaveHandler;
@@ -286,6 +299,10 @@ export class GameServer {
 
   setTradeOptionsHandler(handler: TradeOptionsHandler): void {
     this.onTradeOptions = handler;
+  }
+
+  setFollowUpOptionsHandler(handler: FollowUpOptionsHandler): void {
+    this.onFollowUpOptions = handler;
   }
 
   setSaveHandlers(handlers: {
@@ -575,6 +592,18 @@ export class GameServer {
         break;
       }
 
+      case "request_follow_up_options": {
+        logWrite(
+          "srv",
+          "ws",
+          `recv request_follow_up_options npc=${msg.npcId} ctx_len=${msg.context.length}`,
+        );
+        if (session.playerId) {
+          await this.handleFollowUpOptionsRequest(session, msg.npcId, msg.context);
+        }
+        break;
+      }
+
       case "talk": {
         if (session.playerId && this.onCommandExecute) {
           logWrite("srv", "ws", `recv talk npc=${msg.npcId} opt=${msg.optionId ?? "initial"}`);
@@ -763,6 +792,39 @@ export class GameServer {
         type: "error",
         code: "trade_options_failed",
         message: "无法生成交易选项",
+      });
+    }
+  }
+
+  private async handleFollowUpOptionsRequest(
+    session: Session,
+    npcId: string,
+    context: string,
+  ): Promise<void> {
+    if (!this.onFollowUpOptions || !session.playerId) return;
+    const npc = this.world.entities.get(npcId);
+    if (!npc) {
+      this.send(session, {
+        type: "error",
+        code: "invalid_npc",
+        message: "NPC 不存在",
+      });
+      return;
+    }
+    try {
+      const options = await this.onFollowUpOptions(session.playerId, npcId, context);
+      this.send(session, {
+        type: "follow_up_options",
+        npcId,
+        npcName: npc.name,
+        context,
+        options,
+      });
+    } catch (_err) {
+      this.send(session, {
+        type: "error",
+        code: "follow_up_options_failed",
+        message: "无法生成追问选项",
       });
     }
   }

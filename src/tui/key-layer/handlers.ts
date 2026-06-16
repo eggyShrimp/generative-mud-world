@@ -106,3 +106,47 @@ export function handleDialogueEscape(client: GameClient) {
   }
   client.closeDialogue();
 }
+
+export function handleDialogueFollowUp(client: GameClient) {
+  const dlg = client.dialogue();
+  if (dlg?.activeTab !== "chat") return;
+
+  const selectedText = client.popFollowUpSelection();
+  if (!selectedText) {
+    client.showFollowUpSelectionRequired();
+    return;
+  }
+
+  client.requestFollowUpOptions(selectedText);
+}
+
+export function handleInventoryEscape(client: GameClient) {
+  if (client.selectedInventoryItemId() !== null) {
+    client.setSelectedInventoryItemId(null);
+  } else {
+    client.closeInventory();
+  }
+}
+
+export function handleInventoryArrow(client: GameClient, keyName: string) {
+  const inventory = client.entity()?.inventory ?? [];
+  const groups = groupInventory(inventory);
+  if (groups.length === 0) return;
+
+  const selectedId = client.selectedInventoryItemId();
+  let currentIndex = -1;
+  if (selectedId !== null) {
+    currentIndex = groups.findIndex((g) => g.items.some((i) => i.id === selectedId));
+  }
+
+  if (currentIndex === -1) {
+    const initialIndex = keyName === "up" ? groups.length - 1 : 0;
+    client.setSelectedInventoryItemId(groups[initialIndex].items[0].id);
+    return;
+  }
+
+  const direction = keyName === "up" ? -1 : 1;
+  const newIndex = (currentIndex + direction + groups.length) % groups.length;
+
+  client.setSelectedInventoryItemId(groups[newIndex].items[0].id);
+}

@@ -1,11 +1,14 @@
 import { capEnabled, directionEnabled, makeDirectionHandler } from "./direction.ts";
 import {
   handleDialogueEscape,
+  handleDialogueFollowUp,
   handleDialogueOption,
   handleDialogueTabLeft,
   handleDialogueTabRight,
   handleEntityAction,
   handleEntitySelect,
+  handleInventoryArrow,
+  handleInventoryEscape,
   handleInventoryKey,
   handleQuestSelect,
   handleRoomAction,
@@ -177,7 +180,7 @@ const MAP_LAYER: KeyLayer = {
     { key: ["escape", "m"], handler: (c) => c.toggleMinimap(), label: "关闭" },
     { key: "g", handler: (c) => c.cycleMapGranularity(), label: "切换" },
     {
-      key: ["h", "left"],
+      key: "left",
       handler: (c) => {
         const minimap = c.room()?.minimap;
         const cursor = c.mapCursor();
@@ -208,7 +211,7 @@ const MAP_LAYER: KeyLayer = {
       label: "←",
     },
     {
-      key: ["l", "right"],
+      key: "right",
       handler: (c) => {
         const minimap = c.room()?.minimap;
         const cursor = c.mapCursor();
@@ -239,7 +242,7 @@ const MAP_LAYER: KeyLayer = {
       label: "→",
     },
     {
-      key: ["k", "up"],
+      key: "up",
       handler: (c) => {
         const minimap = c.room()?.minimap;
         const cursor = c.mapCursor();
@@ -263,7 +266,7 @@ const MAP_LAYER: KeyLayer = {
       enabled: (c) => c.mapGranularity() === "region",
     },
     {
-      key: ["j", "down"],
+      key: "down",
       handler: (c) => {
         const minimap = c.room()?.minimap;
         const cursor = c.mapCursor();
@@ -299,8 +302,11 @@ const INVENTORY_LAYER: KeyLayer = {
   id: "inventory",
   priority: 50,
   bindings: [
-    { key: ["escape", "i"], handler: (c) => c.closeInventory(), label: "关闭" },
+    { key: "escape", handler: handleInventoryEscape, label: "关闭" },
+    { key: "i", handler: (c) => c.closeInventory(), label: "关闭" },
     { key: "1-9", handler: handleInventoryKey, label: "" },
+    { key: "up", handler: handleInventoryArrow, label: "" },
+    { key: "down", handler: handleInventoryArrow, label: "" },
   ],
 };
 
@@ -356,7 +362,7 @@ const TRAVELOGUE_LAYER: KeyLayer = {
       label: "关闭",
     },
     {
-      key: ["k", "up"],
+      key: "up",
       handler: (c) => {
         const entries = c.travelogue();
         const idx = c.selectedTravelogueIndex();
@@ -367,7 +373,7 @@ const TRAVELOGUE_LAYER: KeyLayer = {
       enabled: (c) => c.travelogue().length > 0,
     },
     {
-      key: ["j", "down"],
+      key: "down",
       handler: (c) => {
         const entries = c.travelogue();
         const idx = c.selectedTravelogueIndex();
@@ -440,13 +446,13 @@ const BOOK_READER_LAYER: KeyLayer = {
       label: "关闭",
     },
     {
-      key: ["left", "h"],
+      key: "left",
       handler: (c) => c.prevBookPage(),
       label: "上一页",
       enabled: (c) => (c.bookReader()?.pageIndex ?? 0) > 0,
     },
     {
-      key: ["right", "l", " "],
+      key: ["right", " "],
       handler: (c) => c.nextBookPage(),
       label: "下一页",
       enabled: (c) => {
@@ -455,14 +461,14 @@ const BOOK_READER_LAYER: KeyLayer = {
       },
     },
     {
-      key: ["up", "k", "pageup"],
-      handler: (c, keyName) => c.scrollBookReader(keyName === "pageup" ? -8 : -2),
+      key: "up",
+      handler: (c) => c.scrollBookReader(-2),
       label: "上滚",
       enabled: (c) => (c.bookReader()?.scrollTop ?? 0) > 0,
     },
     {
-      key: ["down", "j", "pagedown"],
-      handler: (c, keyName) => c.scrollBookReader(keyName === "pagedown" ? 8 : 2),
+      key: "down",
+      handler: (c) => c.scrollBookReader(2),
       label: "下滚",
     },
   ],
@@ -472,6 +478,7 @@ const DIALOGUE_LAYER: KeyLayer = {
   id: "dialogue",
   priority: 60,
   bindings: [
+    { key: "f", handler: handleDialogueFollowUp, label: "" },
     { key: "left", handler: handleDialogueTabLeft, label: "" },
     { key: "right", handler: handleDialogueTabRight, label: "" },
     { key: "1-9", handler: handleDialogueOption, label: "" },
@@ -484,7 +491,7 @@ const QUEST_NOTIFICATION_LAYER: KeyLayer = {
   priority: 90,
   bindings: [
     {
-      key: ["escape", "enter", " "],
+      key: " ",
       handler: (c) => c.dismissQuestNotification(),
       label: "确认",
     },
@@ -496,7 +503,7 @@ const ITEM_CHANGE_NOTIFICATION_LAYER: KeyLayer = {
   priority: 85,
   bindings: [
     {
-      key: ["escape", "enter", " "],
+      key: " ",
       handler: (c) => c.dismissItemChangeNotification(),
       label: "确认",
     },

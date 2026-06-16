@@ -110,7 +110,7 @@ export function buildDialogueTools(pool: ContentPool): ToolDefinition[] {
       function: {
         name: "suggest_followup_topics",
         description:
-          "为当前闲聊对话生成玩家可追问的话题。话题为自然中文句子，与NPC刚说的内容形成追问关系。数量3-4个。",
+          "为当前闲聊对话生成玩家可追问的话题。话题为玩家视角的自然中文句子，与NPC刚说的内容形成追问关系，数量3-4个。话题应可在当前对话中回答。普通关系生成实用的追问话题；关系好时可生成更深入、细节追问的话题；关系差时话题仍应保持可用，不应默认生成拒绝类标签。",
         parameters: zodSchemaToOpenAiParams(SuggestFollowupTopicsArgs),
       },
     },

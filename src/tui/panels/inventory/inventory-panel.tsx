@@ -111,7 +111,9 @@ export function InventoryPanel(props: {
         height={props.metrics.height}
         top={props.metrics.top}
         left={props.metrics.left}
-        footer={props.selectedItem ? "Esc 关闭" : "选择物品编号，Esc 关闭"}
+        footer={
+          props.selectedItem ? "↑↓ 切换物品，1-9 操作，Esc 返回" : "选择物品编号，↑↓ 切换，Esc 关闭"
+        }
       >
         <Show
           when={props.selectedItem}

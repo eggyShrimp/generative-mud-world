@@ -17,9 +17,12 @@ import { activeLayer, getLayerStack, hasLayer, popLayer, pushLayer } from "../ke
 import {
   appendToHistory,
   applyDialogueOptionsToTab,
+  applyFollowUpOptions,
   applyNpcReply,
   applyTradeOptionsToTab,
+  buildFollowUpLoadingState,
   buildLoadingDialogueState,
+  clearFollowUpContext,
   computeTabSwitch,
   createDialogueState,
   extractNpcReply,
@@ -87,6 +90,14 @@ export function createGameClient(url: string): GameClient {
     targetTab: DialogueTab;
   } | null>(null);
 
+  // 追问：临时选中文本槽位 + 待处理元数据
+  let followUpSelectionStash: string | null = null;
+  let pendingFollowUp: {
+    npcId: string;
+    context: string;
+    previousChatOptions: DialogueOption[];
+  } | null = null;
+
   const completeActiveRequest = (): void => {
     setActiveRequest(null);
     const pending = pendingDialogueRequest();
@@ -141,6 +152,20 @@ export function createGameClient(url: string): GameClient {
   };
   const [status, setStatus] = createSignal<StatusMessage | null>(null);
   const [selectedEntityId, setSelectedEntityId] = createSignal<string | null>(null);
+  const stashFollowUpSelection = (text: string) => {
+    followUpSelectionStash = text;
+  };
+
+  const popFollowUpSelection = (): string | null => {
+    const text = followUpSelectionStash;
+    followUpSelectionStash = null;
+    return text;
+  };
+
+  const showFollowUpSelectionRequired = () => {
+    pushEvents([{ type: "system", description: "请先选中一句 NPC 的话。" }]);
+  };
+
   const hideDialogue = () => {
     setDialogue(null);
     setSelectedEntityId(null);
@@ -448,6 +473,13 @@ export function createGameClient(url: string): GameClient {
         if (req?.onTradeOptions) {
           req.onTradeOptions(message);
           completeActiveRequest();
+        }
+        break;
+      }
+      case "follow_up_options": {
+        const req = activeRequest();
+        if (req?.onFollowUpOptions) {
+          req.onFollowUpOptions(message);
         }
         break;
       }
@@ -883,6 +915,70 @@ export function createGameClient(url: string): GameClient {
     closeDialogue: () => hideDialogue(),
     switchDialogueTab,
     requestTradeOptions,
+    stashFollowUpSelection,
+    popFollowUpSelection,
+    requestFollowUpOptions: (context: string) => {
+      const current = dialogue();
+      if (!current) return;
+
+      if (hasActiveRequest()) {
+        pushEvents([{ type: "system", description: "正在处理操作，请稍候。" }]);
+        return;
+      }
+
+      pendingFollowUp = {
+        npcId: current.npcId,
+        context,
+        previousChatOptions: [...current.tabs.chat.options],
+      };
+
+      setDialogue((prev) => {
+        if (!prev) return prev;
+        return buildFollowUpLoadingState(prev);
+      });
+
+      sendRequest(
+        { type: "request_follow_up_options", npcId: current.npcId, context: context.trim() },
+        (req) => {
+          req.onFollowUpOptions = (msg) => {
+            const dlg = dialogue();
+            if (!dlg || dlg.npcId !== msg.npcId || pendingFollowUp?.context !== msg.context) {
+              completeActiveRequest();
+              return;
+            }
+
+            if (msg.options.length === 0) {
+              setDialogue((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...clearFollowUpContext(prev),
+                  tabs: {
+                    ...prev.tabs,
+                    chat: {
+                      ...prev.tabs.chat,
+                      options: pendingFollowUp?.previousChatOptions ?? [],
+                      loading: false,
+                    },
+                  },
+                };
+              });
+              pendingFollowUp = null;
+              pushEvents([{ type: "system", description: "没有合适的追问方向。" }]);
+              completeActiveRequest();
+              return;
+            }
+
+            setDialogue((prev) => {
+              if (!prev) return prev;
+              return applyFollowUpOptions(prev, msg.options, msg.context);
+            });
+            pendingFollowUp = null;
+            completeActiveRequest();
+          };
+        },
+      );
+    },
+    showFollowUpSelectionRequired,
     trackedQuestIds,
     toggleTrackQuest: (templateId: string) => {
       setTrackedQuestIds((prev) => {

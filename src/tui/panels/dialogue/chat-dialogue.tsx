@@ -58,6 +58,11 @@ export function ChatDialoguePanel(props: {
                     </text>
                   }
                 >
+                  <Show when={props.cur().followUpContext}>
+                    <text selectable={false} fg={THEME.muted} wrapMode="word">
+                      追问："{props.cur().followUpContext}"
+                    </text>
+                  </Show>
                   <For each={visibleOptions()}>
                     {(option, index) => (
                       <KeyHint

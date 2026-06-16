@@ -172,3 +172,43 @@ export function tradeOptionDetail(option: TradeOption): string | undefined {
   ].filter(Boolean);
   return lines.length > 0 ? lines.join("\n") : undefined;
 }
+
+export function buildFollowUpLoadingState(state: DialogueState): DialogueState {
+  return {
+    ...state,
+    tabs: {
+      ...state.tabs,
+      chat: {
+        ...state.tabs.chat,
+        options: [],
+        loading: true,
+      },
+    },
+  };
+}
+
+export function applyFollowUpOptions(
+  state: DialogueState,
+  options: DialogueOption[],
+  context: string,
+): DialogueState {
+  return {
+    ...state,
+    followUpContext: context,
+    tabs: {
+      ...state.tabs,
+      chat: {
+        ...state.tabs.chat,
+        options,
+        loading: false,
+      },
+    },
+  };
+}
+
+export function clearFollowUpContext(state: DialogueState): DialogueState {
+  return {
+    ...state,
+    followUpContext: undefined,
+  };
+}

@@ -333,12 +333,61 @@ describe("dispatchKey", () => {
     expect(client.closeInventory).toHaveBeenCalled();
   });
 
+  it("inventory 层: 有选中项时 escape 清除选中项不变更层", () => {
+    pushLayer("inventory");
+    const client = mockClient({ selectedInventoryItemId: () => "item_1" });
+    const key = mockKey("escape");
+    dispatchKey(key, client);
+    expect(client.setSelectedInventoryItemId).toHaveBeenCalledWith(null);
+    expect(client.closeInventory).not.toHaveBeenCalled();
+    expect(hasLayer("inventory")).toBe(true);
+  });
+
   it("inventory 层: i 关闭背包", () => {
     pushLayer("inventory");
     const client = mockClient();
     const key = mockKey("i");
     dispatchKey(key, client);
     expect(client.closeInventory).toHaveBeenCalled();
+  });
+
+  it("inventory 层: 无选中项时 up 选中最后一个物品", () => {
+    pushLayer("inventory");
+    const client = mockClient({
+      entity: () =>
+        ({
+          inventory: [
+            {
+              id: "item_1",
+              name: "草药",
+              type: "item",
+              description: "",
+              templateId: "herb",
+              properties: {},
+            },
+            {
+              id: "item_2",
+              name: "铁矿",
+              type: "item",
+              description: "",
+              templateId: "iron",
+              properties: {},
+            },
+            {
+              id: "item_3",
+              name: "木材",
+              type: "item",
+              description: "",
+              templateId: "wood",
+              properties: {},
+            },
+          ],
+        }) as never,
+    });
+
+    dispatchKey(mockKey("up"), client);
+
+    expect(client.setSelectedInventoryItemId).toHaveBeenCalledWith("item_3");
   });
 
   it("inventory 层: 其他按键被拦截", () => {
@@ -480,6 +529,29 @@ describe("dispatchKey", () => {
     expect(key.wasPrevented).toBe(true);
   });
 
+  it("map 层: k 不再触发上移", () => {
+    pushLayer("map");
+    const client = mockClient({
+      room: () =>
+        ({
+          minimap: {
+            playerRegionId: "region_1",
+            tiles: [
+              { x: 1, y: 0, regionId: "region_1", roomName: "北屋" },
+              { x: 1, y: 1, regionId: "region_1", roomName: "当前" },
+            ],
+            regionNodes: [],
+          },
+        }) as never,
+      mapCursor: () => ({ x: 1, y: 1, regionId: "region_1" }),
+      mapGranularity: () => "region",
+    });
+
+    dispatchKey(mockKey("k"), client);
+
+    expect(client.setMapCursor).not.toHaveBeenCalled();
+  });
+
   it("entity-selected 层: escape 取消选择", () => {
     pushLayer("entity-selected");
     const client = mockClient();
@@ -518,21 +590,20 @@ describe("dispatchKey", () => {
     expect(hasLayer("item-change-notification")).toBe(false);
   });
 
-  it("item-change-notification 层: Enter 关闭通知", () => {
+  it("item-change-notification 层: Enter 不再关闭通知", () => {
     pushLayer("item-change-notification");
     const client = mockClient();
     const key = mockKey("enter");
     dispatchKey(key, client);
-    expect(client.dismissItemChangeNotification).toHaveBeenCalled();
-    expect(key.wasPrevented).toBe(true);
+    expect(client.dismissItemChangeNotification).not.toHaveBeenCalled();
   });
 
-  it("item-change-notification 层: Escape 关闭通知", () => {
+  it("item-change-notification 层: Escape 不再关闭通知", () => {
     pushLayer("item-change-notification");
     const client = mockClient();
     const key = mockKey("escape");
     dispatchKey(key, client);
-    expect(client.dismissItemChangeNotification).toHaveBeenCalled();
+    expect(client.dismissItemChangeNotification).not.toHaveBeenCalled();
   });
 
   it("item-change-notification 层: Space 关闭通知", () => {
@@ -550,6 +621,32 @@ describe("dispatchKey", () => {
     dispatchKey(key, client);
     expect(key.wasPrevented).toBe(true);
     expect(client.dismissItemChangeNotification).not.toHaveBeenCalled();
+  });
+
+  // ── quest-notification 层 ──
+
+  it("quest-notification 层: Enter 不再关闭通知", () => {
+    pushLayer("quest-notification");
+    const client = mockClient();
+    const key = mockKey("enter");
+    dispatchKey(key, client);
+    expect(client.dismissQuestNotification).not.toHaveBeenCalled();
+  });
+
+  it("quest-notification 层: Escape 不再关闭通知", () => {
+    pushLayer("quest-notification");
+    const client = mockClient();
+    const key = mockKey("escape");
+    dispatchKey(key, client);
+    expect(client.dismissQuestNotification).not.toHaveBeenCalled();
+  });
+
+  it("quest-notification 层: Space 关闭通知", () => {
+    pushLayer("quest-notification");
+    const client = mockClient();
+    const key = mockKey(" ");
+    dispatchKey(key, client);
+    expect(client.dismissQuestNotification).toHaveBeenCalled();
   });
 
   it("book-reader 层: 可翻到下一页并关闭", () => {
@@ -593,8 +690,6 @@ describe("dispatchKey", () => {
     });
     dispatchKey(mockKey("down"), client);
     expect(client.scrollBookReader).toHaveBeenCalledWith(2);
-    dispatchKey(mockKey("pagedown"), client);
-    expect(client.scrollBookReader).toHaveBeenCalledWith(8);
   });
 
   it("item-change-notification 层: 优先级 85 > dialogue 60", () => {

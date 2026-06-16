@@ -54,6 +54,7 @@ export interface DialogueState {
   activeTab: DialogueTab;
   availableTabs: DialogueTab[];
   npcDescription?: string;
+  followUpContext?: string;
   tabs: {
     chat: ChatTab;
     trade: TradeTab;
@@ -64,6 +65,7 @@ export interface ActiveRequest {
   onCommandResult?: (msg: ServerMessage & { type: "command_result" }) => void;
   onDialogueOptions?: (msg: ServerMessage & { type: "dialogue_options" }) => void;
   onChatOptions?: (msg: ServerMessage & { type: "chat_options" }) => void;
+  onFollowUpOptions?: (msg: ServerMessage & { type: "follow_up_options" }) => void;
   onTradeOptions?: (msg: ServerMessage & { type: "trade_options" }) => void;
   onError?: () => void;
 }
@@ -152,6 +154,10 @@ export interface GameClient {
   closeDialogue: () => void;
   switchDialogueTab: (direction: -1 | 1) => void;
   requestTradeOptions: (npcId: string) => void;
+  stashFollowUpSelection: (text: string) => void;
+  popFollowUpSelection: () => string | null;
+  requestFollowUpOptions: (context: string) => void;
+  showFollowUpSelectionRequired: () => void;
   startCombat: (targetId: string, targetName: string) => void;
   endCombat: () => void;
   trackedQuestIds: () => Set<string>;

@@ -137,6 +137,10 @@ async function main() {
     return dialogueGenerator.generateTradeMenu(world, playerId, npcId);
   });
 
+  server.setFollowUpOptionsHandler(async (playerId, npcId, context) => {
+    return dialogueGenerator.generateFollowUpOptions(world, playerId, npcId, context);
+  });
+
   server.setSaveHandlers({
     listSlots: () => saveManager.listSlots(),
     manualSave: (slotId) => {

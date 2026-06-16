@@ -127,6 +127,44 @@ export class DialogueGenerator {
   }
 
   /**
+   * 根据玩家选中的对话文本生成追问选项。
+   * 返回 3-5 个 idle_chat 类型的 DialogueOption，解析失败时返回空列表。
+   */
+  async generateFollowUpOptions(
+    world: WorldState,
+    playerId: EntityId,
+    npcId: EntityId,
+    context: string,
+  ): Promise<DialogueOption[]> {
+    const player = world.entities.get(playerId);
+    const npc = world.entities.get(npcId);
+    if (!player || !isNpc(npc)) return [];
+
+    const trimmed = context.trim();
+    if (!trimmed) return [];
+
+    const ctx = this.buildContext(world, player, npc);
+    const convRel = ctx.relationshipLevel;
+
+    const prompt = this.buildFollowUpOptionsPrompt(ctx, trimmed, convRel);
+
+    try {
+      const response = await this.adapter.chat(
+        prompt.system,
+        prompt.user,
+        undefined,
+        undefined,
+        "dialogue-follow-up-options",
+        false,
+      );
+      const options = this.parseFollowUpOptions(response.text);
+      return options;
+    } catch {
+      return [];
+    }
+  }
+
+  /**
    * 确定性生成系统入口（不调用 LLM）
    *
    * 每项有可用性条件：
@@ -1416,6 +1454,9 @@ ${userLine}
 请生成 NPC 的回复和追问话题。
 要求:
 - 回复 2-3 句话，自然可信，用中文
+- 普通关系时正常回答问题
+- 关系好时更愿意补充细节、解释背景、给出已知线索
+- 关系差时语气可以冷淡，但仍应提供基础回答；不要因为关系差而默认拒答
 - 调用 suggest_followup_topics 生成 3-4 个玩家可追问的话题
 - 话题为自然中文句子，与 NPC 回复内容形成追问关系
 - 结合 NPC 的性格和身份自然延伸对话，避免重复已聊内容
@@ -1425,6 +1466,90 @@ ${userLine}
 - 若分享已知线索，在 share_information 中使用 clue_id 参数`,
       user: userLine,
     };
+  }
+
+  private buildFollowUpOptionsPrompt(
+    context: ReturnType<typeof this.buildContext>,
+    selectedText: string,
+    relationshipLevel: number,
+  ) {
+    const relGuidance =
+      relationshipLevel >= 70
+        ? "因为关系好，可以生成更深入、追问细节的问题。"
+        : relationshipLevel <= 30
+          ? "关系一般，生成的追问问题应保持友好实用，不要生成拒绝类标签。"
+          : "生成正常、实用的追问问题。";
+
+    return {
+      system: `你是 MUD 游戏的对话追问选项生成器。根据 NPC 的某句话，生成玩家可以追问的问题选项。
+
+NPC: ${context.npcName}
+身份: ${context.npcRole}
+性格: ${context.npcPersonality}
+心情: ${context.npcMood}
+关系: ${context.relationshipLabel} (${relationshipLevel})
+地点: ${context.roomName}
+
+NPC 说的原文: "${selectedText}"
+
+要求:
+- 生成 3-5 个玩家视角的追问问题，作为对话选项
+- 问题必须基于选中的原文内容，帮助玩家追问澄清、方向、原因、后果或后续
+- ${relGuidance}
+- 如果选中的文本似乎是玩家自己说的话，仍应基于周围对话上下文生成可用的追问问题，不要把玩家的句子当作 NPC 的知识
+- 选项要短，适合作为菜单项
+- 只输出 JSON，不要解释`,
+      user: `输出格式:
+{"options":[{"label":"玩家可选择的追问问题"}]}`,
+    };
+  }
+
+  private parseFollowUpOptions(text: string): DialogueOption[] {
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return [];
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch {
+      return [];
+    }
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      !Array.isArray((parsed as { options?: unknown }).options)
+    ) {
+      return [];
+    }
+
+    const seen = new Set<string>();
+    const options: DialogueOption[] = [];
+    let index = 0;
+
+    for (const item of (parsed as { options: unknown[] }).options) {
+      if (typeof item !== "object" || item === null) continue;
+      const label = (item as { label?: unknown }).label;
+      if (typeof label !== "string" || label.trim().length === 0) continue;
+      const trimmed = label.trim();
+      const dedupKey = trimmed.toLowerCase();
+      if (seen.has(dedupKey)) continue;
+      seen.add(dedupKey);
+
+      options.push({
+        id: `followup:${index}`,
+        label: trimmed,
+        type: "idle_chat",
+      });
+      index++;
+
+      if (options.length >= 5) break;
+    }
+
+    if (options.length > 0 && options.length < 3) {
+      return options;
+    }
+
+    return options;
   }
 
   // --- Conversation history helpers ---
