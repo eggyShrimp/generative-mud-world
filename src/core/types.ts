@@ -9,6 +9,65 @@ export type RoomId = string;
 export type RegionId = string;
 export type Tick = number;
 
+// 环境状态类型
+export type DayPeriod = "dawn" | "morning" | "afternoon" | "dusk" | "night";
+export type Season = "spring" | "summer" | "autumn" | "winter";
+export type WeatherId = string;
+
+export interface DayNightPeriodDef {
+  id: DayPeriod;
+  startHour: number;
+  label: string;
+  visibilityModifier: number;
+}
+
+export interface DayNightConfig {
+  periods: DayNightPeriodDef[];
+}
+
+export interface SeasonDef {
+  id: Season;
+  name: string;
+  months: number[];
+  label: string;
+  comfortTemp: number;
+  needDecayMultiplier: number;
+  narrativePrefix: string;
+}
+
+export interface SeasonConfig {
+  seasons: SeasonDef[];
+}
+
+export interface WeatherType {
+  id: string;
+  label: string;
+  movementMultiplier: number;
+  visibilityMultiplier: number;
+  narrativeDesc: string;
+  availableInSeasons: Season[];
+  weight: number;
+}
+
+export interface WeatherConfig {
+  weatherTypes: WeatherType[];
+}
+
+export interface WeatherState {
+  id: string;
+  label: string;
+  movementMultiplier: number;
+  visibilityMultiplier: number;
+  narrativeDesc: string;
+}
+
+export interface WarmthComfortConfig {
+  baselineTemp: number;
+  maxIdealWarmth: number;
+  minIdealWarmth: number;
+  penaltyPerWarmthPoint: number;
+}
+
 // 重新导出 schema 类型
 export type {
   Exit,
@@ -80,7 +139,12 @@ export interface NPCEntity extends BaseEntity {
   availableActions: string[];
   inventory: ItemEntity[];
   combatState: CombatState;
-  equipment: { weapon: ItemEntity | null; armor: ItemEntity | null };
+  equipment: {
+    weapon: ItemEntity | null;
+    armor: ItemEntity | null;
+    cloak: ItemEntity | null;
+    accessory: ItemEntity | null;
+  };
   tags?: string[]; // 实体能力标签（如 tavern_keeper, blacksmith），用于功能交互路由
 }
 
@@ -109,7 +173,12 @@ export interface PlayerEntity extends BaseEntity {
   inventory: ItemEntity[];
   knownRooms: RoomId[];
   combatState: CombatState;
-  equipment: { weapon: ItemEntity | null; armor: ItemEntity | null };
+  equipment: {
+    weapon: ItemEntity | null;
+    armor: ItemEntity | null;
+    cloak: ItemEntity | null;
+    accessory: ItemEntity | null;
+  };
   activeQuests: ActiveQuest[];
   completedQuests: string[];
   failedQuests: Array<{ templateId: string; failedDay: number; reason?: string }>;
@@ -322,6 +391,8 @@ export interface QuestPrerequisite {
 
 export interface TriggerCondition {
   day?: number;
+  period?: string; // DayPeriod validated at YAML load time
+  season?: string; // Season validated at YAML load time
   trait?: string;
   value?: number;
   operator?: ">=" | "<=" | "==" | "!=";
@@ -435,6 +506,7 @@ export interface WorldState {
   poolDir?: string; // ContentPool YAML 目录路径 (用于 LLM 演化写回)
   graph?: RoomGraph;
   completedStorylines: string[];
+  weatherByRegion: Map<RegionId, WeatherState>;
 }
 
 export interface Region {
@@ -451,6 +523,8 @@ export interface GameTime {
   day: number;
   month: number;
   year: number;
+  period: DayPeriod;
+  season: Season;
 }
 
 // ============================================================
@@ -482,6 +556,18 @@ export interface ContentPool {
 
   // 日历系统 (LLM 可演化)
   calendar: CalendarConfig;
+
+  // 昼夜时段配置 (LLM 可演化)
+  dayNightConfig: DayNightConfig;
+
+  // 季节配置 (LLM 可演化)
+  seasonConfig: SeasonConfig;
+
+  // 天气配置 (LLM 可演化)
+  weatherConfig: WeatherConfig;
+
+  // 保暖舒适公式参数 (LLM 可演化)
+  warmthComfortConfig: WarmthComfortConfig;
 
   // 探索模板 (规则降级，LLM 可演化)
   roomTemplates: RoomTemplatePool[];
@@ -572,6 +658,10 @@ export interface ContentPoolMutation {
   addCombatSkills?: CombatSkill[];
   replaceNarrativeTemplates?: Partial<NarrativeTemplates>;
   replaceCalendar?: Partial<CalendarConfig>;
+  replaceDayNightConfig?: Partial<DayNightConfig>;
+  replaceSeasonConfig?: Partial<SeasonConfig>;
+  replaceWeatherConfig?: Partial<WeatherConfig>;
+  replaceWarmthComfortConfig?: Partial<WarmthComfortConfig>;
   replaceNeedLabels?: Record<string, string>;
   replaceTraitLabels?: Record<string, string>;
   replaceItemPropertyLabels?: Record<string, string>;
@@ -911,6 +1001,7 @@ export interface SaveData {
   conversations: {
     summaries: Record<string, ConversationSummaryEntry[]>;
   };
+  weatherByRegion: Record<string, WeatherState>;
 }
 
 // ============================================================

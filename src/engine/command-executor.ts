@@ -150,7 +150,11 @@ function calcMoveRestCost(world: WorldState, entity: Entity, direction: string):
   const terrainType = exit.terrain ?? room.terrain ?? "plain";
   const terrainCfg = world.contentPool.terrainConfig.find((tc) => tc.terrain === terrainType);
   const baseCost = terrainCfg?.baseCost ?? 2;
-  return -(baseCost * (exit.distance ?? 1));
+  // Apply weather movement multiplier
+  const regionId = room.regionId;
+  const weatherState = regionId ? world.weatherByRegion.get(regionId) : undefined;
+  const weatherMultiplier = weatherState?.movementMultiplier ?? 1.0;
+  return -(baseCost * (exit.distance ?? 1)) * weatherMultiplier;
 }
 
 // 预留扩展点 — 未来读取 ContentPool.actionRequirements，校验实体 trait
@@ -215,11 +219,32 @@ function checkRoomTagFeasibility(
 
 // 预留扩展点 — 未来实现 ExitConditionSchema 验证（trait/item/skill/time/season/quest）
 function checkExitConditions(
-  _world: WorldState,
+  world: WorldState,
   _entity: Entity,
-  _params: Record<string, unknown>,
+  params: Record<string, unknown>,
 ): FeasibilityBlocker[] {
-  return [];
+  const blockers: FeasibilityBlocker[] = [];
+  const direction = params.direction as string | undefined;
+  if (!direction) return blockers;
+
+  const room = _entity.roomId ? world.rooms.get(_entity.roomId) : null;
+  if (!room) return blockers;
+  const exit = room.exits.get(direction);
+  if (!exit?.conditions || exit.conditions.length === 0) return blockers;
+
+  for (const cond of exit.conditions) {
+    if (cond.type === "time") {
+      if (world.time.period !== cond.value) {
+        blockers.push({ type: "exit_condition", reason: `此路仅在${cond.value}时开放` });
+      }
+    } else if (cond.type === "season") {
+      if (world.time.season !== cond.value) {
+        blockers.push({ type: "exit_condition", reason: `此路仅在${cond.value}季开放` });
+      }
+    }
+  }
+
+  return blockers;
 }
 
 export function executeCommand(
@@ -310,13 +335,19 @@ function executeMove(
   // 检查通行条件
   if (exit.conditions && exit.conditions.length > 0) {
     for (const cond of exit.conditions) {
-      // TODO: 根据条件类型检查实体是否满足
-      // 目前只做日志提示，不阻塞移动
-      logWrite(
-        "srv",
-        "info",
-        `[CommandExecutor] 出口条件: ${cond.type}=${cond.value} (未实现检查)`,
-      );
+      if (cond.type === "time" && world.time.period !== cond.value) {
+        return fail(`此路仅在${cond.value}时开放`);
+      }
+      if (cond.type === "season" && world.time.season !== cond.value) {
+        return fail(`此路仅在${cond.value}季开放`);
+      }
+      if (cond.type !== "time" && cond.type !== "season") {
+        logWrite(
+          "srv",
+          "info",
+          `[CommandExecutor] 出口条件: ${cond.type}=${cond.value} (未实现检查)`,
+        );
+      }
     }
   }
 
@@ -1128,8 +1159,22 @@ function executeEquip(
 
   const item = entity.inventory[itemIndex];
 
-  // Determine slot: weapon if atkBonus, else armor
-  const slot = item.properties?.atkBonus ? "weapon" : "armor";
+  // Determine slot: weapon if atkBonus, else armor; also check equipmentSlot property
+  const equipmentSlot = item.properties?.equipmentSlot as string | undefined;
+  let slot: "weapon" | "armor" | "cloak" | "accessory";
+  if (
+    equipmentSlot &&
+    (equipmentSlot === "weapon" ||
+      equipmentSlot === "armor" ||
+      equipmentSlot === "cloak" ||
+      equipmentSlot === "accessory")
+  ) {
+    slot = equipmentSlot;
+  } else if (item.properties?.atkBonus) {
+    slot = "weapon";
+  } else {
+    slot = "armor";
+  }
 
   // Unequip existing item in that slot
   const existing = entity.equipment[slot];
@@ -1168,10 +1213,14 @@ function executeUnequip(
   if (!("inventory" in entity) || !("equipment" in entity)) return fail("当前角色无法操作装备");
 
   const slot = params.slot as string | undefined;
-  if (!slot || (slot !== "weapon" && slot !== "armor")) return fail("不知道要卸下哪个装备");
+  if (!slot || (slot !== "weapon" && slot !== "armor" && slot !== "cloak" && slot !== "accessory"))
+    return fail("不知道要卸下哪个装备");
 
-  const item = entity.equipment[slot];
-  if (!item) return fail(`${slot === "weapon" ? "武器" : "防具"}槽没有装备`);
+  const item = entity.equipment[slot as keyof typeof entity.equipment];
+  if (!item)
+    return fail(
+      `${slot === "weapon" ? "武器" : slot === "armor" ? "防具" : slot === "cloak" ? "斗篷" : "饰物"}槽没有装备`,
+    );
 
   entity.equipment[slot] = null;
   entity.inventory.push(item);

@@ -58,7 +58,7 @@ describe("combatState 初始化", () => {
     expect(player.combatState).toBeDefined();
     expect(player.combatState.hp).toBe(50);
     expect(player.combatState.maxHp).toBe(50);
-    expect(player.equipment).toEqual({ weapon: null, armor: null });
+    expect(player.equipment).toEqual({ weapon: null, armor: null, cloak: null, accessory: null });
   });
 
   it("createNPC 可通过 overrides 传入自定义 combatState", () => {

@@ -13,10 +13,19 @@ export const SaveMetaSchema = z.object({
   round: z.number(),
 });
 
+export const WeatherStateSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  movementMultiplier: z.number(),
+  visibilityMultiplier: z.number(),
+  narrativeDesc: z.string(),
+});
+
 export const SaveDataSchema = z.object({
   version: z.literal(1).default(1),
   meta: SaveMetaSchema,
   conversations: z.object({
     summaries: z.record(z.string(), z.array(ConversationSummaryEntrySchema)),
   }),
+  weatherByRegion: z.record(z.string(), WeatherStateSchema).default({}),
 });

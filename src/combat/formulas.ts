@@ -106,3 +106,16 @@ export function getArmorBonus(entity: CombatEntity): number {
   }
   return 0;
 }
+
+// ============================================================
+// 可见度修正（昼夜 + 天气）
+// ============================================================
+
+export function checkHit(
+  periodVisibilityModifier: number,
+  weatherVisibilityMultiplier: number,
+  random: () => number = Math.random,
+): boolean {
+  const hitChance = periodVisibilityModifier * weatherVisibilityMultiplier;
+  return random() < hitChance;
+}

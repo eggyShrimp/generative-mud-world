@@ -5,6 +5,8 @@ export {
   CalendarConfigSchema,
   ClueDefinitionSchema,
   ConversationDirectionSchema,
+  DayNightConfigSchema,
+  DayNightPeriodDefSchema,
   DialogueEffectMappingSchema,
   EmotionLabelsSchema,
   EntityActionLabelsSchema,
@@ -28,10 +30,15 @@ export {
   RoleScheduleTemplateSchema,
   RoomTemplatePoolSchema,
   ScheduleEntrySchema,
+  SeasonConfigSchema,
+  SeasonDefSchema,
   SocialRippleConfigSchema,
   StorylineConfigSchema,
   TraitLabelsSchema,
   TriggerConditionSchema,
+  WarmthComfortConfigSchema,
+  WeatherConfigSchema,
+  WeatherTypeSchema,
 } from "./content-pool.ts";
 export type { Exit, ExitCondition } from "./exit.ts";
 export { ExitConditionSchema, ExitSchema } from "./exit.ts";

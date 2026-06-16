@@ -9,7 +9,14 @@
 
 import { renderTemplate } from "../core/template.ts";
 import type { CombatTemplates, NPCEntity, PlayerEntity } from "../core/types.ts";
-import { computeDamage, deriveAtk, deriveDef, getArmorBonus, getWeaponBonus } from "./formulas.ts";
+import {
+  checkHit,
+  computeDamage,
+  deriveAtk,
+  deriveDef,
+  getArmorBonus,
+  getWeaponBonus,
+} from "./formulas.ts";
 import type { AttackResult, CombatConfig, CombatEvent } from "./types.ts";
 
 type CombatEntity = NPCEntity | PlayerEntity;
@@ -19,7 +26,29 @@ export function resolveAttack(
   defender: CombatEntity,
   config: CombatConfig,
   templates: CombatTemplates,
+  periodVisibilityModifier = 1.0,
+  weatherVisibilityMultiplier = 1.0,
 ): AttackResult {
+  // Visibility hit check
+  if (!checkHit(periodVisibilityModifier, weatherVisibilityMultiplier)) {
+    return {
+      damage: 0,
+      isCrit: false,
+      hpChange: { targetId: defender.id, delta: 0 },
+      needChange: { targetId: attacker.id, needType: "rest", delta: -config.restCostPerAttack },
+      event: {
+        type: "combat_hit",
+        attackerId: attacker.id,
+        defenderId: defender.id,
+        damage: 0,
+        description: renderTemplate(templates.defend, {
+          attacker: attacker.name,
+          defender: defender.name,
+        }),
+      },
+    };
+  }
+
   const weaponBonus = getWeaponBonus(attacker);
   const armorBonus = getArmorBonus(defender);
 

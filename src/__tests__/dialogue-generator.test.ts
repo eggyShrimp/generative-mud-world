@@ -94,7 +94,7 @@ function setupWorld(opts?: { npcTags?: string[]; npcInventory?: boolean }) {
       isIncapacitated: false,
       incapacitatedUntil: 0,
     },
-    equipment: { weapon: null, armor: null },
+    equipment: { weapon: null, armor: null, cloak: null, accessory: null },
     tags: opts?.npcTags,
   };
   const npc = createNPC("npc1", npcOverrides);

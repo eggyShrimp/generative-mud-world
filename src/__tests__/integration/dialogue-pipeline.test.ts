@@ -160,7 +160,7 @@ describe("集成: 对话全链路", () => {
         isIncapacitated: false,
         incapacitatedUntil: 0,
       },
-      equipment: { weapon: null, armor: null },
+      equipment: { weapon: null, armor: null, cloak: null, accessory: null },
     };
     world.entities.set("obs2", observer2);
     world.rooms.get("tavern")?.entities.add("obs2");

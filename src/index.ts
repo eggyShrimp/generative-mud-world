@@ -67,7 +67,7 @@ async function main() {
         }
 
         // 每日需求衰减
-        const decayDelta = decayNeeds(id, e);
+        const decayDelta = decayNeeds(world, id, e);
         applyDelta(world, decayDelta);
 
         // 每日例行记忆汇总

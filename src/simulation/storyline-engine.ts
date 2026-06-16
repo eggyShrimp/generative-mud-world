@@ -173,8 +173,22 @@ function cmp(a: number, b: number, op: ">=" | "<=" | "==" | "!="): boolean {
 }
 
 function matchTime(world: WorldState, cond: TriggerCondition): boolean {
-  if (cond.day == null) return false;
-  return cmp(world.time.day, cond.day as number, cond.operator as ">=" | "<=" | "==" | "!=");
+  if (cond.day != null) {
+    if (!cmp(world.time.day, cond.day as number, cond.operator as ">=" | "<=" | "==" | "!=")) {
+      return false;
+    }
+  }
+  if (cond.period != null && world.time.period !== cond.period) {
+    return false;
+  }
+  if (cond.season != null && world.time.season !== cond.season) {
+    return false;
+  }
+  // If none of day/period/season are specified, this condition doesn't match
+  if (cond.day == null && cond.period == null && cond.season == null) {
+    return false;
+  }
+  return true;
 }
 
 function matchTrait(player: PlayerEntity, cond: TriggerCondition): boolean {

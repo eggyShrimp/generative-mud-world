@@ -76,7 +76,7 @@ function setupWorld() {
       isIncapacitated: false,
       incapacitatedUntil: 0,
     },
-    equipment: { weapon: null, armor: null },
+    equipment: { weapon: null, armor: null, cloak: null, accessory: null },
   };
   addEntity(world, npc);
   return world;
@@ -123,20 +123,27 @@ describe("executeSchedule", () => {
 });
 
 describe("decayNeeds", () => {
-  it("should apply decay rate as negative delta", () => {
-    const delta = decayNeeds("npc1", {
+  it("should apply decay rate with season multiplier and warmth penalty", () => {
+    const world = createWorld();
+    // Default world: season = "spring", comfortTemp = 18, needDecayMultiplier = 1.0
+    // idealWarmth = clamp(25 - 18, 0, 30) = 7
+    // No equipment → effectiveWarmth = 0, discomfort = 7
+    // warmthMultiplier = 1 + 7 * 0.015 = 1.105
+    // hunger: -2 * 1.0 * 1.105 = -2.21
+    const delta = decayNeeds(world, "npc1", {
       needs: [
         { type: "hunger", value: 50, decayRate: 2 },
         { type: "safety", value: 80, decayRate: 1 },
       ],
     });
     expect(delta.needChanges).toHaveLength(2);
-    expect(delta.needChanges?.[0]).toEqual({ targetId: "npc1", needType: "hunger", delta: -2 });
-    expect(delta.needChanges?.[1]).toEqual({ targetId: "npc1", needType: "safety", delta: -1 });
+    expect(delta.needChanges?.[0].delta).toBeCloseTo(-2.21, 1);
+    expect(delta.needChanges?.[1].delta).toBeCloseTo(-1.105, 2);
   });
 
   it("should handle empty needs", () => {
-    const delta = decayNeeds("npc1", { needs: [] });
+    const world = createWorld();
+    const delta = decayNeeds(world, "npc1", { needs: [] });
     expect(delta.needChanges).toHaveLength(0);
   });
 });

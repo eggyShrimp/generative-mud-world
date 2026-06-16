@@ -445,6 +445,12 @@ export class GameServer {
                 armor: (entity as PlayerEntity).equipment.armor?.name
                   ? { name: (entity as PlayerEntity).equipment.armor?.name ?? "" }
                   : undefined,
+                cloak: (entity as PlayerEntity).equipment.cloak?.name
+                  ? { name: (entity as PlayerEntity).equipment.cloak?.name ?? "" }
+                  : undefined,
+                accessory: (entity as PlayerEntity).equipment.accessory?.name
+                  ? { name: (entity as PlayerEntity).equipment.accessory?.name ?? "" }
+                  : undefined,
               }
             : undefined,
       },
@@ -855,13 +861,36 @@ export class GameServer {
   }
 
   private sendStatus(session: Session): void {
+    const w = this.world;
+    const periodDef = w.contentPool.dayNightConfig.periods.find((p) => p.id === w.time.period);
+    const seasonDef = w.contentPool.seasonConfig.seasons.find((s) => s.id === w.time.season);
+
+    let weatherLabel = "";
+    if (session.playerId) {
+      const player = w.entities.get(session.playerId);
+      if (player && "roomId" in player && player.roomId) {
+        const room = w.rooms.get(player.roomId);
+        if (room) {
+          const weather = w.weatherByRegion.get(room.regionId);
+          if (weather) weatherLabel = weather.label;
+        }
+      }
+    }
+    if (!weatherLabel) {
+      const firstWeather = w.weatherByRegion.values().next().value;
+      if (firstWeather) weatherLabel = firstWeather.label;
+    }
+
     this.send(session, {
       type: "status",
       llmReachable: this.llmReachable,
-      round: this.world.round,
-      date: formatDate(this.world.time, { calendar: this.world.contentPool.calendar }),
-      entityCount: this.world.entities.size,
+      round: w.round,
+      date: formatDate(w.time, { calendar: w.contentPool.calendar }),
+      entityCount: w.entities.size,
       connectedPlayers: this.sessions.size,
+      period: periodDef?.label ?? w.time.period,
+      season: seasonDef?.label ?? w.time.season,
+      weatherLabel,
     });
   }
 

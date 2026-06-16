@@ -212,6 +212,8 @@ itemPropertyLabels:
   weapon: 武器
   atkBonus: 攻击
   defBonus: 防御
+  warmth: 保暖
+  equipmentSlot: 装备槽位
   questItem: 任务物品
 
 conversationDirections:

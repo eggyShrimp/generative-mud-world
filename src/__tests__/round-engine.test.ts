@@ -106,7 +106,7 @@ function setupWorldWithNPC() {
       isIncapacitated: false,
       incapacitatedUntil: 0,
     },
-    equipment: { weapon: null, armor: null },
+    equipment: { weapon: null, armor: null, cloak: null, accessory: null },
   };
   addEntity(world, npc);
   return world;
@@ -140,7 +140,7 @@ function setupWorldWithObserver() {
       isIncapacitated: false,
       incapacitatedUntil: 0,
     },
-    equipment: { weapon: null, armor: null },
+    equipment: { weapon: null, armor: null, cloak: null, accessory: null },
   };
   addEntity(world, observer);
   return world;
@@ -502,7 +502,7 @@ describe("RoundEngine — 社会涟漪端到端", () => {
         isIncapacitated: false,
         incapacitatedUntil: 0,
       },
-      equipment: { weapon: null, armor: null },
+      equipment: { weapon: null, armor: null, cloak: null, accessory: null },
     };
     addEntity(world, observer2);
 

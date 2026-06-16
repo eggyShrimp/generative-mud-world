@@ -174,6 +174,24 @@ export function createTriggerDetector(): TriggerDetector {
           world.time.month > 0 &&
           world.round > 0
         ) {
+          const npcs = Array.from(world.entities.values())
+            .filter((e) => e.type === "npc")
+            .map((e) => {
+              const npc = e as import("../core/types.ts").NPCEntity;
+              return {
+                id: npc.id,
+                name: npc.name,
+                room: npc.roomId ?? "",
+                role: npc.tags?.join(", ") ?? npc.npcTier,
+                personality: npc.personality?.slice(0, 80) ?? "",
+              };
+            });
+          const rooms = Array.from(world.rooms.values()).map((r) => ({
+            id: r.id,
+            name: r.name,
+            region: world.regions.get(r.regionId)?.name ?? r.regionId,
+            tags: r.tags ?? [],
+          }));
           triggers.push({
             id: `content_pool_evolve_${world.tick}`,
             type: "content_pool_evolve",
@@ -188,6 +206,14 @@ export function createTriggerDetector(): TriggerDetector {
               existingRoles: pool.scheduleTemplates.map((t) => t.role),
               existingCultures: pool.roomTemplates.map((t) => t.culture),
               previousRoomTemplateCultures: pool.roomTemplates.map((t) => t.culture),
+              existingNpcs: npcs,
+              existingRooms: rooms,
+              existingQuests: pool.questTemplates.map((q) => ({ id: q.id, title: q.title })),
+              existingItemTemplates: pool.itemTemplates.map((i) => ({ id: i.id, name: i.name })),
+              existingClues: (pool.clueDefinitions ?? []).map((c) => ({
+                id: c.id,
+                description: c.description,
+              })),
             },
           });
         }

@@ -52,7 +52,7 @@ function setupWorldWithObservers(config?: Partial<SocialRippleConfig>) {
       isIncapacitated: false,
       incapacitatedUntil: 0,
     },
-    equipment: { weapon: null, armor: null },
+    equipment: { weapon: null, armor: null, cloak: null, accessory: null },
   };
   addEntity(world, target);
   return world;
@@ -88,7 +88,7 @@ function addObserver(
       isIncapacitated: false,
       incapacitatedUntil: 0,
     },
-    equipment: { weapon: null, armor: null },
+    equipment: { weapon: null, armor: null, cloak: null, accessory: null },
   };
   addEntity(world, observer);
   return observer;

@@ -185,6 +185,56 @@ export const CalendarConfigSchema = z.object({
   yearFormat: z.string(),
 });
 
+// dayNightConfig
+export const DayNightPeriodDefSchema = z.object({
+  id: z.string().min(1),
+  startHour: z.number().int().min(0).max(23),
+  label: z.string().min(1),
+  visibilityModifier: z.number().min(0).max(1),
+});
+
+export const DayNightConfigSchema = z.object({
+  periods: z.array(DayNightPeriodDefSchema).min(1),
+});
+
+// seasonConfig
+export const SeasonDefSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  months: z.array(z.number().int().min(1)),
+  label: z.string().min(1),
+  comfortTemp: z.number(),
+  needDecayMultiplier: z.number().min(0),
+  narrativePrefix: z.string(),
+});
+
+export const SeasonConfigSchema = z.object({
+  seasons: z.array(SeasonDefSchema).min(1),
+});
+
+// weatherConfig
+export const WeatherTypeSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  movementMultiplier: z.number().min(0),
+  visibilityMultiplier: z.number().min(0).max(1),
+  narrativeDesc: z.string(),
+  availableInSeasons: z.array(z.string()),
+  weight: z.number().min(0),
+});
+
+export const WeatherConfigSchema = z.object({
+  weatherTypes: z.array(WeatherTypeSchema).min(1),
+});
+
+// warmthComfortConfig
+export const WarmthComfortConfigSchema = z.object({
+  baselineTemp: z.number(),
+  maxIdealWarmth: z.number().min(0),
+  minIdealWarmth: z.number().min(0),
+  penaltyPerWarmthPoint: z.number().min(0),
+});
+
 // roomTemplates
 export const RoomTemplatePoolSchema = z.object({
   culture: z.string().min(1),
@@ -288,6 +338,8 @@ export const MinRelationConditionSchema = z.object({
 
 export const TriggerConditionSchema = z.object({
   day: z.number().optional(),
+  period: z.string().optional(),
+  season: z.string().optional(),
   trait: z.string().optional(),
   value: z.number().optional(),
   operator: z.enum([">=", "<=", "==", "!="]).optional(),

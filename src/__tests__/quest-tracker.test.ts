@@ -826,7 +826,7 @@ describe("QuestTracker", () => {
         availableActions: [],
         inventory: [],
         combatState: {} as never,
-        equipment: { weapon: null, armor: null },
+        equipment: { weapon: null, armor: null, cloak: null, accessory: null },
       });
 
       player.activeQuests.push({

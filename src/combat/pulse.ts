@@ -197,11 +197,21 @@ export function executeCombatPulse(world: WorldState, config: CombatConfig): Com
     }
 
     // 执行攻击
+    const periodDef = world.contentPool.dayNightConfig.periods.find(
+      (p) => p.id === world.time.period,
+    );
+    const periodMod = periodDef?.visibilityModifier ?? 1.0;
+    const regionId = world.rooms.get(attacker.roomId ?? "")?.regionId;
+    const weatherState = regionId ? world.weatherByRegion.get(regionId) : undefined;
+    const weatherMod = weatherState?.visibilityMultiplier ?? 1.0;
+
     const result = resolveAttack(
       attacker,
       target,
       config,
       world.contentPool.narrativeTemplates.combatTemplates,
+      periodMod,
+      weatherMod,
     );
     attacker.combatState.lastAttackTick = world.tick;
 

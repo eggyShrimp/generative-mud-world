@@ -1,6 +1,7 @@
 import type {
   ContentPool,
   NeedType,
+  NPCEntity,
   ScheduleEntry,
   SimulationDelta,
   WorldState,
@@ -21,7 +22,15 @@ export function executeSchedule(
   const schedule = npc.schedule ?? [];
 
   for (const entry of schedule) {
-    if (currentHour >= entry.startHour && currentHour < entry.endHour) {
+    let matches = false;
+    if (entry.startHour <= entry.endHour) {
+      // Normal range: startHour <= currentHour < endHour
+      matches = currentHour >= entry.startHour && currentHour < entry.endHour;
+    } else {
+      // Overnight range: currentHour >= startHour OR currentHour < endHour
+      matches = currentHour >= entry.startHour || currentHour < entry.endHour;
+    }
+    if (matches) {
       const effect = pool.actionEffects.find((e) => e.action === entry.action);
       if (effect) {
         for (const [needType, d] of Object.entries(effect.needDeltas)) {
@@ -40,14 +49,39 @@ export function executeSchedule(
 
 // Need 衰减
 export function decayNeeds(
+  world: WorldState,
   npcId: string,
-  npc: { needs: Array<{ type: string; value: number; decayRate: number }> },
+  npc: {
+    needs: Array<{ type: string; value: number; decayRate: number }>;
+    equipment?: NPCEntity["equipment"];
+  },
 ): SimulationDelta {
+  const pool = world.contentPool;
+  const seasonDef = pool.seasonConfig.seasons.find((s) => s.id === world.time.season);
+  const baseMultiplier = seasonDef?.needDecayMultiplier ?? 1.0;
+
+  // Warmth penalty
+  const warmthConfig = pool.warmthComfortConfig;
+  const comfortTemp = seasonDef?.comfortTemp ?? 20;
+  const idealWarmth = Math.max(
+    warmthConfig.minIdealWarmth,
+    Math.min(warmthConfig.maxIdealWarmth, warmthConfig.baselineTemp - comfortTemp),
+  );
+  const eq = npc.equipment;
+  const effectiveWarmth = eq
+    ? ((eq.weapon?.properties.warmth as number) ?? 0) +
+      ((eq.armor?.properties.warmth as number) ?? 0) +
+      ((eq.cloak?.properties.warmth as number) ?? 0) +
+      ((eq.accessory?.properties.warmth as number) ?? 0)
+    : 0;
+  const discomfort = Math.abs(idealWarmth - effectiveWarmth);
+  const warmthMultiplier = 1 + discomfort * warmthConfig.penaltyPerWarmthPoint;
+
   return {
     needChanges: npc.needs.map((n) => ({
       targetId: npcId,
       needType: n.type as unknown as import("../core/types.ts").NeedType,
-      delta: -n.decayRate,
+      delta: -n.decayRate * baseMultiplier * warmthMultiplier,
     })),
   };
 }

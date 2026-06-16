@@ -56,7 +56,7 @@ function createRealSimulation() {
           });
         }
 
-        const decayDelta = decayNeeds(id, e);
+        const decayDelta = decayNeeds(world, id, e);
         applyDelta(world, decayDelta);
 
         if (e.type === "npc") {

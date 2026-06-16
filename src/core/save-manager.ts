@@ -39,6 +39,7 @@ function emptySaveData(slotId: string, worldId: string, tick: number, round: num
     conversations: {
       summaries: {},
     },
+    weatherByRegion: {},
   };
 }
 
@@ -269,10 +270,13 @@ export class SaveManager {
 
   capture(world: WorldState): void {
     this.updateMeta(world.tick, world.round);
+    if (world.weatherByRegion) {
+      this.#data.weatherByRegion = Object.fromEntries(world.weatherByRegion);
+    }
   }
 
-  restore(_world: WorldState): void {
-    // Future SaveData sections restore through this single entry.
+  restore(world: WorldState): void {
+    world.weatherByRegion = new Map(Object.entries(this.#data.weatherByRegion));
   }
 
   getMeta(): SaveMeta {

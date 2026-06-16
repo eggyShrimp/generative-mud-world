@@ -55,6 +55,8 @@ export interface EntityState {
 export interface EntityEquipment {
   weapon?: { name: string };
   armor?: { name: string };
+  cloak?: { name: string };
+  accessory?: { name: string };
 }
 
 export interface EntityCombatState {
@@ -419,6 +421,9 @@ export interface StatusMessage {
   date: string;
   entityCount: number;
   connectedPlayers: number;
+  period: string;
+  season: string;
+  weatherLabel: string;
 }
 
 export interface ErrorMessage {

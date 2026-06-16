@@ -139,6 +139,43 @@ itemTemplates:
     properties:
       value: 0
     tradeable: false
+  - id: hemp_cloak
+    name: 麻布披风
+    properties:
+      equipmentSlot: cloak
+      warmth: 5
+      value: 2
+  - id: felt_hat
+    name: 毡帽
+    properties:
+      equipmentSlot: accessory
+      warmth: 5
+      value: 2
+  - id: leather_armor
+    name: 皮甲
+    properties:
+      equipmentSlot: armor
+      warmth: 10
+      defBonus: 3
+      value: 15
+  - id: leather_coat
+    name: 皮袄
+    properties:
+      equipmentSlot: armor
+      warmth: 15
+      value: 10
+  - id: cotton_robe
+    name: 棉袍
+    properties:
+      equipmentSlot: armor
+      warmth: 20
+      value: 8
+  - id: fur_cloak
+    name: 毛皮斗篷
+    properties:
+      equipmentSlot: cloak
+      warmth: 25
+      value: 20
 
 actionEffects:
   - action: sleep_at_inn

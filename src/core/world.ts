@@ -3,6 +3,8 @@ import { logWrite } from "../shared/log.ts";
 import { resolveRelationLabel } from "./relation-label.ts";
 import type {
   ContentPool,
+  DayNightConfig,
+  DayPeriod,
   Entity,
   EntityId,
   FactionEntity,
@@ -15,8 +17,12 @@ import type {
   RegionId,
   Room,
   RoomId,
+  Season,
+  SeasonConfig,
   SimulationDelta,
   Trait,
+  WeatherConfig,
+  WeatherState,
   WorldEvent,
   WorldState,
 } from "./types.ts";
@@ -41,10 +47,19 @@ export function createWorld(): WorldState {
     rooms: new Map(),
     regions: new Map(),
     eventLog: [],
-    time: { tick: 0, hour: 6, day: 1, month: 1, year: 1 },
+    time: {
+      tick: 0,
+      hour: 6,
+      day: 1,
+      month: 1,
+      year: 1,
+      period: "morning" as const,
+      season: "spring" as const,
+    },
     round: 0,
     contentPool: createDefaultContentPool(),
     completedStorylines: [],
+    weatherByRegion: new Map(),
   };
 }
 
@@ -155,6 +170,88 @@ export function advanceTime(world: WorldState): void {
       }
     }
   }
+  // Refresh period without rerolling weather (weather stays until calendar day changes)
+  world.time.period = computeDayPeriod(world.time.hour, world.contentPool.dayNightConfig);
+}
+
+export function computeDayPeriod(hour: number, config: DayNightConfig): DayPeriod {
+  const periods = config.periods;
+  // Walk backwards to find the period whose startHour <= current hour
+  let matched = periods[periods.length - 1];
+  for (let i = periods.length - 1; i >= 0; i--) {
+    if (periods[i].startHour <= hour) {
+      matched = periods[i];
+      break;
+    }
+  }
+  return matched.id as DayPeriod;
+}
+
+export function computeSeason(month: number, config: SeasonConfig): Season {
+  for (const season of config.seasons) {
+    if (season.months.includes(month)) {
+      return season.id as Season;
+    }
+  }
+  // Default fallback: first season
+  return config.seasons[0].id as Season;
+}
+
+export function selectWeather(
+  season: Season,
+  config: WeatherConfig,
+  random: () => number = Math.random,
+): WeatherState {
+  const candidates = config.weatherTypes.filter((w) => w.availableInSeasons.includes(season));
+  if (candidates.length === 0) {
+    // Fallback: use first weather type
+    const fallback = config.weatherTypes[0];
+    return {
+      id: fallback.id,
+      label: fallback.label,
+      movementMultiplier: fallback.movementMultiplier,
+      visibilityMultiplier: fallback.visibilityMultiplier,
+      narrativeDesc: fallback.narrativeDesc,
+    };
+  }
+  const totalWeight = candidates.reduce((sum, w) => sum + w.weight, 0);
+  let roll = random() * totalWeight;
+  for (const w of candidates) {
+    roll -= w.weight;
+    if (roll <= 0) {
+      return {
+        id: w.id,
+        label: w.label,
+        movementMultiplier: w.movementMultiplier,
+        visibilityMultiplier: w.visibilityMultiplier,
+        narrativeDesc: w.narrativeDesc,
+      };
+    }
+  }
+  // Fallback: use last candidate
+  const last = candidates[candidates.length - 1];
+  return {
+    id: last.id,
+    label: last.label,
+    movementMultiplier: last.movementMultiplier,
+    visibilityMultiplier: last.visibilityMultiplier,
+    narrativeDesc: last.narrativeDesc,
+  };
+}
+
+export function computeWeatherByRegion(
+  regions: Map<RegionId, unknown>,
+  season: Season,
+  config: WeatherConfig,
+  random: () => number = Math.random,
+): Map<RegionId, WeatherState> {
+  const result = new Map<RegionId, WeatherState>();
+  // First implementation: same weather for all regions
+  const weather = selectWeather(season, config, random);
+  for (const [regionId] of regions) {
+    result.set(regionId, weather);
+  }
+  return result;
 }
 
 export function advanceDay(world: WorldState): void {
@@ -171,6 +268,14 @@ export function advanceDay(world: WorldState): void {
       world.time.year++;
     }
   }
+  // Compute environment state after date rollover
+  world.time.period = computeDayPeriod(world.time.hour, world.contentPool.dayNightConfig);
+  world.time.season = computeSeason(world.time.month, world.contentPool.seasonConfig);
+  world.weatherByRegion = computeWeatherByRegion(
+    world.regions,
+    world.time.season,
+    world.contentPool.weatherConfig,
+  );
 }
 
 export function formatDate(time: GameTime, pool?: { calendar: ContentPool["calendar"] }): string {
@@ -604,7 +709,7 @@ export function createNPC(
     availableActions: overrides.availableActions ?? [],
     inventory: overrides.inventory ?? [],
     combatState: overrides.combatState ?? createDefaultCombatState(),
-    equipment: overrides.equipment ?? { weapon: null, armor: null },
+    equipment: overrides.equipment ?? { weapon: null, armor: null, cloak: null, accessory: null },
     tags: overrides.tags,
   };
 }
@@ -703,7 +808,7 @@ export function createPlayer(
     ],
     knownRooms: [],
     combatState: createDefaultCombatState(),
-    equipment: { weapon: null, armor: null },
+    equipment: { weapon: null, armor: null, cloak: null, accessory: null },
     activeQuests: [],
     completedQuests: [],
     failedQuests: [],
@@ -1239,6 +1344,132 @@ export function createDefaultContentPool(): ContentPool {
       ],
       eraName: "铁器纪元",
       yearFormat: "{era}第{year}年",
+    },
+
+    dayNightConfig: {
+      periods: [
+        { id: "dawn", startHour: 5, label: "清晨", visibilityModifier: 0.7 },
+        { id: "morning", startHour: 7, label: "上午", visibilityModifier: 1.0 },
+        { id: "afternoon", startHour: 12, label: "午后", visibilityModifier: 1.0 },
+        { id: "dusk", startHour: 18, label: "黄昏", visibilityModifier: 0.8 },
+        { id: "night", startHour: 21, label: "深夜", visibilityModifier: 0.5 },
+      ],
+    },
+
+    seasonConfig: {
+      seasons: [
+        {
+          id: "spring",
+          name: "春",
+          months: [1, 2, 3],
+          label: "春",
+          comfortTemp: 18,
+          needDecayMultiplier: 1.0,
+          narrativePrefix: "春风拂面",
+        },
+        {
+          id: "summer",
+          name: "夏",
+          months: [4, 5, 6],
+          label: "夏",
+          comfortTemp: 32,
+          needDecayMultiplier: 1.0,
+          narrativePrefix: "烈日当空",
+        },
+        {
+          id: "autumn",
+          name: "秋",
+          months: [7, 8, 9],
+          label: "秋",
+          comfortTemp: 15,
+          needDecayMultiplier: 1.1,
+          narrativePrefix: "秋风萧瑟",
+        },
+        {
+          id: "winter",
+          name: "冬",
+          months: [10, 11, 12],
+          label: "冬",
+          comfortTemp: -8,
+          needDecayMultiplier: 1.5,
+          narrativePrefix: "寒风刺骨",
+        },
+      ],
+    },
+
+    weatherConfig: {
+      weatherTypes: [
+        {
+          id: "clear",
+          label: "晴朗",
+          movementMultiplier: 1.0,
+          visibilityMultiplier: 1.0,
+          narrativeDesc: "阳光明媚",
+          availableInSeasons: ["spring", "summer", "autumn", "winter"],
+          weight: 50,
+        },
+        {
+          id: "overcast",
+          label: "阴天",
+          movementMultiplier: 1.0,
+          visibilityMultiplier: 0.9,
+          narrativeDesc: "天空阴沉",
+          availableInSeasons: ["spring", "summer", "autumn", "winter"],
+          weight: 25,
+        },
+        {
+          id: "light_rain",
+          label: "细雨",
+          movementMultiplier: 0.8,
+          visibilityMultiplier: 0.7,
+          narrativeDesc: "细雨蒙蒙",
+          availableInSeasons: ["spring", "summer", "autumn"],
+          weight: 15,
+        },
+        {
+          id: "heavy_rain",
+          label: "暴雨",
+          movementMultiplier: 0.6,
+          visibilityMultiplier: 0.5,
+          narrativeDesc: "暴雨倾盆",
+          availableInSeasons: ["summer", "autumn"],
+          weight: 5,
+        },
+        {
+          id: "fog",
+          label: "大雾",
+          movementMultiplier: 0.9,
+          visibilityMultiplier: 0.4,
+          narrativeDesc: "雾气弥漫",
+          availableInSeasons: ["spring", "autumn"],
+          weight: 10,
+        },
+        {
+          id: "light_snow",
+          label: "小雪",
+          movementMultiplier: 0.7,
+          visibilityMultiplier: 0.7,
+          narrativeDesc: "雪花纷飞",
+          availableInSeasons: ["winter"],
+          weight: 15,
+        },
+        {
+          id: "blizzard",
+          label: "暴风雪",
+          movementMultiplier: 0.4,
+          visibilityMultiplier: 0.3,
+          narrativeDesc: "风雪交加",
+          availableInSeasons: ["winter"],
+          weight: 5,
+        },
+      ],
+    },
+
+    warmthComfortConfig: {
+      baselineTemp: 25,
+      maxIdealWarmth: 30,
+      minIdealWarmth: 0,
+      penaltyPerWarmthPoint: 0.015,
     },
 
     behaviorAtoms: [],

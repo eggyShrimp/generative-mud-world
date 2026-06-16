@@ -41,7 +41,7 @@ function addObservers(world: ReturnType<typeof setupWorldWithNPC>) {
       isIncapacitated: false,
       incapacitatedUntil: 0,
     },
-    equipment: { weapon: null, armor: null },
+    equipment: { weapon: null, armor: null, cloak: null, accessory: null },
   };
 
   // 敌对旁观者 (关系低, paranoid)
@@ -71,7 +71,7 @@ function addObservers(world: ReturnType<typeof setupWorldWithNPC>) {
       isIncapacitated: false,
       incapacitatedUntil: 0,
     },
-    equipment: { weapon: null, armor: null },
+    equipment: { weapon: null, armor: null, cloak: null, accessory: null },
   };
 
   // 嫉妒旁观者 (关系中等, jealous)
@@ -101,7 +101,7 @@ function addObservers(world: ReturnType<typeof setupWorldWithNPC>) {
       isIncapacitated: false,
       incapacitatedUntil: 0,
     },
-    equipment: { weapon: null, armor: null },
+    equipment: { weapon: null, armor: null, cloak: null, accessory: null },
   };
 
   addEntity(world, friendly);
@@ -216,7 +216,7 @@ describe("集成: 多实体社交涟漪", () => {
         isIncapacitated: false,
         incapacitatedUntil: 0,
       },
-      equipment: { weapon: null, armor: null },
+      equipment: { weapon: null, armor: null, cloak: null, accessory: null },
     };
     addEntity(world, hostile);
 
@@ -266,7 +266,7 @@ describe("集成: 多实体社交涟漪", () => {
         isIncapacitated: false,
         incapacitatedUntil: 0,
       },
-      equipment: { weapon: null, armor: null },
+      equipment: { weapon: null, armor: null, cloak: null, accessory: null },
     };
     addEntity(world, extreme);
 
