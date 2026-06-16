@@ -3,6 +3,7 @@ import {
   addEntity,
   addRegion,
   addRoom,
+  createItem,
   createNPC,
   createPlayer,
   createRoom,
@@ -556,6 +557,57 @@ describe("capability-provider", () => {
     expect(entities.find((e) => e.id === "npc1")?.description).toBe(
       "汉地来的中年僧人，在莫高窟修行抄经。",
     );
+  });
+
+  it("should include properties for item entities in room", () => {
+    const world = setupWorld();
+    const room = world.rooms.get("market")!;
+    const item = createItem(
+      "sword_1",
+      "铁剑",
+      "test_weapon",
+      { weapon: true, atkBonus: 5 },
+      "market",
+    );
+    world.entities.set("sword_1", item);
+    room.entities.add("sword_1");
+
+    const entities = getRoomEntitiesInfo(world, "market");
+
+    const sword = entities.find((e) => e.id === "sword_1");
+    expect(sword).toBeDefined();
+    expect(sword?.properties).toEqual({ weapon: true, atkBonus: 5 });
+  });
+
+  it("should not include properties for non-item entities", () => {
+    const world = setupWorld();
+    const room = world.rooms.get("market")!;
+    const npc = createNPC("guard_1", {
+      name: "守卫",
+      roomId: "market",
+      personality: "严肃的守卫",
+    });
+    addEntity(world, npc);
+
+    const entities = getRoomEntitiesInfo(world, "market");
+
+    const guard = entities.find((e) => e.id === "guard_1");
+    expect(guard).toBeDefined();
+    expect(guard?.properties).toBeUndefined();
+  });
+
+  it("should include empty properties object for item with no properties", () => {
+    const world = setupWorld();
+    const room = world.rooms.get("market")!;
+    const item = createItem("coin_1", "铜币", "test_item", {}, "market");
+    world.entities.set("coin_1", item);
+    room.entities.add("coin_1");
+
+    const entities = getRoomEntitiesInfo(world, "market");
+
+    const coin = entities.find((e) => e.id === "coin_1");
+    expect(coin).toBeDefined();
+    expect(coin?.properties).toEqual({});
   });
 
   it("should filter hidden exits from move capability", () => {

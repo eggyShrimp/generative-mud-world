@@ -890,7 +890,7 @@ describe("getEntityActions", () => {
     expect(actions.find((a) => a.label === "攻击")?.color).toBe("#d76b5d");
   });
 
-  it("物品有拾取、观察", () => {
+  it("物品有拾取，无观察", () => {
     const entity = { id: "1", name: "铜币", type: "item" } as RoomEntity;
     const actions = getEntityActions(entity, [
       cap("take", { type: "item_select", values: ["1"] }, "拾取"),
@@ -898,7 +898,7 @@ describe("getEntityActions", () => {
     ]);
     const labels = actions.map((a) => a.label);
     expect(labels).toContain("拾取");
-    expect(labels).toContain("观察");
+    expect(labels).not.toContain("观察");
     expect(labels).not.toContain("交谈");
     expect(labels).not.toContain("攻击");
   });

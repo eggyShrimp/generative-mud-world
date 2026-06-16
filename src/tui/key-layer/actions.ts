@@ -71,11 +71,13 @@ export function getEntityActions(
       run: (client, target) => client.requestDialogueOptions(target.id),
     });
   }
-  entityActions.push({
-    label: capabilityLabel(capabilities, "look", "观察"),
-    color: actionColor("look"),
-    run: (client, target) => client.execute("look", { target: target.name }),
-  });
+  if (entity.type !== "item") {
+    entityActions.push({
+      label: capabilityLabel(capabilities, "look", "观察"),
+      color: actionColor("look"),
+      run: (client, target) => client.execute("look", { target: target.name }),
+    });
+  }
   if (capabilityTargets(capabilities, "attack").includes(entity.id)) {
     entityActions.push({
       label: capabilityLabel(capabilities, "attack", "攻击"),

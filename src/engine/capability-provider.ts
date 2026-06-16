@@ -267,6 +267,7 @@ export function getRoomEntitiesInfo(
     isDefending: boolean;
     isIncapacitated: boolean;
   };
+  properties?: Record<string, unknown>;
 }> {
   const room = world.rooms.get(roomId);
   if (!room) return [];
@@ -286,6 +287,7 @@ export function getRoomEntitiesInfo(
       isDefending: boolean;
       isIncapacitated: boolean;
     };
+    properties?: Record<string, unknown>;
   }> = [];
   for (const eid of room.entities) {
     const e = world.entities.get(eid);
@@ -333,6 +335,9 @@ export function getRoomEntitiesInfo(
         isDefending: cs.isDefending,
         isIncapacitated: cs.isIncapacitated,
       };
+    }
+    if (e.type === "item") {
+      entry.properties = (e as import("../core/types.ts").ItemEntity).properties;
     }
     result.push(entry);
   }

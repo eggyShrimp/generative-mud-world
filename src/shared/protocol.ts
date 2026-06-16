@@ -83,6 +83,7 @@ export interface RoomEntity {
   interactable?: boolean;
   takeable?: boolean;
   combatState?: EntityCombatState;
+  properties?: Record<string, unknown>;
 }
 
 export interface RoomInfo {

@@ -1,6 +1,7 @@
 export { formatKeyBracket } from "../utils/format-key-bracket.ts";
 export { BarRow } from "./bar-row.tsx";
 export { EmptyState } from "./empty-state.tsx";
+export { EntityDetailPopup } from "./entity-detail-popup.tsx";
 export { KeyHint, KeyHintRow } from "./key-hint.tsx";
 export { LoadingHint } from "./loading-hint.tsx";
 export { Section } from "./section.tsx";

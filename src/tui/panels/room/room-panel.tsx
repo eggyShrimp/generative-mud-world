@@ -2,9 +2,10 @@
 // 房间面板：房间名/描述、房间操作、出口列表、眼前目标、目标动作弹窗。
 // RoomActionList / ExitList / EntityList 为私有子组件，TargetActionPopup 已提取至 components/。
 
+import { Show } from "solid-js";
 import type { RoomEntity } from "../../../shared/protocol.ts";
 import type { GameClient } from "../../client/game-client.ts";
-import { SectionTitle, TargetActionPopup } from "../../components/index.ts";
+import { EntityDetailPopup, SectionTitle, TargetActionPopup } from "../../components/index.ts";
 import { THEME } from "../../theme/theme.ts";
 import { EntityList } from "./entity-list.tsx";
 import { ExitList } from "./exit-list.tsx";
@@ -58,7 +59,12 @@ export function RoomPanel(props: {
         />
       </box>
 
-      <TargetActionPopup client={props.client} entity={props.selectedEntity} />
+      <Show
+        when={props.selectedEntity?.type === "item"}
+        fallback={<TargetActionPopup client={props.client} entity={props.selectedEntity} />}
+      >
+        <EntityDetailPopup client={props.client} entity={props.selectedEntity} />
+      </Show>
     </box>
   );
 }
