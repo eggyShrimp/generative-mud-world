@@ -624,6 +624,8 @@ export function createPlayer(
     baseUrgency: n.baseUrgency,
     decayRate: n.decayRate,
   }));
+  const coinTemplate = pool?.itemTemplates?.find((t) => t.id === "copper_coin");
+  const coinName = coinTemplate?.name ?? "铜币";
   return {
     id,
     type: "player",
@@ -646,8 +648,8 @@ export function createPlayer(
       {
         id: `${id}_coin_1`,
         type: "item",
-        name: "铜币",
-        description: "铜币",
+        name: coinName,
+        description: coinName,
         roomId: null,
         containerId: null,
         ownerId: id,
@@ -657,8 +659,8 @@ export function createPlayer(
       {
         id: `${id}_coin_2`,
         type: "item",
-        name: "铜币",
-        description: "铜币",
+        name: coinName,
+        description: coinName,
         roomId: null,
         containerId: null,
         ownerId: id,
@@ -668,8 +670,8 @@ export function createPlayer(
       {
         id: `${id}_coin_3`,
         type: "item",
-        name: "铜币",
-        description: "铜币",
+        name: coinName,
+        description: coinName,
         roomId: null,
         containerId: null,
         ownerId: id,
@@ -679,8 +681,8 @@ export function createPlayer(
       {
         id: `${id}_coin_4`,
         type: "item",
-        name: "铜币",
-        description: "铜币",
+        name: coinName,
+        description: coinName,
         roomId: null,
         containerId: null,
         ownerId: id,
@@ -690,8 +692,8 @@ export function createPlayer(
       {
         id: `${id}_coin_5`,
         type: "item",
-        name: "铜币",
-        description: "铜币",
+        name: coinName,
+        description: coinName,
         roomId: null,
         containerId: null,
         ownerId: id,
