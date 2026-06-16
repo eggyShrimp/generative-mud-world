@@ -106,7 +106,7 @@ const TradeSchema = z.object({
 const RequestFollowUpOptionsSchema = z.object({
   type: z.literal("request_follow_up_options"),
   npcId: z.string().min(1),
-  context: z.string().min(1),
+  context: z.string().trim().min(1),
 });
 
 const EncounterResponseSchema = z

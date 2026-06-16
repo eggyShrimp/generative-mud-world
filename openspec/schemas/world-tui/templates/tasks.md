@@ -10,6 +10,10 @@
 
 ## Tests
 
+Every changed behavior above MUST have a matching automated test task here. Use exact test file
+paths and state the behavior assertion. If a behavior cannot be automated, move it to Manual Checks
+and state why.
+
 ### Pure function / utility tests (.test.ts)
 
 Uses vitest `describe`/`it`/`expect`. No renderer required.

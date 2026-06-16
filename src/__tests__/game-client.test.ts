@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DialogueOption, TradeOption } from "../shared/protocol.ts";
 import type { DialogueState } from "../tui/client/game-client.ts";
 import {
@@ -10,6 +10,7 @@ import {
   computeContentHeight,
   computeTabSwitch,
   createDialogueState,
+  createGameClient,
   extractNpcReply,
   getDialogueVisibleOptions,
   isDialogueTabLoading,
@@ -28,6 +29,105 @@ const tradeOptions: TradeOption[] = [
   { id: "trade:sword", label: "铁剑 10铜币", action: "buy", meta: { itemId: "sword" } },
   { id: "trade:bread", label: "面包 2铜币", action: "buy", meta: { itemId: "bread" } },
 ];
+
+const originalWebSocket = globalThis.WebSocket;
+
+class MockWebSocket {
+  static CONNECTING = 0;
+  static OPEN = 1;
+  static CLOSING = 2;
+  static CLOSED = 3;
+  static instances: MockWebSocket[] = [];
+
+  readyState = MockWebSocket.CONNECTING;
+  sent: string[] = [];
+  private listeners: Record<string, Array<(event: { data?: string }) => void>> = {};
+
+  constructor(readonly url: string) {
+    MockWebSocket.instances.push(this);
+  }
+
+  addEventListener(type: string, listener: (event: { data?: string }) => void) {
+    this.listeners[type] = [...(this.listeners[type] ?? []), listener];
+  }
+
+  send(data: string) {
+    this.sent.push(data);
+  }
+
+  close() {
+    this.readyState = MockWebSocket.CLOSED;
+    this.emit("close", {});
+  }
+
+  open() {
+    this.readyState = MockWebSocket.OPEN;
+    this.emit("open", {});
+  }
+
+  receive(message: unknown) {
+    this.emit("message", { data: JSON.stringify(message) });
+  }
+
+  private emit(type: string, event: { data?: string }) {
+    for (const listener of this.listeners[type] ?? []) {
+      listener(event);
+    }
+  }
+}
+
+function installMockWebSocket() {
+  MockWebSocket.instances = [];
+  globalThis.WebSocket = MockWebSocket as unknown as typeof WebSocket;
+}
+
+function restoreWebSocket() {
+  globalThis.WebSocket = originalWebSocket;
+}
+
+function setupClientWithDialogue() {
+  const client = createGameClient("ws://test");
+  client.connect();
+  const socket = MockWebSocket.instances[0];
+  socket.open();
+  socket.receive({
+    type: "state_update",
+    entity: {
+      id: "p1",
+      name: "赵行舟",
+      type: "player",
+      roomId: "market",
+      needs: [],
+    },
+    room: {
+      id: "market",
+      name: "集市",
+      description: "热闹的市场",
+      exits: {},
+      entities: [{ id: "npc1", name: "老马", type: "npc", description: "酒馆老板" }],
+    },
+    capabilities: [
+      { action: "talk", label: "交谈", params: { type: "npc_select", values: ["npc1"] } },
+    ],
+    itemPropertyLabels: {},
+    groundRestRecovery: 20,
+  });
+  client.interactWithEntity("npc1");
+  socket.receive({ type: "chat_options", npcId: "npc1", npcName: "老马", options: chatOptions });
+  return { client, socket };
+}
+
+function lastSent(socket: MockWebSocket) {
+  return JSON.parse(socket.sent[socket.sent.length - 1]) as Record<string, unknown>;
+}
+
+beforeEach(() => {
+  installMockWebSocket();
+});
+
+afterEach(() => {
+  restoreWebSocket();
+});
 
 type DialogueStateOverrides = Partial<Omit<DialogueState, "tabs">> & {
   tabs?: {
@@ -329,5 +429,98 @@ describe("extractNpcReply", () => {
   it("无 dialogue → 返回 undefined", () => {
     const events = [{ type: "relation", description: "与老马的关系 +1" }];
     expect(extractNpcReply(events)).toBeUndefined();
+  });
+});
+
+describe("follow-up request lifecycle", () => {
+  it("发送追问请求时会 trim context，并用返回选项更新聊天列表", () => {
+    const { client, socket } = setupClientWithDialogue();
+
+    client.requestFollowUpOptions("  山里有宝藏  ");
+
+    expect(client.dialogue()?.tabs.chat.loading).toBe(true);
+    expect(lastSent(socket)).toEqual({
+      type: "request_follow_up_options",
+      npcId: "npc1",
+      context: "山里有宝藏",
+    });
+
+    const options: DialogueOption[] = [
+      { id: "followup:0", label: "是什么宝藏？", type: "idle_chat" },
+      { id: "followup:1", label: "山在哪边？", type: "idle_chat" },
+    ];
+    socket.receive({
+      type: "follow_up_options",
+      npcId: "npc1",
+      npcName: "老马",
+      context: "山里有宝藏",
+      options,
+    });
+
+    expect(client.dialogue()?.tabs.chat.loading).toBe(false);
+    expect(client.dialogue()?.tabs.chat.options).toEqual(options);
+    expect(client.dialogue()?.followUpContext).toBe("山里有宝藏");
+  });
+
+  it("空白追问文本不会发送请求，并保留原选项", () => {
+    const { client, socket } = setupClientWithDialogue();
+    const sentBefore = socket.sent.length;
+
+    client.requestFollowUpOptions("   ");
+
+    expect(socket.sent).toHaveLength(sentBefore);
+    expect(client.dialogue()?.tabs.chat.options).toEqual(chatOptions);
+    expect(client.dialogue()?.tabs.chat.loading).toBe(false);
+    expect(client.events().at(-1)?.description).toBe("请先选中一句 NPC 的话。");
+  });
+
+  it("服务端返回空追问选项时恢复旧选项并提示", () => {
+    const { client, socket } = setupClientWithDialogue();
+
+    client.requestFollowUpOptions("山里有宝藏");
+    expect(client.dialogue()?.tabs.chat.options).toEqual([]);
+
+    socket.receive({
+      type: "follow_up_options",
+      npcId: "npc1",
+      npcName: "老马",
+      context: "山里有宝藏",
+      options: [],
+    });
+
+    expect(client.dialogue()?.tabs.chat.loading).toBe(false);
+    expect(client.dialogue()?.tabs.chat.options).toEqual(chatOptions);
+    expect(client.dialogue()?.followUpContext).toBeUndefined();
+    expect(client.events().at(-1)?.description).toBe("没有合适的追问方向。");
+  });
+
+  it("追问请求失败时恢复旧选项并退出 loading", () => {
+    const { client, socket } = setupClientWithDialogue();
+
+    client.requestFollowUpOptions("山里有宝藏");
+    expect(client.dialogue()?.tabs.chat.loading).toBe(true);
+
+    socket.receive({
+      type: "error",
+      code: "follow_up_options_failed",
+      message: "无法生成追问选项",
+    });
+
+    expect(client.dialogue()?.tabs.chat.loading).toBe(false);
+    expect(client.dialogue()?.tabs.chat.options).toEqual(chatOptions);
+    expect(client.dialogue()?.followUpContext).toBeUndefined();
+  });
+
+  it("追问请求发送失败时保留旧选项", () => {
+    const { client, socket } = setupClientWithDialogue();
+    socket.close();
+    const sentBefore = socket.sent.length;
+
+    client.requestFollowUpOptions("山里有宝藏");
+
+    expect(socket.sent).toHaveLength(sentBefore);
+    expect(client.dialogue()?.tabs.chat.loading).toBe(false);
+    expect(client.dialogue()?.tabs.chat.options).toEqual(chatOptions);
+    expect(client.events().at(-1)?.description).toBe("尚未连接服务器。");
   });
 });

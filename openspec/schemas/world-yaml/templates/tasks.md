@@ -38,6 +38,10 @@
 
 ## Tests
 
+Every changed ContentPool path or consumer behavior above MUST have a matching automated test task.
+Use exact test file paths and state the behavior assertion. If a behavior cannot be automated, add a
+manual check with the reason.
+
 - [ ] Add loader test for YAML domain loading
 - [ ] Add schema rejection test for malformed data
 - [ ] Add tool exposure test if LLM-evolvable

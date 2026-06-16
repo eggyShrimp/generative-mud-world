@@ -39,6 +39,8 @@ artifacts:
     instruction: |
       Generate tasks from the design. Each task must include the exact file path.
       Group tasks by ContentPool type/schema, YAML loading, LLM evolution, materialization, write-back, consumer updates, tests, and boundary checks.
+      For every ContentPool path or consumer behavior task, include at least one matching automated test task,
+      or explicitly mark why only a manual check is possible.
       Include a verification task that runs lint, tests, depcruise, and consumer check.
     requires:
       - design

@@ -30,4 +30,16 @@
 
 ## Test Plan
 
-<!-- Existing tests that may break, new tests needed -->
+Every new or changed behavior MUST map to an automated test. If a behavior cannot be automated,
+state the exact manual check and why automation is not practical.
+
+| Test File | Scenario | Assertions |
+|-----------|----------|------------|
+| `src/__tests__/...test.ts` | | |
+| `src/__tests__/integration/...test.ts` | | |
+
+## Manual Checks
+
+Only include checks that cannot be reasonably automated.
+
+- [ ] <!-- command / scenario / expected result -->

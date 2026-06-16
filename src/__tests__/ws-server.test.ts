@@ -335,6 +335,17 @@ describe("GameServer", () => {
     expect(err?.code).toBe("invalid_message");
   });
 
+  it("should reject follow-up requests with whitespace-only context", async () => {
+    const msgs = await connectAndSend(port, {
+      type: "request_follow_up_options",
+      npcId: "npc1",
+      context: "   ",
+    });
+    const err = msgs.find((m) => m.type === "error");
+    expect(err).toBeDefined();
+    expect(err?.code).toBe("invalid_message");
+  });
+
   it("should return error for invalid JSON", async () => {
     const result = await new Promise<Record<string, unknown>>((resolve, reject) => {
       const ws = new WebSocket(`ws://localhost:${port}`);

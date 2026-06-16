@@ -43,6 +43,8 @@ artifacts:
     instruction: |
       Generate tasks grouped by component file.
       Include a Tests section with exact test files and behavior assertions.
+      For every component/state/protocol behavior task, include at least one matching automated test task,
+      or explicitly mark why only a manual check is possible.
       Include verification: npm run lint, vitest, depcruise src.
     requires:
       - design

@@ -40,3 +40,12 @@
 ## Impact
 
 <!-- Affected behavior, APIs, tests -->
+
+## Test Impact
+
+<!-- Every new or changed behavior must have an automated test target. -->
+<!-- If a behavior cannot be automated, explain the exact manual check and why. -->
+
+| Test File | Coverage |
+|-----------|----------|
+| `src/__tests__/...test.ts` | |

@@ -921,48 +921,61 @@ export function createGameClient(url: string): GameClient {
       const current = dialogue();
       if (!current) return;
 
+      const trimmedContext = context.trim();
+      if (!trimmedContext) {
+        showFollowUpSelectionRequired();
+        return;
+      }
+
       if (hasActiveRequest()) {
         pushEvents([{ type: "system", description: "正在处理操作，请稍候。" }]);
         return;
       }
 
-      pendingFollowUp = {
+      const nextPendingFollowUp = {
         npcId: current.npcId,
-        context,
+        context: trimmedContext,
         previousChatOptions: [...current.tabs.chat.options],
       };
 
-      setDialogue((prev) => {
-        if (!prev) return prev;
-        return buildFollowUpLoadingState(prev);
-      });
+      const restoreFollowUpOptions = () => {
+        const pending = pendingFollowUp ?? nextPendingFollowUp;
+        setDialogue((prev) => {
+          if (!prev) return prev;
+          return {
+            ...clearFollowUpContext(prev),
+            tabs: {
+              ...prev.tabs,
+              chat: {
+                ...prev.tabs.chat,
+                options: pending.previousChatOptions,
+                loading: false,
+              },
+            },
+          };
+        });
+        pendingFollowUp = null;
+      };
 
-      sendRequest(
-        { type: "request_follow_up_options", npcId: current.npcId, context: context.trim() },
+      const sent = sendRequest(
+        { type: "request_follow_up_options", npcId: current.npcId, context: trimmedContext },
         (req) => {
+          pendingFollowUp = nextPendingFollowUp;
+          setDialogue((prev) => {
+            if (!prev) return prev;
+            return buildFollowUpLoadingState(prev);
+          });
+          req.onError = restoreFollowUpOptions;
           req.onFollowUpOptions = (msg) => {
             const dlg = dialogue();
             if (!dlg || dlg.npcId !== msg.npcId || pendingFollowUp?.context !== msg.context) {
+              pendingFollowUp = null;
               completeActiveRequest();
               return;
             }
 
             if (msg.options.length === 0) {
-              setDialogue((prev) => {
-                if (!prev) return prev;
-                return {
-                  ...clearFollowUpContext(prev),
-                  tabs: {
-                    ...prev.tabs,
-                    chat: {
-                      ...prev.tabs.chat,
-                      options: pendingFollowUp?.previousChatOptions ?? [],
-                      loading: false,
-                    },
-                  },
-                };
-              });
-              pendingFollowUp = null;
+              restoreFollowUpOptions();
               pushEvents([{ type: "system", description: "没有合适的追问方向。" }]);
               completeActiveRequest();
               return;
@@ -977,6 +990,9 @@ export function createGameClient(url: string): GameClient {
           };
         },
       );
+      if (!sent) {
+        restoreFollowUpOptions();
+      }
     },
     showFollowUpSelectionRequired,
     trackedQuestIds,
