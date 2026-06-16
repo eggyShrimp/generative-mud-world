@@ -662,6 +662,50 @@ questTemplates:
     repeatable: false
     deadlineDays: null
 
+  # ============================================================
+  # 独立小任务：敦煌
+  # ============================================================
+
+  - id: quest_mogao_cipher
+    title: "千佛暗码"
+    description: "法显在抄录第十七窟千佛壁画时，发现一尊佛像的手印画反了。顺着那只手的方向看去，墙壁回声是空的——壁画后藏着一方暗格，格壁上刻着一行小字：烽燧铜符，玉门故道。他需要有人去烽燧找张校尉核实铜符的来历。"
+    giverNpcId: npc_monk_faxian
+    objectives:
+      - groupId: 0
+        type: talk
+        targetId: npc_monk_faxian
+        count: 1
+        description: "听法显讲述千佛壁画中的暗码"
+      - groupId: 1
+        type: explore
+        targetId: room_yumen_beacon
+        count: 1
+        description: "前往玉门烽燧寻找铜符的线索"
+      - groupId: 2
+        type: talk
+        targetId: npc_zhang_xiaowei
+        count: 1
+        description: "向张校尉求证烽燧铜符的来历"
+    rewards:
+      traitModifiers:
+        - trait: spiritual
+          delta: 5
+        - trait: curiosity
+          delta: 5
+      relationDelta:
+        targetId: npc_monk_faxian
+        delta: 20
+      items:
+        - itemId: reward_beacon_tally
+          name: "烽燧铜符"
+          quantity: 1
+      narrative: >
+        你提到第十七窟时，张校尉的眼神变了。他沉默了很久才开口：
+        「二十年前，上一任校尉在吐蕃夜袭中殉职。他死前把半块铜符藏在了莫高窟的壁画后——因为那天他来不及把军报传出去。铜符是烽燧校对用的凭证，有了它传令兵才能在紧急时刻走那条废弃的商道，绕过阳关直穿大漠。」
+        他从烽燧暗格里取出另半块铜符，放在你手心：「这一半一直在烽燧里等另半块回来，等了很多年了。如今吐蕃人在西边压境，阳关的盘查一天比一天严。拿着它——你在西行的路上或许用得着。」
+    repeatable: false
+    deadlineDays: null
+
   # 剧情线：帮助赵鸦儿的追踪线
   - id: story_raven_tracker
     title: "鸦儿的追踪"

@@ -87,6 +87,48 @@ const _QUEST_CHAIN: QuestTemplate = {
   deadlineDays: null,
 };
 
+const QUEST_MOGAO_CIPHER: QuestTemplate = {
+  id: "quest_mogao_cipher",
+  title: "千佛暗码",
+  description:
+    "法显在抄录第十七窟千佛壁画时，发现一尊佛像的手印画反了。顺着那只手的方向看去，墙壁回声是空的——壁画后藏着一方暗格，格壁上刻着一行小字：烽燧铜符，玉门故道。他需要有人去烽燧找张校尉核实铜符的来历。",
+  giverNpcId: "npc_monk_faxian",
+  objectives: [
+    {
+      groupId: 0,
+      type: "talk",
+      targetId: "npc_monk_faxian",
+      count: 1,
+      description: "听法显讲述千佛壁画中的暗码",
+    },
+    {
+      groupId: 1,
+      type: "explore",
+      targetId: "room_yumen_beacon",
+      count: 1,
+      description: "前往玉门烽燧寻找铜符的线索",
+    },
+    {
+      groupId: 2,
+      type: "talk",
+      targetId: "npc_zhang_xiaowei",
+      count: 1,
+      description: "向张校尉求证烽燧铜符的来历",
+    },
+  ],
+  rewards: {
+    traitModifiers: [
+      { trait: "spiritual", delta: 5 },
+      { trait: "curiosity", delta: 5 },
+    ],
+    relationDelta: { targetId: "npc_monk_faxian", delta: 20 },
+    items: [{ itemId: "reward_beacon_tally", name: "烽燧铜符", quantity: 1 }],
+    narrative: "张校尉从烽燧暗格里取出铜符，放在你手心。",
+  },
+  repeatable: false,
+  deadlineDays: null,
+};
+
 const _QUEST_CHAIN_OR: QuestTemplate = {
   id: "quest_chain_c",
   title: "链式任务 C",
@@ -713,6 +755,146 @@ describe("QuestTracker", () => {
       player.roomId = "room_forest";
       const result = evaluateQuestImpacts(world, "p1", {}, "move");
       expect(result).toBeNull();
+    });
+  });
+
+  describe("quest_mogao_cipher full flow", () => {
+    it("should progress through talk → explore → talk and complete", () => {
+      const world = createTestWorld([QUEST_MOGAO_CIPHER]);
+      addRoom(
+        world,
+        createRoom("room_yumen_beacon", "玉门烽燧", "region_01", "戈壁高地上的烽火台"),
+      );
+      const player = createPlayer("p1", "测试玩家", "room_tavern", world.contentPool);
+      addEntity(world, player);
+
+      player.activeQuests.push({
+        templateId: "quest_mogao_cipher",
+        status: "active",
+        acceptedDay: 1,
+        deadlineDay: null,
+        groupCompleted: [false, false, false],
+        objectiveProgress: [],
+      });
+
+      let result = evaluateQuestImpacts(world, "p1", {}, "talk", "npc_monk_faxian");
+      expect(result).not.toBeNull();
+      const step1Progress = result?.questChanges?.filter((c) => c.type === "progress");
+      expect(step1Progress?.length).toBe(1);
+      if (result) applyDelta(world, result);
+      expect(player.activeQuests[0].groupCompleted[0]).toBe(true);
+
+      player.roomId = "room_yumen_beacon";
+      player.knownRooms.push("room_yumen_beacon");
+      const delta2 = checkQuestProgress(world, "p1");
+      expect(delta2).not.toBeNull();
+      if (delta2) applyDelta(world, delta2);
+      expect(player.activeQuests[0].groupCompleted[1]).toBe(true);
+
+      result = evaluateQuestImpacts(world, "p1", {}, "talk", "npc_zhang_xiaowei");
+      expect(result).not.toBeNull();
+      const complete = result?.questChanges?.filter((c) => c.type === "complete");
+      expect(complete?.length).toBe(1);
+      if (result) applyDelta(world, result);
+      expect(player.activeQuests[0].status).toBe("completed");
+      expect(player.completedQuests).toContain("quest_mogao_cipher");
+    });
+
+    it("should apply reward traits, relation, and item after completion", () => {
+      const world = createTestWorld([QUEST_MOGAO_CIPHER]);
+      addRoom(
+        world,
+        createRoom("room_yumen_beacon", "玉门烽燧", "region_01", "戈壁高地上的烽火台"),
+      );
+      const player = createPlayer("p1", "测试玩家", "room_tavern", world.contentPool);
+      addEntity(world, player);
+
+      addEntity(world, {
+        type: "npc",
+        id: "npc_monk_faxian",
+        name: "法显",
+        roomId: "room_tavern",
+        description: "僧人",
+        personality: "温和平静",
+        traits: [],
+        needs: [],
+        relations: [],
+        memories: [],
+        schedule: [],
+        npcTier: "core",
+        mood: 0,
+        availableActions: [],
+        inventory: [],
+        combatState: {} as never,
+        equipment: { weapon: null, armor: null },
+      });
+
+      player.activeQuests.push({
+        templateId: "quest_mogao_cipher",
+        status: "active",
+        acceptedDay: 1,
+        deadlineDay: null,
+        groupCompleted: [true, true, false],
+        objectiveProgress: [],
+      });
+
+      const result = evaluateQuestImpacts(world, "p1", {}, "talk", "npc_zhang_xiaowei");
+      expect(result).not.toBeNull();
+
+      const hasComplete = result?.questChanges?.some((c) => c.type === "complete");
+      expect(hasComplete).toBe(true);
+
+      if (result) applyDelta(world, result);
+
+      expect(player.traits).toHaveLength(2);
+      const spiritualTrait = player.traits.find((t) => t.name === "spiritual");
+      expect(spiritualTrait).toBeDefined();
+      expect(spiritualTrait!.value).toBe(5);
+      const curiosityTrait = player.traits.find((t) => t.name === "curiosity");
+      expect(curiosityTrait).toBeDefined();
+      expect(curiosityTrait!.value).toBe(5);
+
+      const faxian = world.entities.get("npc_monk_faxian");
+      expect(faxian).toBeDefined();
+      const faxianRelations =
+        faxian && "relations" in faxian
+          ? (faxian as { relations: Array<{ targetId: string; level: number }> }).relations.filter(
+              (r) => r.targetId === "p1",
+            )
+          : [];
+      expect(faxianRelations).toHaveLength(1);
+      expect(faxianRelations[0].level).toBe(20);
+
+      const tallyItems = player.inventory.filter((i) => i.templateId === "reward_beacon_tally");
+      expect(tallyItems).toHaveLength(1);
+      expect(tallyItems[0].name).toBe("烽燧铜符");
+      expect(world.entities.get(tallyItems[0].id)).toBe(tallyItems[0]);
+    });
+
+    it("should not complete while explore objective is pending", () => {
+      const world = createTestWorld([QUEST_MOGAO_CIPHER]);
+      addRoom(
+        world,
+        createRoom("room_yumen_beacon", "玉门烽燧", "region_01", "戈壁高地上的烽火台"),
+      );
+      const player = createPlayer("p1", "测试玩家", "room_tavern", world.contentPool);
+      addEntity(world, player);
+
+      player.activeQuests.push({
+        templateId: "quest_mogao_cipher",
+        status: "active",
+        acceptedDay: 1,
+        deadlineDay: null,
+        groupCompleted: [true, false, false],
+        objectiveProgress: [],
+      });
+
+      const result = evaluateQuestImpacts(world, "p1", {}, "talk", "npc_zhang_xiaowei");
+      const complete = result?.questChanges?.filter((c) => c.type === "complete");
+      expect(complete?.length ?? 0).toBe(0);
+      if (result) applyDelta(world, result);
+      expect(player.activeQuests[0].groupCompleted[2]).toBe(true);
+      expect(player.activeQuests[0].status).toBe("active");
     });
   });
 });
