@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# 配置优先级: 环境变量 > world.config.yaml > 代码默认值
+# 如需修改端口等设置，优先编辑 world.config.yaml；此处 env var 仅作覆盖
 SERVER_PORT="${WORLD_SERVER_PORT:-3000}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 export WORLD_LOG_FILE="$SCRIPT_DIR/world.log"
@@ -102,8 +104,38 @@ cleanup_client() {
 start_server() {
   local mode="${1:-prod}"
   if check_server; then
-    echo "✅ 服务端已在运行 (ws://localhost:$SERVER_PORT)"
-    return 0
+    # 端口已被占用 — 显示占用进程，询问是否杀掉
+    local info
+    info=$(lsof -i ":$SERVER_PORT" -sTCP:LISTEN -P 2>/dev/null | tail -n +2)
+    if [ -n "$info" ]; then
+      echo "⚠️  端口 $SERVER_PORT 已被占用:"
+      echo "$info" | awk '{printf "    %-12s %s  %s\n", $1, $2, $9}'
+      echo ""
+      read -r -p "  是否杀掉占用进程并重启？[y/N] " answer
+      if [[ "$answer" =~ ^[Yy]$ ]]; then
+        local pids
+        pids=$(lsof -i ":$SERVER_PORT" -sTCP:LISTEN -t 2>/dev/null)
+        for pid in $pids; do
+          kill "$pid" 2>/dev/null || true
+        done
+        sleep 0.5
+        # 确认端口已释放
+        for pid in $pids; do
+          if kill -0 "$pid" 2>/dev/null; then
+            kill -9 "$pid" 2>/dev/null || true
+          fi
+        done
+        sleep 0.3
+        if check_server; then
+          echo "❌ 端口 $SERVER_PORT 释放失败，启动取消"
+          exit 1
+        fi
+        echo "✅ 已清理，继续启动..."
+      else
+        echo "❌ 端口 $SERVER_PORT 被占用，启动取消"
+        exit 1
+      fi
+    fi
   fi
   echo "🚀 启动服务端 ($mode) → $WORLD_LOG_FILE"
   cd "$SCRIPT_DIR"
@@ -140,7 +172,16 @@ run_tests() {
 
 show_status() {
   if check_server; then
-    echo "⬤ 服务端运行中 ($WORLD_WS_URL)"
+    local info
+    info=$(lsof -i ":$SERVER_PORT" -sTCP:LISTEN -P 2>/dev/null | tail -n +2 | head -1)
+    if [ -n "$info" ]; then
+      local cmd pid
+      cmd=$(echo "$info" | awk '{print $1}')
+      pid=$(echo "$info" | awk '{print $2}')
+      echo "⬤ 服务端运行中 ($WORLD_WS_URL) — $cmd (PID $pid)"
+    else
+      echo "⬤ 服务端运行中 ($WORLD_WS_URL)"
+    fi
   else
     echo "○ 服务端未运行"
   fi

@@ -1,0 +1,56 @@
+# World Framework 配置文件
+#
+# 优先级: 环境变量 > world.config.yaml > 代码默认值
+# 所有字段均可被同名环境变量覆盖（见注释中的 env var 名）
+
+# ── 服务端 ──────────────────────────────────────────────────
+# env: WORLD_SERVER_PORT
+server:
+  port: 3000
+
+# ── LLM ─────────────────────────────────────────────────────
+# 顶层字段为所有场景的默认值，各场景可独立覆盖
+# env: LLM_BASE_URL / LLM_API_KEY / LLM_MODEL
+llm:
+  baseUrl: "https://api.deepseek.com/v1"
+  apiKey: "your-api-key"
+  model: "deepseek-v4-pro"
+
+  # 对话专用（低延迟）
+  # env: LLM_DIALOGUE_MODEL / LLM_DIALOGUE_BASE_URL / LLM_DIALOGUE_API_KEY
+  dialogue:
+    model: "deepseek-v4-flash"
+    baseUrl: null   # null = 继承 llm.baseUrl
+    apiKey: null
+
+  # 结算专用（每日结算：世界事件/记忆压缩/聚落生长/游记/日报）
+  # env: LLM_SETTLEMENT_MODEL / LLM_SETTLEMENT_BASE_URL / LLM_SETTLEMENT_API_KEY
+  settlement:
+    model: "deepseek-v4-flash"
+    baseUrl: null
+    apiKey: null
+
+  # 世界生成专用
+  # env: LLM_WORLD_GENERATION_MODEL / LLM_WORLD_GENERATION_BASE_URL / LLM_WORLD_GENERATION_API_KEY
+  worldGeneration:
+    model: null     # null = 继承 llm.model
+    baseUrl: null
+    apiKey: null
+
+# ── 世界 ─────────────────────────────────────────────────────
+# env: WORLD_FILE
+world:
+  file: "worlds/generated_continent.yaml"
+
+# ── 存档 ─────────────────────────────────────────────────────
+# env: SAVE_DIR / SAVE_SELECT / SAVE_SLOT
+save:
+  dir: "saves"
+  selectMode: "skip"     # skip | prompt
+  defaultSlot: "slot_001"
+
+# ── 日志 ─────────────────────────────────────────────────────
+# env: WORLD_LOG_FILE / WORLD_LOG_LEVEL
+log:
+  file: null             # null = ~/.config/world-client/world.log
+  level: "ws"            # info | warn | evt | perf | ws | key | dbg

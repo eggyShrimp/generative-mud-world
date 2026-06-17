@@ -1,6 +1,7 @@
 import { appendFileSync, existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { config } from "./config.ts";
 
 export type LogSource = "srv" | "cli";
 export type LogLevel = "info" | "warn" | "evt" | "perf" | "ws" | "key" | "dbg";
@@ -16,8 +17,8 @@ const LEVEL_ORDER: Record<LogLevel, number> = {
 };
 
 const LOG_DIR = join(homedir(), ".config", "world-client");
-const LOG_FILE = process.env.WORLD_LOG_FILE ?? join(LOG_DIR, "world.log");
-const LOG_LEVEL: LogLevel = (process.env.WORLD_LOG_LEVEL as LogLevel) ?? "ws";
+const LOG_FILE = config.log.file ?? join(LOG_DIR, "world.log");
+const LOG_LEVEL: LogLevel = config.log.level as LogLevel;
 const MAX_LEVEL = LEVEL_ORDER[LOG_LEVEL] ?? LEVEL_ORDER.ws;
 
 const STRUCTURED_LOG_DIR = "logs";

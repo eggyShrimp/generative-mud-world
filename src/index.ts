@@ -1,4 +1,3 @@
-import "dotenv/config";
 import { basename, extname } from "node:path";
 import { EventBus } from "./core/event-bus";
 import { createDailyRoutineMemory } from "./core/memory.ts";
@@ -13,17 +12,18 @@ import { resolveActionEffect } from "./engine/command-executor.ts";
 import { DialogueGenerator } from "./llm/dialogue-generator.ts";
 import { InteractionDispatcher, LLMAdapter } from "./llm/index";
 import { GameServer } from "./server/ws-server";
+import { config, getLLMConfig } from "./shared/config.ts";
 import { hookEventLog, logCommand, logSnapshot, logWrite } from "./shared/log.ts";
 import { decayNeeds } from "./simulation/index";
 
 async function main() {
-  const worldFile = process.env.WORLD_FILE ?? "worlds/generated_continent.yaml";
+  const worldFile = config.world.file;
   const world = loadWorldFromYaml(worldFile);
   const worldId = basename(worldFile, extname(worldFile));
-  const saveRoot = process.env.SAVE_DIR ?? "saves";
+  const saveRoot = config.save.dir;
   const saveSlot = await resolveSaveSlot({
-    mode: process.env.SAVE_SELECT ?? "skip",
-    configuredSlot: process.env.SAVE_SLOT ?? "slot_001",
+    mode: config.save.selectMode,
+    configuredSlot: config.save.defaultSlot,
     rootDir: saveRoot,
   });
   const saveManager = SaveManager.load({
@@ -79,27 +79,16 @@ async function main() {
     },
   };
 
-  const llmAdapter = new LLMAdapter({
-    baseUrl: process.env.LLM_BASE_URL ?? "http://localhost:11434/v1",
-    apiKey: process.env.LLM_API_KEY ?? "ollama",
-    model: process.env.LLM_MODEL ?? "llama3",
-  });
+  const llmAdapter = new LLMAdapter(getLLMConfig("default"));
   const dispatcher = new InteractionDispatcher(llmAdapter);
 
-  const settlementModel = process.env.LLM_SETTLEMENT_MODEL;
-  if (settlementModel) {
-    dispatcher.setSettlementAdapter(
-      new LLMAdapter({
-        baseUrl: process.env.LLM_BASE_URL ?? "http://localhost:11434/v1",
-        apiKey: process.env.LLM_API_KEY ?? "ollama",
-        model: settlementModel,
-      }),
-    );
+  if (config.llm.settlement.model) {
+    dispatcher.setSettlementAdapter(new LLMAdapter(getLLMConfig("settlement")));
   }
 
   const engine = new RoundEngine(world, eventBus, dispatcher, simulation);
 
-  const serverPort = Number(process.env.WORLD_SERVER_PORT ?? 3000);
+  const serverPort = config.server.port;
   const server = new GameServer(serverPort, world, eventBus);
 
   // Immediate command execution
@@ -115,12 +104,7 @@ async function main() {
   });
 
   const dialogueGenerator = new DialogueGenerator(
-    new LLMAdapter({
-      baseUrl: process.env.LLM_BASE_URL ?? "http://localhost:11434/v1",
-      apiKey: process.env.LLM_API_KEY ?? "ollama",
-      model: process.env.LLM_DIALOGUE_MODEL ?? process.env.LLM_MODEL ?? "llama3",
-      disableThinking: true,
-    }),
+    new LLMAdapter(getLLMConfig("dialogue", { disableThinking: true })),
     saveManager,
   );
   engine.setDialogueGenerator(dialogueGenerator);
