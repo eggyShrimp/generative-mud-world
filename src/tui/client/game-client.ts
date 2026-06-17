@@ -554,7 +554,7 @@ export function createGameClient(url: string): GameClient {
 
     ws.addEventListener("open", () => {
       setConnectionState("connected");
-      pushEvents([{ type: "system", description: `已连接 ${url}` }]);
+      pushEvents([{ type: "system", description: `连接建立 ${url}` }]);
     });
 
     ws.addEventListener("message", (event) => {

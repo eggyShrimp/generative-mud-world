@@ -7,6 +7,7 @@ import {
   truncateDisplayText,
 } from "../tui/features/room/entity-list-layout.ts";
 import { formatRelationText } from "../tui/features/room/relation-format.ts";
+import { buildRoomTitle } from "../tui/panels/room/room-title.ts";
 import {
   percentBar,
   percentToneColor,
@@ -111,6 +112,32 @@ describe("buildExitListRows", () => {
     expect(rows[0].relationText).toBe(
       truncateDisplayText(" → 北境边塞集市", ENTITY_LIST_COLUMNS.relation),
     );
+  });
+});
+
+describe("buildRoomTitle", () => {
+  const status = {
+    type: "status" as const,
+    llmReachable: true,
+    round: 1,
+    date: "铁器纪元第1年 初春月 第1日",
+    entityCount: 1,
+    connectedPlayers: 1,
+    period: "上午",
+    season: "春",
+    weatherLabel: "晴朗",
+  };
+
+  it("把日历和环境放到当前地点标题中", () => {
+    expect(buildRoomTitle(status)).toBe("当前地点 · 铁器纪元第1年 初春月 第1日 · 春 · 上午 · 晴朗");
+  });
+
+  it("标题不显示连接文字", () => {
+    expect(buildRoomTitle(status)).not.toContain("已连接");
+  });
+
+  it("没有状态时只显示基础标题", () => {
+    expect(buildRoomTitle(null)).toBe("当前地点");
   });
 });
 

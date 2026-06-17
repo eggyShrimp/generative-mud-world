@@ -10,6 +10,7 @@ import { THEME } from "../../theme/theme.ts";
 import { EntityList } from "./entity-list.tsx";
 import { ExitList } from "./exit-list.tsx";
 import { RoomActionList } from "./room-action-list.tsx";
+import { buildRoomTitle } from "./room-title.ts";
 
 // ── RoomPanel ──
 // 房间面板主组件。组装房间名/描述、操作、出口、目标、动作弹窗。
@@ -29,7 +30,7 @@ export function RoomPanel(props: {
       border
       borderColor={THEME.border}
       backgroundColor={THEME.panel}
-      title="当前地点"
+      title={buildRoomTitle(props.client.status())}
       flexDirection="column"
       width={props.width}
       height={props.height}

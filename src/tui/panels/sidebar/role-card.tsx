@@ -14,7 +14,6 @@ export function RoleCard(props: { client: GameClient; width: number; height: num
     if (props.client.connectionState() !== "connected") return THEME.danger;
     return status()?.llmReachable ? THEME.success : THEME.dialogue;
   };
-
   return (
     <box
       border
@@ -36,9 +35,6 @@ export function RoleCard(props: { client: GameClient; width: number; height: num
           {entity()?.name ?? "未绑定角色"}
         </text>
       </box>
-      <text selectable={false} fg={THEME.muted}>
-        {status()?.date ?? "-"}
-      </text>
       <text selectable={false} fg={THEME.text}>
         武器：{equipment()?.weapon?.name ?? "--"}
       </text>
