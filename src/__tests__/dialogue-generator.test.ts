@@ -579,9 +579,53 @@ describe("DialogueGenerator.generateFixedChatMenu", () => {
     expect(acceptResult.delta.questChanges).toEqual([
       { type: "accept", playerId: "p1", templateId: "q_faxian_cipher" },
     ]);
+    expect(acceptResult.subOptions).toEqual([{ id: "chat:goodbye", label: "告别", type: "close" }]);
+  });
+
+  it("quest_deliver_select → 返回后续 close 选项", async () => {
+    const world = setupWorld();
+    world.contentPool.questTemplates = [
+      {
+        id: "q1",
+        title: "送信",
+        description: "送一封信给张三",
+        giverNpcId: "npc1",
+        objectives: [
+          { groupId: 0, type: "talk", targetId: "npc1", count: 1, description: "和老马说话" },
+        ],
+        rewards: {},
+        repeatable: false,
+        deadlineDays: null,
+      },
+    ];
+    const player = world.entities.get("p1") as PlayerEntity;
+    player.activeQuests = [
+      {
+        templateId: "q1",
+        status: "active",
+        acceptedDay: 1,
+        deadlineDay: null,
+        groupCompleted: [true],
+        objectiveProgress: [1],
+      },
+    ];
+    const gen = new DialogueGenerator(mockAdapter("干得好！"), mockSaveManager());
+    const result = await gen.handleChatOption(
+      world,
+      "p1",
+      "npc1",
+      "quest_deliver_select",
+      "quest_deliver:q1",
+    );
+    expect(result.delta.questChanges).toEqual([
+      { templateId: "q1", type: "complete", playerId: "p1" },
+    ]);
+    expect(result.subOptions).toEqual([{ id: "chat:goodbye", label: "告别", type: "close" }]);
   });
 });
 
+// ============================================================
+// handleOption — functional
 // ============================================================
 // handleOption — trade
 // ============================================================
@@ -975,6 +1019,7 @@ describe("DialogueGenerator.handleChatOption — functional", () => {
     expect(result.delta.itemChanges).toBeDefined();
     expect(result.delta.dialogues).toBeDefined();
     expect(result.delta.dialogues![0].content).toContain("麦酒");
+    expect(result.subOptions).toEqual([{ id: "chat:goodbye", label: "告别", type: "close" }]);
   });
 
   it("functional_select actionId 不在 actionEffects → 返回空", async () => {

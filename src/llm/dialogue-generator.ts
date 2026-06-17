@@ -405,7 +405,10 @@ ${directionLines}
         };
 
       case "quest_trigger_select":
-        return { delta: await this.executeQuestTrigger(world, playerId, npc, optionId) };
+        return {
+          delta: await this.executeQuestTrigger(world, playerId, npc, optionId),
+          subOptions: this.getPostSelectOptions(),
+        };
 
       case "quest_deliver_menu":
         return {
@@ -414,7 +417,10 @@ ${directionLines}
         };
 
       case "quest_deliver_select":
-        return { delta: await this.executeQuestDeliver(world, playerId, npc, optionId) };
+        return {
+          delta: await this.executeQuestDeliver(world, playerId, npc, optionId),
+          subOptions: this.getPostSelectOptions(),
+        };
 
       case "functional_menu":
         return { delta: {}, subOptions: this.getFunctionalSubOptions(world, npc) };
@@ -422,6 +428,7 @@ ${directionLines}
       case "functional_select":
         return {
           delta: await this.executeFunctional(world, player as PlayerEntity, npc, optionId),
+          subOptions: this.getPostSelectOptions(),
         };
 
       case "idle_chat": {
@@ -1699,6 +1706,14 @@ NPC 说的原文: "${selectedText}"
     add({ id: "chat:goodbye", label: "告别", type: "close" });
 
     return options;
+  }
+
+  /**
+   * _select 类型（quest_trigger_select / quest_deliver_select / functional_select）
+   * 完成后统一返回的后续选项。当前只返回告别，确保对话回合协议闭环。
+   */
+  private getPostSelectOptions(): DialogueOption[] {
+    return [{ id: "chat:goodbye", label: "告别", type: "close" }];
   }
 
   // --- Tool call processing ---
