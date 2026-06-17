@@ -4,6 +4,7 @@ import {
   type CommandResult,
   checkFeasibility,
   executeCommand as engineExecute,
+  resolveActionDuration,
 } from "../engine/command-executor.ts";
 import { deltaToEvents } from "../engine/delta-composer.ts";
 import { checkQuestProgress, evaluateQuestImpacts } from "../engine/quest-tracker.ts";
@@ -42,7 +43,15 @@ import type {
   SimulationDelta,
   WorldState,
 } from "./types.ts";
-import { advanceDay, applyDelta, formatDate, getEntity, logEvent } from "./world.ts";
+import {
+  advanceDay,
+  advanceTime,
+  applyDelta,
+  formatDate,
+  getEntity,
+  logEvent,
+  refreshDailyEnvironment,
+} from "./world.ts";
 
 export interface SimulationEngine {
   runDay(world: WorldState, playerActions: unknown[]): SimulationDelta;
@@ -56,6 +65,28 @@ export interface RoundCallbacks {
   getPlayerIds: () => EntityId[];
 }
 
+interface DateSnapshot {
+  day: number;
+  month: number;
+  year: number;
+}
+
+function captureDate(world: WorldState): DateSnapshot {
+  return {
+    day: world.time.day,
+    month: world.time.month,
+    year: world.time.year,
+  };
+}
+
+function dateChanged(world: WorldState, before: DateSnapshot): boolean {
+  return (
+    world.time.day !== before.day ||
+    world.time.month !== before.month ||
+    world.time.year !== before.year
+  );
+}
+
 export class RoundEngine {
   private world: WorldState;
   private eventBus: EventBus;
@@ -65,6 +96,7 @@ export class RoundEngine {
   private actionBuffer: unknown[] = [];
   private endedPlayers = new Set<EntityId>();
   private running = false;
+  private dateAdvancedByAction = false;
 
   constructor(
     world: WorldState,
@@ -133,6 +165,8 @@ export class RoundEngine {
     // === Step 1: 产生交互 ===
     const entity = getEntity(this.world, playerId);
     const roomId = entity?.roomId ?? undefined;
+    const actionDurationMinutes = resolveActionDuration(this.world, playerId, action, params);
+    const dateBeforeAction = captureDate(this.world);
     const result = engineExecute(this.world, playerId, action, params);
 
     // 手动结束当天
@@ -262,7 +296,6 @@ export class RoundEngine {
       if ("combatState" in npcEntity && npcEntity.combatState.isIncapacitated) {
         this.endedPlayers.add(playerId);
         result.ended = true;
-        return result;
       }
 
       if (restNeed && restNeed.value <= 10) {
@@ -291,6 +324,8 @@ export class RoundEngine {
       result.tradeSubOptions = tradeSubOptions;
       result.needsTradeOptions = { npcId: String(params.npcId), npcName: "" };
     }
+
+    this.advanceTimeForAction(playerId, result, actionDurationMinutes, dateBeforeAction);
 
     return result;
   }
@@ -374,8 +409,12 @@ export class RoundEngine {
       }
     }
 
-    // Advance to next day
-    advanceDay(this.world);
+    // Advance to next day, unless player-driven time already crossed into it.
+    if (this.dateAdvancedByAction) {
+      refreshDailyEnvironment(this.world);
+    } else {
+      advanceDay(this.world);
+    }
     this.world.round++;
 
     // Generate reports for all players
@@ -385,6 +424,23 @@ export class RoundEngine {
     // Reset for next day
     this.actionBuffer = [];
     this.endedPlayers.clear();
+    this.dateAdvancedByAction = false;
+  }
+
+  private advanceTimeForAction(
+    playerId: EntityId,
+    result: CommandResult,
+    durationMinutes: number,
+    dateBeforeAction: DateSnapshot,
+  ): void {
+    if (durationMinutes <= 0) return;
+    if (result.events.some((event) => event.type === "error")) return;
+    advanceTime(this.world, durationMinutes);
+    if (dateChanged(this.world, dateBeforeAction)) {
+      this.dateAdvancedByAction = true;
+      this.endedPlayers.add(playerId);
+      result.ended = true;
+    }
   }
 
   // --- 游戏主循环 ---

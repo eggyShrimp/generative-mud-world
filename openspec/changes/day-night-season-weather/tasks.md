@@ -7,9 +7,11 @@
 
 ## Module: core/types.ts
 
+- [x] Extend `GameTime` with `minute`.
 - [ ] Extend `GameTime` with `period: DayPeriod` and `season: Season`.
 - [ ] Extend `WorldState` with `weatherByRegion: Map<RegionId, WeatherState>`.
 - [ ] Extend `TriggerCondition` with `period?: DayPeriod` and `season?: Season`.
+- [x] Extend `ActionEffect` with optional `durationMinutes`.
 - [ ] Extend `equipment` interface: add `cloak: ItemEntity | null` and `accessory: ItemEntity | null`.
 
 ## Module: core/world.ts
@@ -19,7 +21,7 @@
 - [ ] Add `selectWeather(season, config, random)` that filters by season and uses injected randomness for weighted selection.
 - [ ] Add `computeWeatherByRegion(regions, season, config, random)` that returns one weather entry per region.
 - [ ] Modify `advanceDay()` after month/year rollover to set `world.time.period`, `world.time.season`, and `world.weatherByRegion`.
-- [ ] Modify `advanceTime()` to refresh `world.time.period` after hour changes, without rerolling `world.weatherByRegion`.
+- [x] Modify `advanceTime(world, durationMinutes)` to advance minute/hour/day/month/year and refresh `world.time.period`, without rerolling `world.weatherByRegion`.
 - [ ] Update `createNPC()` and `createPlayer()` default equipment to include `cloak: null` and `accessory: null`.
 
 ## Module: combat/pulse.ts
@@ -49,11 +51,19 @@
 - [ ] Keep movement preflight in `checkFeasibility()` so blocked exits are rejected before movement happens.
 - [ ] Remove the current "log only, still allow movement" behavior for supported time/season conditions.
 - [ ] Apply weather movement multiplier inside the existing movement rest-cost calculation.
+- [x] Add an action duration resolver that reads `actionEffects[].durationMinutes` for normal actions.
+- [x] For `move`, compute duration from `actionEffects["move"].durationMinutes`, exit distance, terrain `speedMod`, and weather movement multiplier.
+- [x] Do not hardcode per-action duration tables in engine code.
 - [ ] Extend equip/unequip commands to accept `"cloak"` and `"accessory"` slot names.
 - [ ] Do not add a new parallel exit-condition module.
 
 ## Module: core/round-engine.ts
 
+- [x] Import and use the existing `advanceTime(world, durationMinutes)` entrypoint for successful time-consuming player actions.
+- [x] Do not advance time for failed commands, `status`, `inventory`, menu/sub-option discovery, `end_day`, or data-driven `endsDay` room actions.
+- [x] When `advanceTime(world, durationMinutes)` crosses midnight during a player action, mark that player ended for the day.
+- [x] Ensure settlement does not call `advanceDay()` again for a calendar date already advanced by action-level time.
+- [x] Ensure individual command handlers do not mutate `world.time` or call `advanceTime()` directly.
 - [ ] Add current period label, season label/prefix, and weather label/description to settlement prompt context.
 - [ ] Ensure all wording comes from ContentPool fields.
 
@@ -90,6 +100,9 @@
 - [ ] Extend `src/__tests__/engine.test.ts` for equip/unequip with `cloak` and `accessory` slots.
 - [ ] Extend `src/__tests__/storyline-engine.test.ts` for `period` and `season` triggers.
 - [ ] Extend `src/__tests__/round-engine.test.ts` for environment prompt context.
+- [x] Extend `src/__tests__/round-engine.test.ts` for action-level time progression and non-advancing command categories.
+- [x] Extend `src/__tests__/round-engine.test.ts` for short action duration, e.g. `say`/`talk` advances minutes rather than a fixed hour.
+- [x] Extend `src/__tests__/round-engine.test.ts` for midnight action progression without double day advancement.
 - [ ] Extend `src/__tests__/save-manager.test.ts` for weather persistence.
 
 ### Warmth penalty test cases

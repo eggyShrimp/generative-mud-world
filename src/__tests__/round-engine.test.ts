@@ -208,6 +208,115 @@ describe("RoundEngine — 基础命令", () => {
   });
 });
 
+describe("RoundEngine — 行动推进时间", () => {
+  it("talk option advances configured minutes without forcing an hour jump", async () => {
+    const world = setupWorldWithNPC();
+    world.time.hour = 6;
+    world.time.minute = 10;
+    const gen = mockDialogueGenerator({
+      dialogues: [{ speakerId: "npc1", content: "一路小心。", roomId: "tavern", tick: 0 }],
+    });
+    const engine = new RoundEngine(world, new EventBus(), stubDispatcher(), stubSimulation());
+    engine.setDialogueGenerator(gen);
+
+    await engine.executeStructuredCommand("p1", "talk", {
+      npcId: "npc1",
+      optionId: "opt_1",
+      optionLabel: "问候",
+    });
+
+    expect(world.time.hour).toBe(6);
+    expect(world.time.minute).toBe(15);
+  });
+
+  it("move duration uses configured base, distance, terrain speed, and weather", async () => {
+    const world = setupWorld();
+    const market = world.rooms.get("market");
+    if (!market) throw new Error("market not found");
+    const exit = market.exits.get("north");
+    if (!exit) throw new Error("exit not found");
+    exit.distance = 2;
+    exit.terrain = "mountain";
+    world.contentPool.terrainConfig = [
+      {
+        terrain: "mountain",
+        label: "山路",
+        baseCost: 5,
+        speedMod: 0.5,
+        danger: 4,
+        requires: [],
+      },
+    ];
+    world.weatherByRegion.set("test", {
+      id: "heavy_rain",
+      label: "暴雨",
+      movementMultiplier: 1.5,
+      visibilityMultiplier: 0.5,
+      narrativeDesc: "暴雨倾盆",
+    });
+    world.time.hour = 6;
+    world.time.minute = 0;
+    const engine = new RoundEngine(world, new EventBus(), stubDispatcher(), stubSimulation());
+
+    await engine.executeStructuredCommand("p1", "move", { direction: "north" });
+
+    expect(world.time.hour).toBe(7);
+    expect(world.time.minute).toBe(30);
+  });
+
+  it("failed, informational, and end-day commands do not advance time", async () => {
+    const world = setupWorld();
+    const engine = new RoundEngine(world, new EventBus(), stubDispatcher(), stubSimulation());
+    world.time.hour = 8;
+    world.time.minute = 20;
+
+    await engine.executeStructuredCommand("p1", "move", { direction: "east" });
+    expect(world.time.hour).toBe(8);
+    expect(world.time.minute).toBe(20);
+
+    await engine.executeStructuredCommand("p1", "status", {});
+    expect(world.time.hour).toBe(8);
+    expect(world.time.minute).toBe(20);
+
+    await engine.executeStructuredCommand("p1", "end_day", {});
+    expect(world.time.hour).toBe(8);
+    expect(world.time.minute).toBe(20);
+  });
+
+  it("action crossing midnight ends the player day and settlement does not double advance date", async () => {
+    const world = setupWorldWithNPC();
+    world.time.hour = 23;
+    world.time.minute = 58;
+    world.time.day = 5;
+    const gen = mockDialogueGenerator({
+      dialogues: [{ speakerId: "npc1", content: "明日见。", roomId: "tavern", tick: 0 }],
+    });
+    const engine = new RoundEngine(world, new EventBus(), stubDispatcher(), stubSimulation());
+    engine.setDialogueGenerator(gen);
+
+    const result = await engine.executeStructuredCommand("p1", "talk", {
+      npcId: "npc1",
+      optionId: "opt_1",
+      optionLabel: "告别",
+    });
+
+    expect(result.ended).toBe(true);
+    expect(world.time.day).toBe(6);
+    expect(world.time.hour).toBe(0);
+    expect(world.time.minute).toBe(3);
+
+    await engine.settleDay({
+      onReportReady: vi.fn(),
+      onRoundStart: vi.fn(),
+      onActionResult: vi.fn(),
+      onSettlementStarted: vi.fn(),
+      getPlayerIds: () => ["p1"],
+    });
+
+    expect(world.time.day).toBe(6);
+  });
+});
+
 describe("RoundEngine — 对话端到端链路", () => {
   it("talk + optionId: result.events 包含 NPC 回复对话行", async () => {
     const world = setupWorldWithNPC();

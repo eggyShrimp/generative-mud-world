@@ -17,7 +17,35 @@ advanceDay(world)
 
 The weather selector accepts an injectable random source. Production uses `Math.random`; tests pass deterministic values to verify weight boundaries without flaky sampling assertions.
 
-Current command execution does not call `advanceTime()`, so normal player operations do not advance `world.time.hour`. The initial implementation updates `period`, `season`, and `weatherByRegion` during day settlement through `advanceDay()`. If a later change connects player actions or combat pulses to `advanceTime()`, `advanceTime()` must refresh `world.time.period` after changing `world.time.hour`; weather must still only reroll when the calendar day changes.
+Player commands that represent successful time-consuming actions call the existing time progression entrypoint after their world changes have been applied:
+
+```
+advanceTime(world, durationMinutes)
+  -> world.tick += durationMinutes
+  -> world.time.minute/hour/day/month/year roll forward by durationMinutes
+  -> world.time.period = computeDayPeriod(world.time.hour, world.contentPool.dayNightConfig)
+```
+
+`advanceTime(world, durationMinutes)` is the only action-level time progression entrypoint. Command handlers compute or expose action results; they do not mutate `world.time` directly.
+
+Action duration is data/rule driven:
+
+```
+resolveActionDuration(world, entity, action, params)
+  -> actionEffects[action].durationMinutes for normal actions
+  -> for move: actionEffects["move"].durationMinutes * exit.distance / terrain.speedMod * weather.movementMultiplier
+  -> round to whole minutes, minimum 1 for positive time-consuming actions
+```
+
+Short actions such as saying one line can therefore be a few minutes, while travel, mining, crafting, or resting can take longer. Informational commands can have no duration because they are not in-world elapsed actions.
+
+The resolver must not derive elapsed minutes from `needDeltas.rest`. Rest deltas represent fatigue/recovery, not elapsed time. The initial baseline values are defined by the companion YAML change.
+
+Commands that fail feasibility or return an error do not advance time. Informational commands (`status`, `inventory`) and UI/menu discovery commands do not advance time because they do not represent in-world elapsed time. `end_day` and data-driven `endsDay` room actions do not call action-level `advanceTime()`; they mark the player as ended and the existing settlement path calls `advanceDay(world)`.
+
+Weather must still only reroll during the daily environment path. Action-level time progression may change `minute`, `hour`, `period`, and date fields, but it must not replace `world.weatherByRegion`.
+
+If `advanceTime(world, durationMinutes)` rolls the calendar date during a player action, that player is treated as ended for the day. Settlement must not call `advanceDay()` a second time for a date that has already advanced through action-level time. The implementation should make the daily settlement path compare the date/tick before and after player-driven time progression rather than adding a second ad hoc day counter.
 
 ### Combat visibility
 
@@ -124,9 +152,12 @@ The engine must not create duplicate default datasets, label maps, or prompt-onl
 
 | State | Write Path | Reason |
 |-------|------------|--------|
-| `world.time.period` | `advanceDay()` | Existing engine-owned time progression path |
-| `world.time.season` | `advanceDay()` | Existing engine-owned time progression path |
+| `world.time.minute` / `world.time.hour` | `advanceTime(world, durationMinutes)` | Existing engine-owned action-level time progression path |
+| `world.time.period` | `advanceTime()` / `advanceDay()` | Existing engine-owned time progression paths |
+| `world.time.season` | `advanceDay()` | Daily calendar progression path |
 | `world.weatherByRegion` | `advanceDay()` | Daily environment state is derived during the same time progression |
+
+When a player action advances time, `RoundEngine.executeStructuredCommand()` MUST call `advanceTime(world, durationMinutes)` after the command delta and post-action checks have been applied. Individual command handlers MUST NOT mutate `world.time` directly and MUST NOT each call `advanceTime()` themselves.
 
 Command execution continues to produce `SimulationDelta` for player-visible state changes. Exit checks and movement cost calculation read environment state but do not mutate world state directly.
 
@@ -159,7 +190,10 @@ Command execution continues to produce `SimulationDelta` for player-visible stat
 | `src/__tests__/day-night-season.test.ts` | `computeSeason` mappings | Months map through `seasonConfig.seasons[].months` |
 | `src/__tests__/day-night-season.test.ts` | deterministic weather selection | Injected random values select expected weather by weight and season filter |
 | `src/__tests__/day-night-season.test.ts` | `advanceDay` integration | Time period, season, and every-region weather state are populated |
-| `src/__tests__/day-night-season.test.ts` | `advanceTime` period sync | If hourly time is advanced, period is refreshed without rerolling weather |
+| `src/__tests__/day-night-season.test.ts` | `advanceTime` period sync | If action-level time crosses a period boundary, period is refreshed without rerolling weather |
+| `src/__tests__/round-engine.test.ts` | action-level time progression | Successful time-consuming actions advance by configured/calculated minutes through `advanceTime(world, durationMinutes)` |
+| `src/__tests__/round-engine.test.ts` | non-time-consuming commands | Failed commands, `status`, `inventory`, menu discovery, and `end_day` do not advance time |
+| `src/__tests__/round-engine.test.ts` | midnight action progression | Action crossing midnight ends the player day and settlement does not double-advance the date |
 | `src/__tests__/combat-visibility.test.ts` | combat visibility modifiers | Hit chance includes period and weather multipliers |
 | `src/__tests__/simulation.test.ts` | overnight schedule | Entry with `startHour > endHour` triggers before and after midnight |
 | `src/__tests__/simulation.test.ts` | seasonal need decay | Need delta is multiplied by current season config |

@@ -22,6 +22,7 @@ worlds/<world>/
     combat.yaml              # 战斗配置 + 战斗技能
     entity-actions.yaml        # 房间 tag → 可用动作 + 显示标签
     quests.yaml              # 任务模板
+    time-environment.yaml    # 昼夜、季节、天气、保暖舒适参数
     evolve/                  # LLM 自动演化（勿手动编辑）
 ```
 
@@ -48,6 +49,7 @@ worlds/<world>/
 | `entity-actions.yaml` | entityActionsByTag, entityActionLabels, entityTagLabels | 房间标签对应的场景动作和显示文本 |
 | `quests.yaml` | questTemplates | 任务模板、目标、奖励、触发条件 |
 | `storyline.yaml` | storylineConfig | 剧情配置（事件回溯窗口） |
+| `time-environment.yaml` | dayNightConfig, seasonConfig, weatherConfig, warmthComfortConfig | 昼夜时段、季节映射、天气池、保暖舒适参数 |
 
 ## 修改 ContentPool 字段
 

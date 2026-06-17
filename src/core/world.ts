@@ -49,6 +49,7 @@ export function createWorld(): WorldState {
     eventLog: [],
     time: {
       tick: 0,
+      minute: 0,
       hour: 6,
       day: 1,
       month: 1,
@@ -154,24 +155,33 @@ export function getRecentEvents(
 }
 
 // Time
-export function advanceTime(world: WorldState): void {
-  world.tick++;
+export function advanceTime(world: WorldState, durationMinutes: number): void {
+  const minutes = Math.max(0, Math.floor(durationMinutes));
+  if (minutes === 0) return;
+
+  const cal = world.contentPool.calendar;
+  world.tick += minutes;
   world.time.tick = world.tick;
-  world.time.hour++;
-  if (world.time.hour >= 24) {
-    world.time.hour = 0;
+
+  let totalMinutes = world.time.hour * 60 + world.time.minute + minutes;
+  while (totalMinutes >= 24 * 60) {
+    totalMinutes -= 24 * 60;
     world.time.day++;
-    if (world.time.day > 30) {
+    if (world.time.day > cal.daysPerMonth) {
       world.time.day = 1;
       world.time.month++;
-      if (world.time.month > 12) {
+      if (world.time.month > cal.monthsPerYear) {
         world.time.month = 1;
         world.time.year++;
       }
     }
   }
-  // Refresh period without rerolling weather (weather stays until calendar day changes)
+
+  world.time.hour = Math.floor(totalMinutes / 60);
+  world.time.minute = totalMinutes % 60;
+  // Refresh period/season without rerolling weather (weather stays until daily settlement)
   world.time.period = computeDayPeriod(world.time.hour, world.contentPool.dayNightConfig);
+  world.time.season = computeSeason(world.time.month, world.contentPool.seasonConfig);
 }
 
 export function computeDayPeriod(hour: number, config: DayNightConfig): DayPeriod {
@@ -256,9 +266,10 @@ export function computeWeatherByRegion(
 
 export function advanceDay(world: WorldState): void {
   const cal = world.contentPool.calendar;
+  world.time.minute = 0;
   world.time.hour = cal.hourStart;
   world.time.day++;
-  world.tick += 24;
+  world.tick += 24 * 60;
   world.time.tick = world.tick;
   if (world.time.day > cal.daysPerMonth) {
     world.time.day = 1;
@@ -268,7 +279,10 @@ export function advanceDay(world: WorldState): void {
       world.time.year++;
     }
   }
-  // Compute environment state after date rollover
+  refreshDailyEnvironment(world);
+}
+
+export function refreshDailyEnvironment(world: WorldState): void {
   world.time.period = computeDayPeriod(world.time.hour, world.contentPool.dayNightConfig);
   world.time.season = computeSeason(world.time.month, world.contentPool.seasonConfig);
   world.weatherByRegion = computeWeatherByRegion(
@@ -902,27 +916,50 @@ export function createDefaultContentPool(): ContentPool {
         action: "eat_at_tavern",
         needDeltas: { hunger: 30, social: 10 },
         itemCosts: { copper_coin: 3 },
+        durationMinutes: 40,
       },
-      { action: "eat_at_home", needDeltas: { hunger: 25 } },
-      { action: "sleep_at_home", needDeltas: { rest: 50 } },
-      { action: "work_at_smithy", needDeltas: { rest: -10 }, itemDeltas: { iron_ore: 1 } },
+      { action: "eat_at_home", needDeltas: { hunger: 25 }, durationMinutes: 25 },
+      { action: "sleep_at_home", needDeltas: { rest: 50 }, endsDay: true },
+      {
+        action: "work_at_smithy",
+        needDeltas: { rest: -10 },
+        itemDeltas: { iron_ore: 1 },
+        durationMinutes: 120,
+      },
       {
         action: "work_at_farm",
         needDeltas: { rest: -15, hunger: -5 },
         itemDeltas: { copper_coin: 2 },
+        durationMinutes: 180,
       },
-      { action: "guard_post", needDeltas: { safety: 10, rest: -5 } },
-      { action: "serve_lunch", needDeltas: { social: 10 }, itemDeltas: { copper_coin: 2 } },
-      { action: "serve_dinner", needDeltas: { social: 10 }, itemDeltas: { copper_coin: 2 } },
-      { action: "prepare_tavern", needDeltas: { rest: -5 } },
-      { action: "rest", needDeltas: { rest: 15 } },
-      { action: "tend_stall", needDeltas: { social: 5, rest: -8 }, itemDeltas: { copper_coin: 3 } },
-      { action: "count_coins", needDeltas: {} },
-      { action: "socialize", needDeltas: { social: 10 } },
-      { action: "patrol", needDeltas: { safety: 5, rest: -5 } },
-      { action: "move", needDeltas: { rest: -5 } },
-      { action: "talk", needDeltas: { social: 5, rest: -2 } },
-      { action: "wait", needDeltas: { rest: 3 } },
+      { action: "guard_post", needDeltas: { safety: 10, rest: -5 }, durationMinutes: 180 },
+      {
+        action: "serve_lunch",
+        needDeltas: { social: 10 },
+        itemDeltas: { copper_coin: 2 },
+        durationMinutes: 120,
+      },
+      {
+        action: "serve_dinner",
+        needDeltas: { social: 10 },
+        itemDeltas: { copper_coin: 2 },
+        durationMinutes: 120,
+      },
+      { action: "prepare_tavern", needDeltas: { rest: -5 }, durationMinutes: 120 },
+      { action: "rest", needDeltas: { rest: 15 }, durationMinutes: 30 },
+      {
+        action: "tend_stall",
+        needDeltas: { social: 5, rest: -8 },
+        itemDeltas: { copper_coin: 3 },
+        durationMinutes: 60,
+      },
+      { action: "count_coins", needDeltas: {}, durationMinutes: 10 },
+      { action: "socialize", needDeltas: { social: 10 }, durationMinutes: 30 },
+      { action: "patrol", needDeltas: { safety: 5, rest: -5 }, durationMinutes: 60 },
+      { action: "move", needDeltas: { rest: -5 }, durationMinutes: 15 },
+      { action: "talk", needDeltas: { social: 5, rest: -2 }, durationMinutes: 5 },
+      { action: "say", needDeltas: { social: 5, rest: -1 }, durationMinutes: 3 },
+      { action: "wait", needDeltas: { rest: 3 }, durationMinutes: 15 },
     ],
 
     needActionMap: [

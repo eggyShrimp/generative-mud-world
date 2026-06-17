@@ -11,6 +11,7 @@ import {
   CombatConfigSchema,
   CombatSkillSchema,
   ConversationDirectionSchema,
+  DayNightConfigSchema,
   DialogueEffectMappingSchema,
   EmotionLabelsSchema,
   EntityActionLabelsSchema,
@@ -27,10 +28,13 @@ import {
   QuestTemplateSchema,
   RoleScheduleTemplateSchema,
   RoomTemplatePoolSchema,
+  SeasonConfigSchema,
   SocialRippleConfigSchema,
   StorylineConfigSchema,
   TerrainConfigSchema,
   TraitLabelsSchema,
+  WarmthComfortConfigSchema,
+  WeatherConfigSchema,
 } from "./schemas/index.ts";
 import type { ContentPool, ContentPoolMutation } from "./types";
 import { validateWithSchema } from "./validate.ts";
@@ -69,6 +73,7 @@ const DOMAIN_FIELDS: Record<string, (keyof ContentPool)[]> = {
   "entity-actions": ["entityActionsByTag", "entityActionLabels", "entityTagLabels"],
   quests: ["questTemplates"],
   storyline: ["storylineConfig"],
+  "time-environment": ["dayNightConfig", "seasonConfig", "weatherConfig", "warmthComfortConfig"],
 };
 
 // 每个域名对应每个字段的 zod schema (用于加载时校验)
@@ -124,6 +129,12 @@ const DOMAIN_SCHEMAS: Record<string, Record<string, unknown>> = {
   storyline: {
     storylineConfig: StorylineConfigSchema,
   },
+  "time-environment": {
+    dayNightConfig: DayNightConfigSchema,
+    seasonConfig: SeasonConfigSchema,
+    weatherConfig: WeatherConfigSchema,
+    warmthComfortConfig: WarmthComfortConfigSchema,
+  },
 };
 
 /**
@@ -158,6 +169,25 @@ function validateReadableBookConsistency(pool: ContentPool): void {
   if (missing.length > 0) {
     throw new Error(
       `ContentPool 交叉字段一致性校验失败 — 以下 readable itemTemplates 缺少 bookContents:\n${missing.map((id) => `  - ${id}`).join("\n")}`,
+    );
+  }
+}
+
+function validateTimeEnvironmentConsistency(pool: ContentPool): void {
+  const seasonIds = new Set(pool.seasonConfig.seasons.map((season) => season.id));
+  const violations: string[] = [];
+
+  for (const weather of pool.weatherConfig.weatherTypes) {
+    for (const seasonId of weather.availableInSeasons) {
+      if (!seasonIds.has(seasonId)) {
+        violations.push(`weatherConfig.weatherTypes["${weather.id}"] 引用了未知季节 "${seasonId}"`);
+      }
+    }
+  }
+
+  if (violations.length > 0) {
+    throw new Error(
+      `ContentPool 时间环境一致性校验失败:\n${violations.map((v) => `  - ${v}`).join("\n")}`,
     );
   }
 }
@@ -207,6 +237,7 @@ export function loadContentPoolFromDir(poolDir: string): ContentPool {
   // 4. 交叉字段一致性校验（门禁）
   validateActionEffectsConsistency(defaults);
   validateReadableBookConsistency(defaults);
+  validateTimeEnvironmentConsistency(defaults);
 
   logWrite("srv", "info", `[ContentPoolLoader] Loading from: ${poolDir}`);
   logWrite(
@@ -371,6 +402,24 @@ export function writeEvolveDeltas(
     });
   }
 
+  if (
+    mutation.replaceDayNightConfig ||
+    mutation.replaceSeasonConfig ||
+    mutation.replaceWeatherConfig ||
+    mutation.replaceWarmthComfortConfig
+  ) {
+    const existing = affectedDomains.get("time-environment") ?? {};
+    affectedDomains.set("time-environment", {
+      ...existing,
+      ...(mutation.replaceDayNightConfig ? { dayNightConfig: currentPool.dayNightConfig } : {}),
+      ...(mutation.replaceSeasonConfig ? { seasonConfig: currentPool.seasonConfig } : {}),
+      ...(mutation.replaceWeatherConfig ? { weatherConfig: currentPool.weatherConfig } : {}),
+      ...(mutation.replaceWarmthComfortConfig
+        ? { warmthComfortConfig: currentPool.warmthComfortConfig }
+        : {}),
+    });
+  }
+
   // 写入 evolve YAML
   for (const [domain, data] of affectedDomains) {
     const filePath = join(evolveDir, `${domain}.yaml`);
@@ -458,6 +507,18 @@ function applyYamlToContentPool(
       // 基本类型: 直接替换
       // biome-ignore lint/suspicious/noExplicitAny: dynamic field assignment on ContentPool
       (pool as any)[field] = yamlValue;
+    }
+
+    if (fieldSchema && !Array.isArray(pool[field])) {
+      const result = validateWithSchema(
+        fieldSchema as Parameters<typeof validateWithSchema>[0],
+        // biome-ignore lint/suspicious/noExplicitAny: dynamic field lookup on ContentPool
+        (pool as any)[field],
+        `${domainName}.${field}`,
+        "throw",
+      );
+      // biome-ignore lint/suspicious/noExplicitAny: dynamic field assignment on ContentPool
+      (pool as any)[field] = result.data;
     }
   }
 }

@@ -1,5 +1,15 @@
 import { createMemo } from "solid-js";
 
+export function formatKeyHintText(shortcut: string | number, label?: string, tag?: string) {
+  const labelPart = label ? ` ${label}` : "";
+  const badge = tag === "quest" ? " [!]" : "";
+  return `[${shortcut}]${labelPart}${badge}`;
+}
+
+export function keyHintColor(tag?: string, color?: string) {
+  return tag === "quest" ? "#e6a850" : color;
+}
+
 export function KeyHint(props: {
   shortcut: string | number;
   label?: string;
@@ -9,9 +19,7 @@ export function KeyHint(props: {
   onMouseDown?: () => void;
   wrapMode?: "none" | "char" | "word";
 }) {
-  const suffix = props.tag === "quest" ? "!" : "";
-  const fg = createMemo(() => (props.tag === "quest" ? "#e6a850" : props.color));
-  const labelPart = props.label ? ` ${props.label}` : "";
+  const fg = createMemo(() => keyHintColor(props.tag, props.color));
   return (
     <text
       fg={fg()}
@@ -19,8 +27,7 @@ export function KeyHint(props: {
       onMouseDown={props.onMouseDown}
       wrapMode={props.wrapMode}
     >
-      [{props.shortcut}]{labelPart}
-      {suffix}
+      {formatKeyHintText(props.shortcut, props.label, props.tag)}
     </text>
   );
 }

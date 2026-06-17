@@ -142,6 +142,31 @@ function getActionRestCost(
   return (effect.needDeltas.rest as number) ?? 0;
 }
 
+export function resolveActionDuration(
+  world: WorldState,
+  entityId: EntityId,
+  action: string,
+  params: Record<string, unknown>,
+): number {
+  if (action === "end_day" || action === "status" || action === "inventory" || action === "look") {
+    return 0;
+  }
+
+  const effectAction = action === "operate" ? (params.actionId as string | undefined) : action;
+  if (!effectAction) return 0;
+
+  const effect = world.contentPool.actionEffects.find(
+    (candidate) => candidate.action === effectAction,
+  );
+  if (effect?.endsDay) return 0;
+
+  if (action === "talk" && !params.optionId) return 0;
+  if (action === "operate" && !params.actionId) return 0;
+  if (action === "move") return calcMoveDuration(world, entityId, params.direction as string);
+
+  return effect?.durationMinutes ?? 0;
+}
+
 function calcMoveRestCost(world: WorldState, entity: Entity, direction: string): number {
   const room = entity.roomId ? world.rooms.get(entity.roomId) : null;
   if (!room) return 0;
@@ -155,6 +180,27 @@ function calcMoveRestCost(world: WorldState, entity: Entity, direction: string):
   const weatherState = regionId ? world.weatherByRegion.get(regionId) : undefined;
   const weatherMultiplier = weatherState?.movementMultiplier ?? 1.0;
   return -(baseCost * (exit.distance ?? 1)) * weatherMultiplier;
+}
+
+function calcMoveDuration(world: WorldState, entityId: EntityId, direction: string): number {
+  const entity = getEntity(world, entityId);
+  const room = entity?.roomId ? world.rooms.get(entity.roomId) : null;
+  if (!entity || !room) return 0;
+
+  const exit = room.exits.get(direction);
+  if (!exit || exit.hidden) return 0;
+
+  const effect = world.contentPool.actionEffects.find((candidate) => candidate.action === "move");
+  const baseDuration = effect?.durationMinutes ?? 0;
+  if (baseDuration <= 0) return 0;
+
+  const terrainType = exit.terrain ?? room.terrain ?? "plain";
+  const terrainCfg = world.contentPool.terrainConfig.find((tc) => tc.terrain === terrainType);
+  const speedMod = terrainCfg && terrainCfg.speedMod > 0 ? terrainCfg.speedMod : 1;
+  const weatherState = room.regionId ? world.weatherByRegion.get(room.regionId) : undefined;
+  const weatherMultiplier = weatherState?.movementMultiplier ?? 1.0;
+  const duration = (baseDuration * (exit.distance ?? 1) * weatherMultiplier) / speedMod;
+  return Math.max(1, Math.round(duration));
 }
 
 // 预留扩展点 — 未来读取 ContentPool.actionRequirements，校验实体 trait
@@ -840,7 +886,7 @@ function executeSay(
         }),
       },
     ],
-    delta: buildDelta(entityId, world.contentPool, "talk"),
+    delta: buildDelta(entityId, world.contentPool, "say"),
     ended: false,
   };
 }

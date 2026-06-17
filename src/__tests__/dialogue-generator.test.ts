@@ -272,10 +272,197 @@ describe("DialogueGenerator.generateFixedChatMenu", () => {
     );
     const gen = new DialogueGenerator(adapter, mockSaveManager());
     const options = await gen.generateChatMenu(world, "p1", "npc1");
-    expect(options.find((o) => o.type === "quest_trigger_menu")).toBeDefined();
+    expect(options.find((o) => o.type === "quest_trigger_menu")).toMatchObject({
+      id: "menu:quest_trigger__story_1",
+      label: "听说你有麻烦？",
+      tag: "quest",
+    });
   });
 
-  it("player 已完成 storyline → 不含 quest_trigger_menu", () => {
+  it("NPC 挂钩的普通任务 → quest 方向注入 LLM 对话方向", async () => {
+    const world = setupWorld();
+    world.contentPool.questTemplates = [
+      {
+        id: "q_faxian_cipher",
+        title: "千佛暗码",
+        description: "法显需要玩家帮忙核实壁画后的线索",
+        giverNpcId: "npc1",
+        objectives: [
+          { groupId: 0, type: "talk", targetId: "npc1", count: 1, description: "听法显讲述暗码" },
+        ],
+        rewards: {},
+        repeatable: false,
+        deadlineDays: null,
+      },
+    ];
+    const player = world.entities.get("p1") as PlayerEntity;
+    const before = {
+      activeQuests: [...player.activeQuests],
+      completedQuests: [...player.completedQuests],
+      inventory: [...player.inventory],
+      relations: [...player.relations],
+      activeStorylines: [...player.activeStorylines],
+    };
+    const adapter = mockAdapter(
+      JSON.stringify({
+        options: [{ key: "quest_trigger__q_faxian_cipher", label: "法显，壁画后藏着什么？" }],
+      }),
+    );
+    const gen = new DialogueGenerator(adapter, mockSaveManager());
+
+    const options = await gen.generateChatMenu(world, "p1", "npc1");
+
+    expect(options.find((o) => o.type === "quest_trigger_menu")).toEqual({
+      id: "menu:quest_trigger__q_faxian_cipher",
+      label: "法显，壁画后藏着什么？",
+      type: "quest_trigger_menu",
+      tag: "quest",
+      meta: { directionKey: "quest_trigger__q_faxian_cipher" },
+    });
+    expect(player.activeQuests).toEqual(before.activeQuests);
+    expect(player.completedQuests).toEqual(before.completedQuests);
+    expect(player.inventory).toEqual(before.inventory);
+    expect(player.relations).toEqual(before.relations);
+    expect(player.activeStorylines).toEqual(before.activeStorylines);
+  });
+
+  it("quest 方向 LLM 失败时退回内容池方向并保留 quest tag", async () => {
+    const world = setupWorld();
+    world.contentPool.questTemplates = [
+      {
+        id: "q_faxian_cipher",
+        title: "千佛暗码",
+        description: "法显需要玩家帮忙核实壁画后的线索",
+        giverNpcId: "npc1",
+        objectives: [],
+        rewards: {},
+        repeatable: false,
+        deadlineDays: null,
+      },
+    ];
+    const gen = new DialogueGenerator(mockAdapter("not json"), mockSaveManager());
+
+    const options = await gen.generateChatMenu(world, "p1", "npc1");
+
+    expect(options.find((o) => o.type === "quest_trigger_menu")).toEqual({
+      id: "menu:quest_trigger__q_faxian_cipher",
+      label: '提及关于"千佛暗码"的委托',
+      type: "quest_trigger_menu",
+      tag: "quest",
+      meta: { directionKey: "quest_trigger__q_faxian_cipher" },
+    });
+  });
+
+  it("不可接取的 NPC 任务 → 不显示 quest_trigger_menu", async () => {
+    const world = setupWorld();
+    world.time.day = 5;
+    world.contentPool.questTemplates = [
+      {
+        id: "q_active",
+        title: "已接任务",
+        description: "",
+        giverNpcId: "npc1",
+        objectives: [],
+        rewards: {},
+        repeatable: false,
+        deadlineDays: null,
+      },
+      {
+        id: "q_completed",
+        title: "已完成任务",
+        description: "",
+        giverNpcId: "npc1",
+        objectives: [],
+        rewards: {},
+        repeatable: false,
+        deadlineDays: null,
+      },
+      {
+        id: "q_prereq",
+        title: "前置未满足任务",
+        description: "",
+        giverNpcId: "npc1",
+        objectives: [],
+        rewards: {},
+        repeatable: false,
+        deadlineDays: null,
+        prerequisites: { logic: "and", conditions: ["missing_quest"] },
+      },
+      {
+        id: "q_relation",
+        title: "关系未满足任务",
+        description: "",
+        giverNpcId: "npc1",
+        objectives: [],
+        rewards: {},
+        repeatable: false,
+        deadlineDays: null,
+        minRelation: { npcId: "npc1", minValue: 10 },
+      },
+      {
+        id: "q_cooldown",
+        title: "冷却中任务",
+        description: "",
+        giverNpcId: "npc1",
+        objectives: [],
+        rewards: {},
+        repeatable: true,
+        deadlineDays: null,
+        cooldownDays: 3,
+      },
+      {
+        id: "q_child",
+        title: "剧情子任务",
+        description: "",
+        giverNpcId: "npc1",
+        objectives: [],
+        rewards: {},
+        repeatable: false,
+        deadlineDays: null,
+      },
+      {
+        id: "story_parent",
+        title: "剧情线",
+        description: "",
+        giverNpcId: null,
+        objectives: [],
+        rewards: {},
+        repeatable: false,
+        deadlineDays: null,
+        stages: [
+          {
+            id: "s1",
+            title: "开始",
+            questIds: ["q_child"],
+            completionCondition: "all",
+            narrativeGuide: "",
+          },
+        ],
+      },
+    ];
+    const player = world.entities.get("p1") as PlayerEntity;
+    player.activeQuests = [
+      {
+        templateId: "q_active",
+        status: "active",
+        acceptedDay: 1,
+        deadlineDay: null,
+        groupCompleted: [],
+        objectiveProgress: [],
+      },
+    ];
+    player.completedQuests = ["q_completed", "q_cooldown"];
+    player.questCooldowns.q_cooldown = 4;
+
+    const options = await new DialogueGenerator(
+      mockAdapter("not json"),
+      mockSaveManager(),
+    ).generateChatMenu(world, "p1", "npc1");
+
+    expect(options.some((o) => o.type === "quest_trigger_menu")).toBe(false);
+  });
+
+  it("player 已完成 storyline → 不含 quest_trigger_menu", async () => {
     const world = setupWorld();
     world.contentPool.questTemplates = [
       {
@@ -304,7 +491,7 @@ describe("DialogueGenerator.generateFixedChatMenu", () => {
     ];
     (world.entities.get("p1") as PlayerEntity).completedQuests = ["story_1"];
     const gen = new DialogueGenerator(mockAdapter(""), mockSaveManager());
-    const options = gen.generateFixedChatMenu(world, "p1", "npc1");
+    const options = await gen.generateChatMenu(world, "p1", "npc1");
     expect(options.find((o) => o.type === "quest_trigger_menu")).toBeUndefined();
   });
 
@@ -342,7 +529,56 @@ describe("DialogueGenerator.generateFixedChatMenu", () => {
     );
     const gen = new DialogueGenerator(adapter, mockSaveManager());
     const options = await gen.generateChatMenu(world, "p1", "npc1");
-    expect(options.find((o) => o.type === "quest_deliver_menu")).toBeDefined();
+    expect(options.find((o) => o.type === "quest_deliver_menu")).toMatchObject({
+      id: "menu:quest_deliver__q1",
+      label: "信送到了！",
+      tag: "quest",
+    });
+  });
+
+  it("quest_trigger_menu → subOptions 使用已有 quest accept 路径", async () => {
+    const world = setupWorld();
+    world.contentPool.questTemplates = [
+      {
+        id: "q_faxian_cipher",
+        title: "千佛暗码",
+        description: "法显需要玩家帮忙核实壁画后的线索",
+        giverNpcId: "npc1",
+        objectives: [],
+        rewards: {},
+        repeatable: false,
+        deadlineDays: null,
+      },
+    ];
+    const gen = new DialogueGenerator(mockAdapter("任务发布。"), mockSaveManager());
+
+    const menuResult = await gen.handleChatOption(
+      world,
+      "p1",
+      "npc1",
+      "quest_trigger_menu",
+      "menu:quest_trigger__q_faxian_cipher",
+    );
+    expect(menuResult.subOptions).toEqual([
+      {
+        id: "quest_trigger:q_faxian_cipher",
+        label: "千佛暗码",
+        type: "quest_trigger_select",
+        tag: "quest",
+        meta: { templateId: "q_faxian_cipher", title: "千佛暗码" },
+      },
+    ]);
+
+    const acceptResult = await gen.handleChatOption(
+      world,
+      "p1",
+      "npc1",
+      "quest_trigger_select",
+      "quest_trigger:q_faxian_cipher",
+    );
+    expect(acceptResult.delta.questChanges).toEqual([
+      { type: "accept", playerId: "p1", templateId: "q_faxian_cipher" },
+    ]);
   });
 });
 

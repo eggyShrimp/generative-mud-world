@@ -189,92 +189,135 @@ actionEffects:
   - action: eat_at_tavern
     needDeltas: { hunger: 30, social: 10 }
     itemCosts: { copper_coin: 3 }
+    durationMinutes: 40
   - action: eat_at_home
     needDeltas: { hunger: 25 }
+    durationMinutes: 25
   - action: sleep_at_home
     needDeltas: { rest: 50 }
+    endsDay: true
   - action: work_at_smithy
     needDeltas: { rest: -10 }
     itemDeltas: { iron_ore: 1 }
+    durationMinutes: 120
   - action: work_at_farm
     needDeltas: { rest: -15, hunger: -5 }
     itemDeltas: { copper_coin: 2 }
+    durationMinutes: 180
   - action: guard_post
     needDeltas: { safety: 10, rest: -5 }
+    durationMinutes: 180
   - action: serve_lunch
     needDeltas: { social: 10 }
     itemDeltas: { copper_coin: 2 }
+    durationMinutes: 120
   - action: serve_dinner
     needDeltas: { social: 10 }
     itemDeltas: { copper_coin: 2 }
+    durationMinutes: 120
   - action: prepare_tavern
     needDeltas: { rest: -5 }
+    durationMinutes: 120
   - action: rest
     needDeltas: { rest: 15 }
+    durationMinutes: 30
   - action: tend_stall
     needDeltas: { social: 5, rest: -8 }
     itemDeltas: { copper_coin: 3 }
+    durationMinutes: 60
   - action: count_coins
     needDeltas: { }
+    durationMinutes: 10
   - action: socialize
     needDeltas: { social: 10 }
+    durationMinutes: 30
   - action: patrol
     needDeltas: { safety: 5, rest: -5 }
+    durationMinutes: 60
   - action: move
     needDeltas: { rest: -5 }
+    durationMinutes: 15
   - action: talk
     needDeltas: { social: 5, rest: -2 }
+    durationMinutes: 5
+  - action: say
+    needDeltas: { social: 5, rest: -1 }
+    durationMinutes: 3
   - action: wait
     needDeltas: { rest: 3 }
+    durationMinutes: 15
   - action: chant_sutras
     needDeltas: { social: 5 }
+    durationMinutes: 25
   - action: browse_stalls
     needDeltas: { rest: 3, social: -2 }
+    durationMinutes: 30
   - action: watch_river
     needDeltas: { rest: 4, social: -3 }
+    durationMinutes: 20
   - action: tend_mount
     needDeltas: { rest: 4, social: -2 }
+    durationMinutes: 30
   - action: wander_bazaar
     needDeltas: { rest: 2, social: -2 }
+    durationMinutes: 30
   - action: admire_palace
     needDeltas: { rest: 5, social: -3 }
+    durationMinutes: 20
   - action: explore_ruins
     needDeltas: { rest: -8 }
+    durationMinutes: 90
   - action: draw_water
     needDeltas: { rest: -3 }
+    durationMinutes: 20
   - action: repair_equipment
     needDeltas: { rest: -8 }
+    durationMinutes: 120
   - action: train
     needDeltas: { rest: -10 }
+    durationMinutes: 120
   - action: scout_ahead
     needDeltas: { safety: 5, rest: -5 }
+    durationMinutes: 60
   - action: pray
     needDeltas: { social: 10, rest: -3 }
+    durationMinutes: 30
   - action: meditate
     needDeltas: { rest: 10, social: 5 }
+    durationMinutes: 45
   - action: order_drink
     needDeltas: { social: 5 }
     itemCosts: { copper_coin: 2 }
+    durationMinutes: 10
   - action: examine_goods
     needDeltas: { rest: -2 }
+    durationMinutes: 15
   - action: search_debris
     needDeltas: { rest: -5 }
+    durationMinutes: 45
   - action: mine_ore
     needDeltas: { rest: -10 }
     itemDeltas: { iron_ore: 1 }
+    durationMinutes: 120
   - action: prospect_minerals
     needDeltas: { rest: -5 }
+    durationMinutes: 45
   - action: craft_goods
     needDeltas: { rest: -8 }
+    durationMinutes: 120
   - action: gather_herbs
     needDeltas: { rest: -5 }
+    durationMinutes: 60
   - action: hunt_game
     needDeltas: { hunger: 15, rest: -8 }
+    durationMinutes: 90
   - action: harvest_crops
     needDeltas: { rest: -10 }
     itemDeltas: { copper_coin: 2 }
+    durationMinutes: 180
   - action: fish
     needDeltas: { rest: -5 }
+    durationMinutes: 60
 
 needActionMap:
   - needType: hunger

@@ -16,7 +16,9 @@
 ## What Changes
 
 - `advanceDay()` 在每日推进后计算 `world.time.period`、`world.time.season` 和 `world.weatherByRegion`。
-- 当前玩家操作不会推进 `world.time.hour`；环境状态随日结算更新。若未来启用逐小时推进，`advanceTime()` 必须同步刷新 `world.time.period`。
+- 成功的耗时玩家行动会通过已有时间推进入口按分钟推进 `world.time`，并同步刷新 `world.time.period`；失败命令、信息查看和结束当天不额外推进时间。
+- 行动耗时不是代码里的固定 1 小时：普通动作从 ContentPool 的 `actionEffects[].durationMinutes` 读取；移动在该基础上按出口距离、地形速度和天气移动系数计算。
+- 当行动推进跨过午夜时，当前玩家当天自然结束；后续日结算不能再次重复推进日期。
 - 战斗命中率读取当前房间所在区域的天气和当前时段可见度修正。
 - NPC 夜间日程使用现有 `executeSchedule()` 入口支持跨午夜时间段。
 - 剧情时间触发条件支持按 `period` 和 `season` 匹配。
@@ -37,6 +39,7 @@
 | `seasonConfig` | 月份到季节的映射、需求衰减系数、`comfortTemp`（舒适温度）、叙事前缀 |
 | `weatherConfig` | 天气类型、季节过滤、权重、移动和可见度系数 |
 | `warmthComfortConfig` | 保暖舒适公式参数：基准温度、最大理想保暖值、每点偏差惩罚 |
+| `actionEffects[].durationMinutes` | 行动默认耗时，允许短对话是几分钟、工作/采集是更长时间 |
 | `itemTemplates[].properties.warmth` | 物品保暖值（衣物/装备），用于季节舒适温度计算 |
 
 本变更不在引擎代码里创建默认数据、标签映射或运行时兜底数据。缺失配置应由 ContentPool 加载和 schema 校验暴露。
@@ -45,14 +48,14 @@
 
 | File | Change Type | Description |
 |------|-------------|-------------|
-| `src/core/types.ts` | modify-interface | 使用配套 YAML 变更提供的 `DayPeriod`、`Season`、`WeatherState`，扩展 `GameTime`、`WorldState`、`TriggerCondition`；扩展 `equipment` 接口为 4 槽 |
-| `src/core/world.ts` | new-function + modify-function | 新增 `computeDayPeriod()`、`computeSeason()`、`computeWeatherByRegion()`；修改 `advanceDay()` 统一写入环境状态 |
+| `src/core/types.ts` | modify-interface | 使用配套 YAML 变更提供的 `DayPeriod`、`Season`、`WeatherState`，扩展 `GameTime`、`WorldState`、`TriggerCondition`、`ActionEffect.durationMinutes`；扩展 `equipment` 接口为 4 槽 |
+| `src/core/world.ts` | new-function + modify-function | 新增 `computeDayPeriod()`、`computeSeason()`、`computeWeatherByRegion()`；修改 `advanceTime(world, durationMinutes)`/`advanceDay()` 统一写入时间相关环境状态 |
 | `src/core/world.ts` | modify-function | `createNPC()`/`createPlayer()` 默认装备包含新槽位 |
 | `src/combat/pulse.ts` | modify-function | 命中率读取当前时段和天气可见度系数 |
 | `src/simulation/index.ts` | modify-function | `executeSchedule()` 支持跨午夜日程；`decayNeeds()` 显式接收 `world`，读取季节系数并叠加保暖偏差惩罚 |
 | `src/simulation/storyline-engine.ts` | modify-function | `matchTime()` 支持 `period`、`season` 条件 |
-| `src/core/round-engine.ts` | modify-function | 结算叙事 prompt 注入当前环境描述 |
-| `src/engine/command-executor.ts` | modify-function | 复用现有出口条件检查入口；移动消耗叠加天气系数；equip/unequip 支持 `cloak`/`accessory` |
+| `src/core/round-engine.ts` | modify-function | 玩家耗时行动完成后按计算出的分钟数调用已有时间推进入口；结算叙事 prompt 注入当前环境描述 |
+| `src/engine/command-executor.ts` | modify-function | 复用现有出口条件检查入口；移动消耗和移动耗时叠加天气系数；equip/unequip 支持 `cloak`/`accessory` |
 | `src/server/ws-server.ts` | modify-function | 实体状态序列化包含新装备槽位 |
 | `src/index.ts` | modify-callsite | 更新 `decayNeeds()` 调用签名 |
 | `src/__tests__/*.test.ts` | modify-callsite | 更新测试中的 `decayNeeds()` 调用签名、装备槽位断言 |
@@ -72,7 +75,7 @@
 | Trap | Applies? | How Addressed |
 |------|:--:|---------------|
 | no-hardcoded-labels (new `Record<string,string>`) | no | 标签全部由配套 YAML 变更放入 ContentPool |
-| no-direct-world-mutation (push/assign to state) | yes | 只在 `advanceDay()` 这个现有时间推进入口写入环境状态；命令执行仍走现有 delta 流程 |
+| no-direct-world-mutation (push/assign to state) | yes | 只通过 `advanceTime(world, durationMinutes)`/`advanceDay()` 这些现有时间推进入口写入时间状态；命令执行仍走现有 delta 流程 |
 | no-create-default-outside-world | no | 引擎代码不调用 `createDefaultXxx()` |
 | no-hardcoded-description-text (Chinese in engine/combat) | no | 叙事文本来自 `seasonConfig` 和 `weatherConfig` |
 | no-empty-catch | no | 不新增 catch |
@@ -86,12 +89,15 @@
 - 装备系统扩展为 4 槽，新增 `cloak`（斗篷）和 `accessory`（饰物）槽位。
 - 玩家需要根据季节调整装备搭配：冬季穿毛皮斗篷保暖，夏季卸下厚衣物避免过热。
 - 结算叙事可以感知当前环境。
+- 玩家普通耗时行动会推进分钟级时间，NPC 日程、时段出口、战斗可见度等规则可以在同一天内随行动变化。
+- 行动跨午夜会自然进入当天收尾，不会出现玩家继续在新日期行动后又被日结算多跳一天。
 
 ## Test Impact
 
 | Test File | Coverage |
 |-----------|----------|
 | `src/__tests__/day-night-season.test.ts` | 时段、季节、天气选择、每日推进集成 |
+| `src/__tests__/round-engine.test.ts` | 成功耗时行动按配置推进分钟；失败命令、信息查看、结束当天不推进时间 |
 | `src/__tests__/combat-visibility.test.ts` | 时段和天气对命中率的影响 |
 | `src/__tests__/engine.test.ts` | `checkFeasibility()` 和移动命令的时间/季节出口条件；装备穿戴支持新槽位 |
 | `src/__tests__/simulation.test.ts` | 跨午夜日程、季节需求衰减、保暖偏差惩罚（双向：过热/过冷） |

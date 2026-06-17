@@ -29,7 +29,11 @@ import type {
   WorldState,
 } from "../core/types.ts";
 import { getRoomEntities } from "../core/world.ts";
-import { resolveQuestAccept } from "../engine/quest-tracker.ts";
+import {
+  checkPrerequisites,
+  collectSubQuestIds,
+  resolveQuestAccept,
+} from "../engine/quest-tracker.ts";
 import { formatItemProperties } from "../shared/item-format.ts";
 import { logWrite } from "../shared/log.ts";
 import type { DialogueOption, DialogueOptionType, TradeOption } from "../shared/protocol.ts";
@@ -87,8 +91,8 @@ export class DialogueGenerator {
 
     // 构建 quest 方向：注入 LLM 对话方向中，生成叙事包装
     const questDirections: Array<{ key: string; instruction: string }> = [];
-    const eligibleStorylines = this.getEligibleStorylines(world, player as PlayerEntity, npc);
-    for (const t of eligibleStorylines) {
+    const eligibleQuestTriggers = this.getEligibleQuestTriggers(world, player as PlayerEntity, npc);
+    for (const t of eligibleQuestTriggers) {
       questDirections.push({
         key: `quest_trigger__${t.id}`,
         instruction: `提及关于"${t.title}"的委托`,
@@ -497,22 +501,26 @@ ${directionLines}
 
   // --- Menu helpers: 可用性检查 ---
 
-  private getEligibleStorylines(world: WorldState, player: PlayerEntity, npc: NPCEntity) {
+  private getEligibleQuestTriggers(world: WorldState, player: PlayerEntity, npc: NPCEntity) {
+    const subQuestIds = collectSubQuestIds(world.contentPool);
     return world.contentPool.questTemplates.filter((t) => {
-      if (t.autoTrigger?.type !== "player_action") return false;
-      if (!t.stages) return false;
-      const npcMatches = t.autoTrigger.conditions.some(
-        (c) => c.action === "talk" && c.targetId === npc.id,
-      );
-      if (!npcMatches) return false;
+      const isTalkTriggeredStoryline =
+        t.stages &&
+        t.autoTrigger?.type === "player_action" &&
+        t.autoTrigger.conditions.some((c) => c.action === "talk" && c.targetId === npc.id);
+      const isNpcGivenQuest = !t.stages && t.giverNpcId === npc.id && !subQuestIds.has(t.id);
+      if (!isTalkTriggeredStoryline && !isNpcGivenQuest) return false;
+      if (player.activeQuests.some((q) => q.templateId === t.id)) return false;
       if (!t.repeatable) {
         if (player.completedQuests.includes(t.id)) return false;
         if (player.activeStorylines.some((s) => s.storylineId === t.id)) return false;
+        if (world.completedStorylines.includes(t.id)) return false;
+      } else if (player.completedQuests.includes(t.id) && t.cooldownDays) {
+        const lastDay = player.questCooldowns[t.id];
+        if (lastDay !== undefined && world.time.day - lastDay < t.cooldownDays) return false;
       }
       if (t.prerequisites) {
-        if (typeof t.prerequisites === "string") {
-          if (!player.completedQuests.includes(t.prerequisites)) return false;
-        }
+        if (!checkPrerequisites(player.completedQuests, t.prerequisites)) return false;
       }
       if (t.minRelation) {
         const rel = player.relations.find((r) => r.targetId === t.minRelation?.npcId);
@@ -598,10 +606,11 @@ ${directionLines}
     player: PlayerEntity,
     npc: NPCEntity,
   ): DialogueOption[] {
-    return this.getEligibleStorylines(world, player, npc).map((t) => ({
+    return this.getEligibleQuestTriggers(world, player, npc).map((t) => ({
       id: `quest_trigger:${t.id}`,
       label: t.title,
       type: "quest_trigger_select" as DialogueOptionType,
+      tag: "quest",
       meta: { templateId: t.id, title: t.title },
     }));
   }
@@ -619,8 +628,9 @@ ${directionLines}
       })
       .map((q) => ({
         id: `quest_deliver:${q.templateId}`,
-        label: q.templateId,
+        label: this.getQuestTemplate(world, q.templateId)?.title ?? q.templateId,
         type: "quest_deliver_select" as DialogueOptionType,
+        tag: "quest",
         meta: { templateId: q.templateId },
       }));
   }

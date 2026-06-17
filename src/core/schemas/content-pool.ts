@@ -16,6 +16,7 @@ export const ActionEffectSchema = z.object({
   itemCosts: z.record(z.string(), z.number()).optional(),
   itemDeltas: z.record(z.string(), z.number()).optional(),
   endsDay: z.boolean().optional(),
+  durationMinutes: z.number().int().min(0).optional(),
 });
 
 // itemTemplates
@@ -201,7 +202,7 @@ export const DayNightConfigSchema = z.object({
 export const SeasonDefSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
-  months: z.array(z.number().int().min(1)),
+  months: z.array(z.number().int().min(1).max(12)).min(1),
   label: z.string().min(1),
   comfortTemp: z.number(),
   needDecayMultiplier: z.number().min(0),
@@ -219,7 +220,7 @@ export const WeatherTypeSchema = z.object({
   movementMultiplier: z.number().min(0),
   visibilityMultiplier: z.number().min(0).max(1),
   narrativeDesc: z.string(),
-  availableInSeasons: z.array(z.string()),
+  availableInSeasons: z.array(z.string().min(1)).min(1),
   weight: z.number().min(0),
 });
 
@@ -228,12 +229,22 @@ export const WeatherConfigSchema = z.object({
 });
 
 // warmthComfortConfig
-export const WarmthComfortConfigSchema = z.object({
-  baselineTemp: z.number(),
-  maxIdealWarmth: z.number().min(0),
-  minIdealWarmth: z.number().min(0),
-  penaltyPerWarmthPoint: z.number().min(0),
-});
+export const WarmthComfortConfigSchema = z
+  .object({
+    baselineTemp: z.number(),
+    maxIdealWarmth: z.number().min(0),
+    minIdealWarmth: z.number().min(0),
+    penaltyPerWarmthPoint: z.number().min(0),
+  })
+  .superRefine((config, ctx) => {
+    if (config.maxIdealWarmth < config.minIdealWarmth) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["maxIdealWarmth"],
+        message: "maxIdealWarmth must be greater than or equal to minIdealWarmth",
+      });
+    }
+  });
 
 // roomTemplates
 export const RoomTemplatePoolSchema = z.object({

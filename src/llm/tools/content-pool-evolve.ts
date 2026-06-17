@@ -294,10 +294,154 @@ export const ADD_CLUE_DEFINITION_TOOL: ToolDefinition = {
   },
 };
 
+const DAY_NIGHT_CONFIG_PARAMETERS = {
+  type: "object",
+  properties: {
+    periods: {
+      type: "array",
+      minItems: 1,
+      items: {
+        type: "object",
+        properties: {
+          id: { type: "string", minLength: 1 },
+          startHour: { type: "integer", minimum: 0, maximum: 23 },
+          label: { type: "string", minLength: 1 },
+          visibilityModifier: { type: "number", exclusiveMinimum: 0, maximum: 1 },
+        },
+        required: ["id", "startHour", "label", "visibilityModifier"],
+      },
+    },
+  },
+  required: ["periods"],
+};
+
+const SEASON_CONFIG_PARAMETERS = {
+  type: "object",
+  properties: {
+    seasons: {
+      type: "array",
+      minItems: 1,
+      items: {
+        type: "object",
+        properties: {
+          id: { type: "string", minLength: 1 },
+          name: { type: "string", minLength: 1 },
+          months: {
+            type: "array",
+            minItems: 1,
+            items: { type: "integer", minimum: 1, maximum: 12 },
+          },
+          label: { type: "string", minLength: 1 },
+          comfortTemp: { type: "number" },
+          needDecayMultiplier: { type: "number", exclusiveMinimum: 0 },
+          narrativePrefix: { type: "string" },
+        },
+        required: [
+          "id",
+          "name",
+          "months",
+          "label",
+          "comfortTemp",
+          "needDecayMultiplier",
+          "narrativePrefix",
+        ],
+      },
+    },
+  },
+  required: ["seasons"],
+};
+
+const WEATHER_CONFIG_PARAMETERS = {
+  type: "object",
+  properties: {
+    weatherTypes: {
+      type: "array",
+      minItems: 1,
+      items: {
+        type: "object",
+        properties: {
+          id: { type: "string", minLength: 1 },
+          label: { type: "string", minLength: 1 },
+          movementMultiplier: { type: "number", exclusiveMinimum: 0 },
+          visibilityMultiplier: { type: "number", exclusiveMinimum: 0, maximum: 1 },
+          narrativeDesc: { type: "string" },
+          availableInSeasons: {
+            type: "array",
+            minItems: 1,
+            items: { type: "string", minLength: 1 },
+          },
+          weight: { type: "number", exclusiveMinimum: 0 },
+        },
+        required: [
+          "id",
+          "label",
+          "movementMultiplier",
+          "visibilityMultiplier",
+          "narrativeDesc",
+          "availableInSeasons",
+          "weight",
+        ],
+      },
+    },
+  },
+  required: ["weatherTypes"],
+};
+
+const WARMTH_COMFORT_CONFIG_PARAMETERS = {
+  type: "object",
+  properties: {
+    baselineTemp: { type: "number" },
+    maxIdealWarmth: { type: "number", minimum: 0 },
+    minIdealWarmth: { type: "number", minimum: 0 },
+    penaltyPerWarmthPoint: { type: "number", exclusiveMinimum: 0 },
+  },
+  required: ["baselineTemp", "maxIdealWarmth", "minIdealWarmth", "penaltyPerWarmthPoint"],
+};
+
+export const REPLACE_DAY_NIGHT_CONFIG_TOOL: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "replace_day_night_config",
+    description: "整体替换昼夜时段配置。必须保留完整 periods 列表，startHour 为 0-23。",
+    parameters: DAY_NIGHT_CONFIG_PARAMETERS,
+  },
+};
+
+export const REPLACE_SEASON_CONFIG_TOOL: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "replace_season_config",
+    description: "整体替换季节配置。月份必须在 1-12，衰减系数必须为正数。",
+    parameters: SEASON_CONFIG_PARAMETERS,
+  },
+};
+
+export const REPLACE_WEATHER_CONFIG_TOOL: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "replace_weather_config",
+    description: "整体替换天气池配置。权重、移动系数和可见度系数必须为正数。",
+    parameters: WEATHER_CONFIG_PARAMETERS,
+  },
+};
+
+export const REPLACE_WARMTH_COMFORT_CONFIG_TOOL: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "replace_warmth_comfort_config",
+    description: "整体替换保暖舒适公式参数。maxIdealWarmth 不得小于 minIdealWarmth。",
+    parameters: WARMTH_COMFORT_CONFIG_PARAMETERS,
+  },
+};
+
 export const CONTENT_POOL_EVOLVE_TOOLS: ToolDefinition[] = [
   ADD_QUEST_TEMPLATE_TOOL,
   ADD_ACTION_TOOL,
   ADD_SCHEDULE_TOOL,
   ADD_BOOK_CONTENT_TOOL,
   ADD_CLUE_DEFINITION_TOOL,
+  REPLACE_DAY_NIGHT_CONFIG_TOOL,
+  REPLACE_SEASON_CONFIG_TOOL,
+  REPLACE_WEATHER_CONFIG_TOOL,
+  REPLACE_WARMTH_COMFORT_CONFIG_TOOL,
 ];

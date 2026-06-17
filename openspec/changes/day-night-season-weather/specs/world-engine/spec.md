@@ -36,21 +36,68 @@ The engine MUST compute the current day period, season, and per-region weather f
 - **AND** tests do not rely on repeated random sampling thresholds
 - **TEST** `src/__tests__/day-night-season.test.ts`: deterministic weighted selection
 
-#### Scenario: Hourly time advancement refreshes period without rerolling weather
+#### Scenario: Action-level time advancement refreshes period without rerolling weather
 
-- **GIVEN** `advanceTime(world)` changes `world.time.hour`
-- **WHEN** the hour crosses a configured day-period boundary
+- **GIVEN** `advanceTime(world, durationMinutes)` changes `world.time.minute` and `world.time.hour`
+- **WHEN** the resulting time crosses a configured day-period boundary
 - **THEN** `world.time.period` is refreshed from `dayNightConfig`
 - **AND** `world.weatherByRegion` is not rerolled unless the calendar day changes through the daily environment path
-- **TEST** `src/__tests__/day-night-season.test.ts`: hourly period sync
+- **TEST** `src/__tests__/day-night-season.test.ts`: action-level period sync
 
-#### Scenario: Player commands do not advance hour in the current model
+#### Scenario: Successful time-consuming player actions advance by configured duration
 
-- **GIVEN** a player executes a normal command through the current command path
+- **GIVEN** a player executes a successful time-consuming action through the structured command path
+- **AND** the action has a configured or rule-calculated duration in minutes
 - **WHEN** the command completes
-- **THEN** `world.time.hour` is unchanged
-- **AND** period changes are driven by day settlement unless a future change explicitly connects commands to `advanceTime()`
-- **TEST** `src/__tests__/engine.test.ts`: normal command does not advance hour
+- **THEN** `advanceTime(world, durationMinutes)` is called once by the command orchestration layer
+- **AND** `world.time.minute` and `world.time.hour` advance by the calculated duration
+- **AND** `world.time.period` is recomputed from `dayNightConfig`
+- **AND** `world.weatherByRegion` is not rerolled
+- **TEST** `src/__tests__/round-engine.test.ts`: successful action advances by configured minutes and refreshes period
+
+#### Scenario: Short actions do not consume a fixed hour
+
+- **GIVEN** `actionEffects` configures a short social action such as `say` or `talk` with a small `durationMinutes`
+- **WHEN** the player executes that action successfully
+- **THEN** time advances by that configured number of minutes
+- **AND** it does not force `world.time.hour` to increase when the minute total stays within the same hour
+- **TEST** `src/__tests__/round-engine.test.ts`: short action advances minutes without fixed-hour jump
+
+#### Scenario: Move duration uses distance, terrain, and weather
+
+- **GIVEN** the player moves through an exit with `distance`
+- **AND** the terrain has a `speedMod`
+- **AND** the current region has weather with `movementMultiplier`
+- **WHEN** move duration is calculated
+- **THEN** the duration is based on `actionEffects["move"].durationMinutes`, exit distance, terrain speed, and weather movement multiplier
+- **AND** no hardcoded per-direction or per-terrain duration table is introduced
+- **TEST** `src/__tests__/round-engine.test.ts`: move duration responds to distance, terrain, and weather
+
+#### Scenario: Duration is not inferred from rest changes
+
+- **GIVEN** an action has `needDeltas.rest`
+- **AND** the same action has `durationMinutes`
+- **WHEN** action duration is resolved
+- **THEN** elapsed time uses `durationMinutes` and movement rules
+- **AND** it does not derive minutes from the rest delta
+- **TEST** `src/__tests__/round-engine.test.ts`: rest delta does not control elapsed duration
+
+#### Scenario: Non-time-consuming command outcomes do not advance time
+
+- **GIVEN** a player command fails, returns only information, opens a menu, or ends the day
+- **WHEN** the command completes
+- **THEN** `world.time.minute` and `world.time.hour` are unchanged
+- **AND** `end_day` continues to mark the player ended for the existing day-settlement path
+- **TEST** `src/__tests__/round-engine.test.ts`: failed, informational, menu, and end-day commands do not advance time
+
+#### Scenario: Action crossing midnight ends the player day without double date advancement
+
+- **GIVEN** `world.time.hour` and `world.time.minute` are near midnight
+- **WHEN** a successful time-consuming player action advances past midnight
+- **THEN** `world.time.hour` wraps to the next day according to `advanceTime(world, durationMinutes)`
+- **AND** the acting player is marked ended for the current day
+- **AND** subsequent day settlement does not call `advanceDay(world)` in a way that advances the calendar date a second time
+- **TEST** `src/__tests__/round-engine.test.ts`: midnight action ends day and settlement avoids double advance
 
 ### Requirement: Environment state affects existing engine behavior through existing paths
 

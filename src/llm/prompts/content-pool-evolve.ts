@@ -47,6 +47,10 @@ export function buildContentPoolEvolvePrompt(context: {
 - add_schedule：添加新的角色日程
 - add_book_content：添加书籍内容
 - add_clue_definition：添加新的世界线索
+- replace_day_night_config：整体替换昼夜时段配置
+- replace_season_config：整体替换季节配置
+- replace_weather_config：整体替换天气池配置
+- replace_warmth_comfort_config：整体替换保暖舒适公式参数
 
 你也可以输出 JSON。JSON 格式如下：
 
@@ -58,6 +62,10 @@ export function buildContentPoolEvolvePrompt(context: {
   "addNamePools": [...],
   "replaceNarrativeTemplates": {...},
   "replaceCalendar": {...},
+  "replaceDayNightConfig": {...},
+  "replaceSeasonConfig": {...},
+  "replaceWeatherConfig": {...},
+  "replaceWarmthComfortConfig": {...},
   "replaceNeedLabels": {...},
   "replaceTraitLabels": {...},
   "replaceItemPropertyLabels": {...},
@@ -74,6 +82,9 @@ export function buildContentPoolEvolvePrompt(context: {
 - 标签映射仅在新增类型或翻译需要修正时更新
 - 如果新增了可阅读物品，必须同时通过 add_book_content 提供书籍内容
 - 书籍内容必须像"玩家正在读到的书内正文"
+- 只有当时代变化确实影响作息、季节、天气或保暖规则时，才整体替换对应时间环境配置
+- 时间环境配置必须保持完整：小时在 0-23，月份在 1-12，权重和移动/可见度/衰减系数必须为正数
+- 天气可用季节必须引用已存在的季节 ID，保暖舒适上限不得低于下限
 
 ## 任务生成核心规则（极其重要）
 

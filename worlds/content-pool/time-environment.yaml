@@ -1,0 +1,111 @@
+dayNightConfig:
+  periods:
+    - id: dawn
+      startHour: 5
+      label: 清晨
+      visibilityModifier: 0.7
+    - id: morning
+      startHour: 7
+      label: 上午
+      visibilityModifier: 1
+    - id: afternoon
+      startHour: 12
+      label: 午后
+      visibilityModifier: 1
+    - id: dusk
+      startHour: 18
+      label: 黄昏
+      visibilityModifier: 0.8
+    - id: night
+      startHour: 21
+      label: 深夜
+      visibilityModifier: 0.5
+
+seasonConfig:
+  seasons:
+    - id: spring
+      name: 春
+      months: [1, 2, 3]
+      label: 春
+      comfortTemp: 18
+      needDecayMultiplier: 1
+      narrativePrefix: 春风拂面
+    - id: summer
+      name: 夏
+      months: [4, 5, 6]
+      label: 夏
+      comfortTemp: 32
+      needDecayMultiplier: 1
+      narrativePrefix: 烈日当空
+    - id: autumn
+      name: 秋
+      months: [7, 8, 9]
+      label: 秋
+      comfortTemp: 15
+      needDecayMultiplier: 1.1
+      narrativePrefix: 秋风萧瑟
+    - id: winter
+      name: 冬
+      months: [10, 11, 12]
+      label: 冬
+      comfortTemp: -8
+      needDecayMultiplier: 1.5
+      narrativePrefix: 寒风刺骨
+
+weatherConfig:
+  weatherTypes:
+    - id: clear
+      label: 晴朗
+      movementMultiplier: 1
+      visibilityMultiplier: 1
+      narrativeDesc: 阳光明媚
+      availableInSeasons: [spring, summer, autumn, winter]
+      weight: 50
+    - id: overcast
+      label: 阴天
+      movementMultiplier: 1
+      visibilityMultiplier: 0.9
+      narrativeDesc: 天空阴沉
+      availableInSeasons: [spring, summer, autumn, winter]
+      weight: 25
+    - id: light_rain
+      label: 细雨
+      movementMultiplier: 0.8
+      visibilityMultiplier: 0.7
+      narrativeDesc: 细雨蒙蒙
+      availableInSeasons: [spring, summer, autumn]
+      weight: 15
+    - id: heavy_rain
+      label: 暴雨
+      movementMultiplier: 0.6
+      visibilityMultiplier: 0.5
+      narrativeDesc: 暴雨倾盆
+      availableInSeasons: [summer, autumn]
+      weight: 5
+    - id: fog
+      label: 大雾
+      movementMultiplier: 0.9
+      visibilityMultiplier: 0.4
+      narrativeDesc: 雾气弥漫
+      availableInSeasons: [spring, autumn]
+      weight: 10
+    - id: light_snow
+      label: 小雪
+      movementMultiplier: 0.7
+      visibilityMultiplier: 0.7
+      narrativeDesc: 雪花纷飞
+      availableInSeasons: [winter]
+      weight: 15
+    - id: blizzard
+      label: 暴风雪
+      movementMultiplier: 0.4
+      visibilityMultiplier: 0.3
+      narrativeDesc: 风雪交加
+      availableInSeasons: [winter]
+      weight: 5
+
+warmthComfortConfig:
+  baselineTemp: 25
+  maxIdealWarmth: 30
+  minIdealWarmth: 0
+  penaltyPerWarmthPoint: 0.015

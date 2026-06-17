@@ -2,12 +2,16 @@ import {
   ActionEffectSchema,
   BookContentSchema,
   ClueDefinitionSchema,
+  DayNightConfigSchema,
   NamePoolSchema,
   NewNPCDefSchema,
   NewRoomDefSchema,
   QuestTemplateSchema,
   RoleScheduleTemplateSchema,
   RoomTemplatePoolSchema,
+  SeasonConfigSchema,
+  WarmthComfortConfigSchema,
+  WeatherConfigSchema,
 } from "../core/schemas/index.ts";
 import type {
   ContentPoolMutation,
@@ -190,6 +194,58 @@ export function contentPoolMutationFromToolCalls(
         }
         mutation.addClueDefinitions = mutation.addClueDefinitions ?? [];
         mutation.addClueDefinitions.push(result.data);
+        break;
+      }
+      case "replace_day_night_config": {
+        const result = DayNightConfigSchema.safeParse(args);
+        if (!result.success) {
+          logWrite(
+            "srv",
+            "warn",
+            `[LLMTool] invalid replace_day_night_config ignored: ${result.error.message}`,
+          );
+          break;
+        }
+        mutation.replaceDayNightConfig = result.data;
+        break;
+      }
+      case "replace_season_config": {
+        const result = SeasonConfigSchema.safeParse(args);
+        if (!result.success) {
+          logWrite(
+            "srv",
+            "warn",
+            `[LLMTool] invalid replace_season_config ignored: ${result.error.message}`,
+          );
+          break;
+        }
+        mutation.replaceSeasonConfig = result.data;
+        break;
+      }
+      case "replace_weather_config": {
+        const result = WeatherConfigSchema.safeParse(args);
+        if (!result.success) {
+          logWrite(
+            "srv",
+            "warn",
+            `[LLMTool] invalid replace_weather_config ignored: ${result.error.message}`,
+          );
+          break;
+        }
+        mutation.replaceWeatherConfig = result.data;
+        break;
+      }
+      case "replace_warmth_comfort_config": {
+        const result = WarmthComfortConfigSchema.safeParse(args);
+        if (!result.success) {
+          logWrite(
+            "srv",
+            "warn",
+            `[LLMTool] invalid replace_warmth_comfort_config ignored: ${result.error.message}`,
+          );
+          break;
+        }
+        mutation.replaceWarmthComfortConfig = result.data;
         break;
       }
     }

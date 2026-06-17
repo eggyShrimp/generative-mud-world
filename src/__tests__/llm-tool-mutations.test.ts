@@ -6,6 +6,7 @@ import {
   contentPoolMutationFromToolCalls,
   worldMutationFromToolCalls,
 } from "../llm/tool-mutations.ts";
+import { CONTENT_POOL_EVOLVE_TOOLS } from "../llm/tools/content-pool-evolve.ts";
 
 function setupWorld() {
   const world = createWorld();
@@ -18,6 +19,49 @@ function setupWorld() {
   });
   addRoom(world, createRoom("tavern", "酒馆", "west", ""));
   return world;
+}
+
+function timeEnvironmentArgs() {
+  return {
+    dayNightConfig: {
+      periods: [
+        { id: "dawn", startHour: 5, label: "清晨", visibilityModifier: 0.7 },
+        { id: "morning", startHour: 7, label: "上午", visibilityModifier: 1 },
+      ],
+    },
+    seasonConfig: {
+      seasons: [
+        {
+          id: "spring",
+          name: "春",
+          months: [1, 2, 3],
+          label: "春",
+          comfortTemp: 18,
+          needDecayMultiplier: 1,
+          narrativePrefix: "春风拂面",
+        },
+      ],
+    },
+    weatherConfig: {
+      weatherTypes: [
+        {
+          id: "clear",
+          label: "晴朗",
+          movementMultiplier: 1,
+          visibilityMultiplier: 1,
+          narrativeDesc: "阳光明媚",
+          availableInSeasons: ["spring"],
+          weight: 10,
+        },
+      ],
+    },
+    warmthComfortConfig: {
+      baselineTemp: 25,
+      maxIdealWarmth: 30,
+      minIdealWarmth: 0,
+      penaltyPerWarmthPoint: 0.015,
+    },
+  };
 }
 
 describe("LLM tool mutation parsing", () => {
@@ -175,5 +219,78 @@ describe("LLM tool mutation parsing", () => {
         pages: ["第一页", "第二页"],
       },
     ]);
+  });
+
+  it("exposes time environment replacement tools", () => {
+    const toolNames = CONTENT_POOL_EVOLVE_TOOLS.map((tool) => tool.function.name);
+    expect(toolNames).toContain("replace_day_night_config");
+    expect(toolNames).toContain("replace_season_config");
+    expect(toolNames).toContain("replace_weather_config");
+    expect(toolNames).toContain("replace_warmth_comfort_config");
+  });
+
+  it("builds ContentPoolMutation from time environment replacement tool calls", () => {
+    const args = timeEnvironmentArgs();
+    const mutation = contentPoolMutationFromToolCalls([
+      {
+        id: "call_1",
+        function: {
+          name: "replace_day_night_config",
+          arguments: JSON.stringify(args.dayNightConfig),
+        },
+      },
+      {
+        id: "call_2",
+        function: {
+          name: "replace_season_config",
+          arguments: JSON.stringify(args.seasonConfig),
+        },
+      },
+      {
+        id: "call_3",
+        function: {
+          name: "replace_weather_config",
+          arguments: JSON.stringify(args.weatherConfig),
+        },
+      },
+      {
+        id: "call_4",
+        function: {
+          name: "replace_warmth_comfort_config",
+          arguments: JSON.stringify(args.warmthComfortConfig),
+        },
+      },
+    ]);
+
+    expect(mutation?.replaceDayNightConfig?.periods[0].label).toBe("清晨");
+    expect(mutation?.replaceSeasonConfig?.seasons[0].id).toBe("spring");
+    expect(mutation?.replaceWeatherConfig?.weatherTypes[0].id).toBe("clear");
+    expect(mutation?.replaceWarmthComfortConfig?.baselineTemp).toBe(25);
+  });
+
+  it("rejects invalid time environment replacement tool calls", () => {
+    const mutation = contentPoolMutationFromToolCalls([
+      {
+        id: "call_1",
+        function: {
+          name: "replace_weather_config",
+          arguments: JSON.stringify({
+            weatherTypes: [
+              {
+                id: "bad_weather",
+                label: "坏天气",
+                movementMultiplier: 1,
+                visibilityMultiplier: 1,
+                narrativeDesc: "错误",
+                availableInSeasons: ["spring"],
+                weight: -1,
+              },
+            ],
+          }),
+        },
+      },
+    ]);
+
+    expect(mutation).toBeNull();
   });
 });

@@ -20,6 +20,16 @@ function writeYamlFile(path: string, data: Record<string, unknown>) {
   writeFileSync(path, stringify(data, { indent: 2 }), "utf-8");
 }
 
+function defaultTimeEnvironment() {
+  const pool = createDefaultContentPool();
+  return {
+    dayNightConfig: structuredClone(pool.dayNightConfig),
+    seasonConfig: structuredClone(pool.seasonConfig),
+    weatherConfig: structuredClone(pool.weatherConfig),
+    warmthComfortConfig: structuredClone(pool.warmthComfortConfig),
+  };
+}
+
 describe("ContentPoolLoader", () => {
   beforeEach(cleanTestDir);
   afterEach(cleanTestDir);
@@ -287,6 +297,118 @@ describe("ContentPoolLoader", () => {
     expect(() => loadContentPoolFromDir(poolDir)).toThrow(
       "readable itemTemplates 缺少 bookContents",
     );
+  });
+
+  it("loadContentPoolFromDir: time-environment YAML 应加载四个环境配置", () => {
+    const poolDir = join(TEST_DIR, "content-pool");
+    mkdirSync(poolDir, { recursive: true });
+
+    const timeEnvironment = defaultTimeEnvironment();
+    timeEnvironment.dayNightConfig.periods[0].label = "破晓";
+    timeEnvironment.seasonConfig.seasons[0].label = "新春";
+    timeEnvironment.weatherConfig.weatherTypes[0].label = "万里无云";
+    timeEnvironment.warmthComfortConfig.baselineTemp = 20;
+
+    writeYamlFile(join(poolDir, "time-environment.yaml"), timeEnvironment);
+
+    const pool = loadContentPoolFromDir(poolDir);
+    expect(pool.dayNightConfig.periods[0].label).toBe("破晓");
+    expect(pool.seasonConfig.seasons[0].label).toBe("新春");
+    expect(pool.weatherConfig.weatherTypes[0].label).toBe("万里无云");
+    expect(pool.warmthComfortConfig.baselineTemp).toBe(20);
+  });
+
+  it("loadContentPoolFromDir: malformed time-environment YAML 应被拒绝", () => {
+    const cases: Array<[string, (data: ReturnType<typeof defaultTimeEnvironment>) => void]> = [
+      ["invalid-hour", (data) => (data.dayNightConfig.periods[0].startHour = 24)],
+      ["invalid-month", (data) => (data.seasonConfig.seasons[0].months = [13])],
+      ["invalid-weight", (data) => (data.weatherConfig.weatherTypes[0].weight = -1)],
+      [
+        "invalid-multiplier",
+        (data) => (data.weatherConfig.weatherTypes[0].movementMultiplier = -1),
+      ],
+      [
+        "invalid-warmth-bounds",
+        (data) => {
+          data.warmthComfortConfig.minIdealWarmth = 10;
+          data.warmthComfortConfig.maxIdealWarmth = 5;
+        },
+      ],
+      [
+        "unknown-season-ref",
+        (data) => (data.weatherConfig.weatherTypes[0].availableInSeasons = ["monsoon"]),
+      ],
+    ];
+
+    for (const [name, mutate] of cases) {
+      const poolDir = join(TEST_DIR, "content-pool", name);
+      mkdirSync(poolDir, { recursive: true });
+      const timeEnvironment = defaultTimeEnvironment();
+      mutate(timeEnvironment);
+      writeYamlFile(join(poolDir, "time-environment.yaml"), timeEnvironment);
+      expect(() => loadContentPoolFromDir(poolDir), name).toThrow();
+    }
+  });
+
+  it("loadContentPoolFromDir: action duration minutes 应加载", () => {
+    const poolDir = join(TEST_DIR, "content-pool");
+    mkdirSync(poolDir, { recursive: true });
+    const defaults = createDefaultContentPool();
+    const actionEffects = structuredClone(defaults.actionEffects);
+    const talk = actionEffects.find((effect) => effect.action === "talk");
+    if (!talk) throw new Error("talk action not found");
+    talk.durationMinutes = 7;
+
+    writeYamlFile(join(poolDir, "needs-actions.yaml"), { actionEffects });
+
+    const pool = loadContentPoolFromDir(poolDir);
+    expect(pool.actionEffects.find((effect) => effect.action === "talk")?.durationMinutes).toBe(7);
+  });
+
+  it("loadContentPoolFromDir: baseline action durations match spec", () => {
+    const pool = loadContentPoolFromDir(join(import.meta.dirname, "../../worlds/content-pool"));
+
+    expect(pool.actionEffects.find((effect) => effect.action === "talk")?.durationMinutes).toBe(5);
+    expect(pool.actionEffects.find((effect) => effect.action === "move")?.durationMinutes).toBe(15);
+    expect(pool.actionEffects.find((effect) => effect.action === "mine_ore")?.durationMinutes).toBe(
+      120,
+    );
+    expect(
+      pool.actionEffects.find((effect) => effect.action === "guard_post")?.durationMinutes,
+    ).toBe(180);
+    expect(pool.actionEffects.find((effect) => effect.action === "sleep_at_inn")?.endsDay).toBe(
+      true,
+    );
+    expect(
+      pool.actionEffects.find((effect) => effect.action === "sleep_at_inn")?.durationMinutes,
+    ).toBeUndefined();
+    expect(pool.actionEffects.find((effect) => effect.action === "rest_at_camp")?.endsDay).toBe(
+      true,
+    );
+    expect(
+      pool.actionEffects.find((effect) => effect.action === "rest_at_camp")?.durationMinutes,
+    ).toBeUndefined();
+  });
+
+  it("loadContentPoolFromDir: malformed action duration minutes 应被拒绝", () => {
+    const cases: Array<[string, unknown]> = [
+      ["negative", -1],
+      ["fractional", 1.5],
+      ["non-numeric", "soon"],
+    ];
+
+    for (const [name, durationMinutes] of cases) {
+      const poolDir = join(TEST_DIR, "content-pool", name);
+      mkdirSync(poolDir, { recursive: true });
+      const actionEffects = structuredClone(createDefaultContentPool().actionEffects);
+      const talk = actionEffects.find((effect) => effect.action === "talk");
+      if (!talk) throw new Error("talk action not found");
+      (talk as unknown as { durationMinutes: unknown }).durationMinutes = durationMinutes;
+
+      writeYamlFile(join(poolDir, "needs-actions.yaml"), { actionEffects });
+
+      expect(() => loadContentPoolFromDir(poolDir), name).toThrow();
+    }
   });
 });
 
@@ -585,6 +707,42 @@ describe("writeEvolveDeltas", () => {
         pages: ["第一页", "第二页"],
       },
     ]);
+  });
+
+  it("time-environment replacement mutations 应应用、写回并可重新加载", () => {
+    const poolDir = join(TEST_DIR, "content-pool");
+    mkdirSync(join(poolDir, "evolve"), { recursive: true });
+
+    const pool = createDefaultContentPool();
+    const timeEnvironment = defaultTimeEnvironment();
+    timeEnvironment.dayNightConfig.periods[0].label = "黎明";
+    timeEnvironment.seasonConfig.seasons[0].label = "青阳";
+    timeEnvironment.weatherConfig.weatherTypes[0].label = "晴空";
+    timeEnvironment.warmthComfortConfig.baselineTemp = 21;
+
+    const mutation: ContentPoolMutation = {
+      replaceDayNightConfig: timeEnvironment.dayNightConfig,
+      replaceSeasonConfig: timeEnvironment.seasonConfig,
+      replaceWeatherConfig: timeEnvironment.weatherConfig,
+      replaceWarmthComfortConfig: timeEnvironment.warmthComfortConfig,
+    };
+
+    applyContentPoolMutation(pool, mutation);
+    writeEvolveDeltas(poolDir, mutation, pool);
+
+    const evolveData = parseYaml(
+      readFileSync(join(poolDir, "evolve", "time-environment.yaml"), "utf-8"),
+    );
+    expect(evolveData.dayNightConfig.periods[0].label).toBe("黎明");
+    expect(evolveData.seasonConfig.seasons[0].label).toBe("青阳");
+    expect(evolveData.weatherConfig.weatherTypes[0].label).toBe("晴空");
+    expect(evolveData.warmthComfortConfig.baselineTemp).toBe(21);
+
+    const loaded = loadContentPoolFromDir(poolDir);
+    expect(loaded.dayNightConfig.periods[0].label).toBe("黎明");
+    expect(loaded.seasonConfig.seasons[0].label).toBe("青阳");
+    expect(loaded.weatherConfig.weatherTypes[0].label).toBe("晴空");
+    expect(loaded.warmthComfortConfig.baselineTemp).toBe(21);
   });
 });
 

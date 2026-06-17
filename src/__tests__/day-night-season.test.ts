@@ -352,7 +352,8 @@ describe("advanceDay integration", () => {
     advanceDay(world);
 
     expect(world.time.day).toBe(initialDay + 1);
-    expect(world.tick).toBe(initialTick + 24);
+    expect(world.tick).toBe(initialTick + 24 * 60);
+    expect(world.time.minute).toBe(0);
     expect(world.time.hour).toBe(world.contentPool.calendar.hourStart);
   });
 
@@ -386,7 +387,7 @@ describe("advanceTime period sync", () => {
 
     // Move to a different hour that changes period
     world.time.hour = 20; // dusk range: 18-20
-    advanceTime(world); // hour becomes 21 → night
+    advanceTime(world, 60); // hour becomes 21 → night
 
     expect(world.time.period).toBe("night");
     // Weather should NOT have been rerolled (advanceTime doesn't touch weather)
@@ -401,21 +402,25 @@ describe("advanceTime period sync", () => {
   it("period changes from morning to afternoon across hour boundary", () => {
     const world = createWorld();
     world.time.hour = 11;
+    world.time.minute = 45;
 
-    advanceTime(world); // hour becomes 12
+    advanceTime(world, 15); // hour becomes 12
 
     expect(world.time.hour).toBe(12);
+    expect(world.time.minute).toBe(0);
     expect(world.time.period).toBe("afternoon");
   });
 
   it("hour wraps from 23 to 0 and day increments", () => {
     const world = createWorld();
     world.time.hour = 23;
+    world.time.minute = 50;
     world.time.day = 5;
 
-    advanceTime(world);
+    advanceTime(world, 15);
 
     expect(world.time.hour).toBe(0);
+    expect(world.time.minute).toBe(5);
     expect(world.time.day).toBe(6);
   });
 });

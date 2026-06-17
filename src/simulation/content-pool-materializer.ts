@@ -100,6 +100,26 @@ export function applyContentPoolMutation(
     log.push("更新日历");
   }
 
+  if (mutation.replaceDayNightConfig) {
+    pool.dayNightConfig = mutation.replaceDayNightConfig;
+    log.push("更新昼夜配置");
+  }
+
+  if (mutation.replaceSeasonConfig) {
+    pool.seasonConfig = mutation.replaceSeasonConfig;
+    log.push("更新季节配置");
+  }
+
+  if (mutation.replaceWeatherConfig) {
+    pool.weatherConfig = mutation.replaceWeatherConfig;
+    log.push("更新天气配置");
+  }
+
+  if (mutation.replaceWarmthComfortConfig) {
+    pool.warmthComfortConfig = mutation.replaceWarmthComfortConfig;
+    log.push("更新保暖舒适配置");
+  }
+
   if (mutation.replaceNeedLabels) {
     Object.assign(pool.needLabels, mutation.replaceNeedLabels);
     log.push("更新需求标签");

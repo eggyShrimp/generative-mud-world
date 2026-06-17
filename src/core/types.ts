@@ -10,8 +10,8 @@ export type RegionId = string;
 export type Tick = number;
 
 // 环境状态类型
-export type DayPeriod = "dawn" | "morning" | "afternoon" | "dusk" | "night";
-export type Season = "spring" | "summer" | "autumn" | "winter";
+export type DayPeriod = string;
+export type Season = string;
 export type WeatherId = string;
 
 export interface DayNightPeriodDef {
@@ -519,6 +519,7 @@ export interface Region {
 
 export interface GameTime {
   tick: Tick;
+  minute: number; // 0-59
   hour: number; // 0-23
   day: number;
   month: number;
@@ -658,10 +659,10 @@ export interface ContentPoolMutation {
   addCombatSkills?: CombatSkill[];
   replaceNarrativeTemplates?: Partial<NarrativeTemplates>;
   replaceCalendar?: Partial<CalendarConfig>;
-  replaceDayNightConfig?: Partial<DayNightConfig>;
-  replaceSeasonConfig?: Partial<SeasonConfig>;
-  replaceWeatherConfig?: Partial<WeatherConfig>;
-  replaceWarmthComfortConfig?: Partial<WarmthComfortConfig>;
+  replaceDayNightConfig?: DayNightConfig;
+  replaceSeasonConfig?: SeasonConfig;
+  replaceWeatherConfig?: WeatherConfig;
+  replaceWarmthComfortConfig?: WarmthComfortConfig;
   replaceNeedLabels?: Record<string, string>;
   replaceTraitLabels?: Record<string, string>;
   replaceItemPropertyLabels?: Record<string, string>;
@@ -826,6 +827,7 @@ export interface ActionEffect {
   itemCosts?: Record<string, number>; // { copper_coin: 3 } — 消耗物品 (templateId → qty)
   itemDeltas?: Record<string, number>; // { iron_ore: 1 } — 产出物品 (templateId → qty)
   endsDay?: boolean; // true → 执行此操作会结束当天（如 sleep_at_inn, rest_at_camp）
+  durationMinutes?: number; // 行动消耗的世界时间；结束当天/信息命令不设置
 }
 
 export interface ItemTemplate {
