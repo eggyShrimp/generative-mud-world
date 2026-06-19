@@ -441,15 +441,57 @@ const { stringify } = require("yaml");
 
 | 文件 | 行数 | 问题 | 拆分建议 |
 |------|------|------|----------|
-| `core/world.ts` | 1112 | 职责混杂 | 拆为 entity-ops.ts + delta-application.ts + defaults.ts |
-| `engine/command-executor.ts` | 1119 | 一个文件包含所有命令 | 按命令类别拆分：move.ts, combat.ts, dialogue.ts, item.ts |
-| `llm/dialogue-generator.ts` | 547 | 可拆分 | 拆为 prompt-builder.ts + tool-processor.ts |
-| `server/ws-server.ts` | 500+ | 负责过多 | 拆为 session-manager.ts + state-pusher.ts + minimap.ts |
-| `client-tui/app.tsx` | 1800+ | TUI 状态、渲染、面板混杂 | 拆为 panels/、layout/、state hooks |
+| `core/world.ts` | 1755 | 职责混杂（实体 CRUD + applyDelta + 时间推进 + 天气 + 发现） | 拆为 entity-ops.ts + delta-application.ts + defaults.ts |
+| `engine/command-executor.ts` | 1628 | 一个 switch 覆盖所有 20 个命令 | 按命令类别拆分：move.ts, combat.ts, dialogue.ts, item.ts |
+| `llm/dialogue-generator.ts` | 2201 | 对话菜单 + quest 协商 + 交易 + 闲聊 + functional 全在一个文件 | 按交互类型拆分：quest-dialogue.ts + trade-dialogue.ts + chat-dialogue.ts + functional-dialogue.ts |
+| `server/ws-server.ts` | 1085 | 负责过多 | 拆为 session-manager.ts + state-pusher.ts + minimap.ts |
+| `tui/client/game-client.ts` | 1142 | WS 生命周期 + 状态管理 + 所有消息处理 | 拆为 ws-transport.ts + state-handlers.ts |
+| `core/types.ts` | 1014 | 所有领域类型定义集中在一个文件 | 拆为 entity-types.ts + quest-types.ts + delta-types.ts + content-pool-types.ts |
 
 ### 20. 循环依赖风险
 
 `src/simulation/index.ts` 中的 `checkNpcAggression()` 使用内联 `import("../core/types.ts")` 进行类型转换 — 存在潜在的运行时循环导入风险。
+
+### 21. 跨层违规：llm/ 和 simulation/ 直接依赖 engine/quest-tracker
+
+#### 位置
+
+| 文件 | 导入函数 | 问题 |
+|------|---------|------|
+| `llm/dialogue-generator.ts` | `resolveQuestAccept`, `checkPrerequisites`, `collectSubQuestIds` | LLM 层不应引入引擎层内部函数 |
+| `simulation/storyline-engine.ts` | `resolveQuestAccept` | 模拟层不应依赖引擎层 |
+
+#### 本质
+
+`resolveQuestAccept`、`checkPrerequisites`、`collectSubQuestIds` 是纯函数（无 I/O、无副作用），操作 ContentPool 和 WorldState 类型。它们的定位应该在 `core/` 层（领域工具函数），而不是 `engine/` 层。
+
+#### 修复方向
+
+- 方案 A：将这三个函数迁移到 `core/` 下的 `core/quest-utils.ts`
+- 方案 B：在 quest-tracker 中导出一个查询 API（如 `getQuestInteractionsForEntity()`），上层通过 API 获取信息，不直接调用内部函数
+
+### 22. Quest 目标检测系统设计债
+
+#### 问题
+
+`QuestObjective.type` 硬编码为 5 种枚举（`"explore" | "collect" | "talk" | "deliver" | "fetch"`），分别在三层硬编码：
+
+| 层 | 文件 | 位置 |
+|----|------|------|
+| 类型定义 | `core/types.ts:362` | `type: "explore" \| "collect" \| ...` |
+| Schema 校验 | `core/schemas/content-pool.ts:317` | `z.enum(["explore", "collect", ...])` |
+| 检测逻辑 | `engine/quest-tracker.ts:379,490,557` | 3 个 switch-case |
+
+每加一种目标类型（如 `defeat`、`travel`、`survive`）需要改 3 处。
+
+#### 关联问题
+
+- `evaluateQuestImpacts()` 接收 `action`/`targetId` 命令层参数，quest 检测逻辑和命令层概念耦合
+- 对话系统无法发现"当前 NPC 是哪个活跃任务的目标"，导致中间 talk objective（如千佛暗码中向张校尉求证）在对话中无任务相关选项
+
+#### 修复方向
+
+→ 详见 spec: `docs/specs/quest-evaluator-registry.md`
 
 ---
 
@@ -516,11 +558,15 @@ const { stringify } = require("yaml");
 - [x] 9b-中危. ws-server.ts `getExitMask()` / 回退名 从 ContentPool 读取（`directionNames` + `spectatorFallbackName`）
 
 ### P3 — 优化项
-- [ ] 19. 拆分大文件
+- [ ] 19. 拆分大文件（详见 #19 文件体积热点表）
 - [ ] 20. 消解循环依赖风险
 - [x] 17. 修复 `shouldFlee()` 使用 config 参数
 - [ ] 18. 修复 ESM/CJS 混用
 - [ ] 给 `types.ts` 中所有导出接口添加 JSDoc
+
+### P4 — 架构债
+- [ ] 21. 跨层违规：将 `resolveQuestAccept`/`checkPrerequisites`/`collectSubQuestIds` 从 `engine/` 迁移到 `core/`
+- [ ] 22. Quest 目标检测系统重构（→ spec: `quest-evaluator-registry.md`）
 
 ---
 
@@ -541,3 +587,5 @@ const { stringify } = require("yaml");
 | 12 | `src/__tests__/round-engine.test.ts` | 测试质量 |
 | 14 | `src/core/pathfinding.ts` | 代码健壮性 |
 | 15 | `src/simulation/name-generator.ts` | 边界处理 |
+| 21 | `llm/dialogue-generator.ts`, `simulation/storyline-engine.ts` | 跨层违规 |
+| 22 | `types.ts`, `schema.ts`, `quest-tracker.ts`, `quests.yaml` | 设计债 |

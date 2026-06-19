@@ -8,8 +8,18 @@ const TPL_HERB: QuestTemplate = {
   description: "老马需要几种稀有药草来配制解毒剂。",
   giverNpcId: "npc_tavern_keeper",
   objectives: [
-    { groupId: 0, type: "collect", targetId: "item_qinghao", count: 1, description: "收集青蒿" },
-    { groupId: 0, type: "collect", targetId: "item_fuling", count: 1, description: "收集茯苓" },
+    {
+      groupId: 0,
+      condition: { type: "player_has_item", target: { kind: "item", id: "item_qinghao" } },
+      count: 1,
+      description: "收集青蒿",
+    },
+    {
+      groupId: 0,
+      condition: { type: "player_has_item", target: { kind: "item", id: "item_fuling" } },
+      count: 1,
+      description: "收集茯苓",
+    },
   ],
   rewards: {
     traitModifiers: [{ trait: "compassion", delta: 5 }],
@@ -25,7 +35,12 @@ const TPL_EXPLORE: QuestTemplate = {
   description: "有人在废弃哨塔附近看到了奇怪的灯光。",
   giverNpcId: null,
   objectives: [
-    { groupId: 0, type: "explore", targetId: "room_ruins", count: 1, description: "前往废弃哨塔" },
+    {
+      groupId: 0,
+      condition: { type: "player_reached_room", target: { kind: "room", id: "room_ruins" } },
+      count: 1,
+      description: "前往废弃哨塔",
+    },
   ],
   rewards: { narrative: "你在废墟中找到了一盏还在燃烧的油灯。" },
   repeatable: false,
@@ -40,15 +55,13 @@ const TPL_MULTI_GROUP: QuestTemplate = {
   objectives: [
     {
       groupId: 0,
-      type: "collect",
-      targetId: "item_missing_sword",
+      condition: { type: "player_has_item", target: { kind: "item", id: "item_missing_sword" } },
       count: 1,
       description: "找到铁匠丢失的剑",
     },
     {
       groupId: 1,
-      type: "talk",
-      targetId: "npc_blacksmith",
+      condition: { type: "player_talked_to_npc", target: { kind: "npc", id: "npc_blacksmith" } },
       count: 1,
       description: "回去和铁匠老陈谈谈",
     },
@@ -105,7 +118,7 @@ describe("enrichQuests", () => {
     expect(objectives).toHaveLength(2);
     expect(objectives[0]).toEqual({
       groupId: 0,
-      type: "collect",
+      type: "player_has_item",
       count: 1,
       current: 1,
       description: "收集青蒿",
@@ -113,7 +126,7 @@ describe("enrichQuests", () => {
     });
     expect(objectives[1]).toEqual({
       groupId: 0,
-      type: "collect",
+      type: "player_has_item",
       count: 1,
       current: 0,
       description: "收集茯苓",

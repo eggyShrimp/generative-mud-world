@@ -181,17 +181,25 @@ export interface Capability {
 export type DialogueOptionType =
   | "quest_trigger_menu"
   | "quest_trigger_select"
+  | "quest_defer"
   | "quest_deliver_menu"
   | "quest_deliver_select"
+  | "quest_talk_menu"
   | "functional_menu"
   | "functional_select"
   | "idle_chat"
   | "close";
 
+export type DialogueOptionBehavior =
+  | { kind: "continue"; expects: "chat_options" }
+  | { kind: "close" }
+  | { kind: "stay"; expects?: "none" };
+
 export interface DialogueOption {
   id: string;
   label: string;
   type: DialogueOptionType;
+  behavior?: DialogueOptionBehavior;
   tag?: string;
   meta?: Record<string, unknown>;
   expectedEffects?: {

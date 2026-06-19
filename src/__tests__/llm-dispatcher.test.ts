@@ -236,8 +236,10 @@ describe("InteractionDispatcher content pool evolve", () => {
         objectives: [
           {
             groupId: 0,
-            type: "talk",
-            targetId: "npc_monk_faxian",
+            condition: {
+              type: "player_talked_to_npc",
+              target: { kind: "npc", id: "npc_monk_faxian" },
+            },
             count: 1,
             description: "听法显讲述",
           },

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { collectSubQuestIds, resolveQuestAccept } from "../core/quest-utils.ts";
 import type { PlayerEntity, QuestTemplate, WorldState } from "../core/types.ts";
 import {
   addEntity,
@@ -9,11 +10,7 @@ import {
   createRoom,
   createWorld,
 } from "../core/world.ts";
-import {
-  checkQuestProgress,
-  collectSubQuestIds,
-  resolveQuestAccept,
-} from "../engine/quest-tracker.ts";
+import { checkQuestProgress } from "../engine/quest-tracker.ts";
 import { checkStageCompletion, checkTrigger } from "../simulation/storyline-engine.ts";
 
 // ─── Fixtures ─────────────────────────────────────────────
@@ -35,7 +32,12 @@ const QUEST_A: QuestTemplate = {
   description: "子任务A",
   giverNpcId: null,
   objectives: [
-    { groupId: 0, type: "talk", targetId: "npc_hunter", count: 1, description: "与猎人交谈" },
+    {
+      groupId: 0,
+      condition: { type: "player_talked_to_npc", target: { kind: "npc", id: "npc_hunter" } },
+      count: 1,
+      description: "与猎人交谈",
+    },
   ],
   rewards: {},
   repeatable: false,
@@ -48,7 +50,12 @@ const QUEST_B: QuestTemplate = {
   description: "子任务B",
   giverNpcId: null,
   objectives: [
-    { groupId: 0, type: "talk", targetId: "npc_lao_ma", count: 1, description: "与老马交谈" },
+    {
+      groupId: 0,
+      condition: { type: "player_talked_to_npc", target: { kind: "npc", id: "npc_lao_ma" } },
+      count: 1,
+      description: "与老马交谈",
+    },
   ],
   rewards: { narrative: "剧情完结" },
   repeatable: false,
@@ -547,7 +554,12 @@ describe("多剧情并行", () => {
       description: "子任务X",
       giverNpcId: null,
       objectives: [
-        { groupId: 0, type: "talk", targetId: "npc_x", count: 1, description: "与X交谈" },
+        {
+          groupId: 0,
+          condition: { type: "player_talked_to_npc", target: { kind: "npc", id: "npc_x" } },
+          count: 1,
+          description: "与X交谈",
+        },
       ],
       rewards: {},
       repeatable: false,
@@ -751,7 +763,12 @@ describe("集成：ContentPool YAML 加载", () => {
       description: "测试",
       giverNpcId: "npc_test",
       objectives: [
-        { groupId: 0, type: "talk", targetId: "npc_test", count: 1, description: "对话" },
+        {
+          groupId: 0,
+          condition: { type: "player_talked_to_npc", target: { kind: "npc", id: "npc_test" } },
+          count: 1,
+          description: "对话",
+        },
       ],
       rewards: {},
       repeatable: false,

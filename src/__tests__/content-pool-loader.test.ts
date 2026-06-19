@@ -584,7 +584,12 @@ describe("writeEvolveDeltas", () => {
           description: "一个测试任务",
           giverNpcId: "npc_test",
           objectives: [
-            { groupId: 0, type: "explore", targetId: "room_test", count: 1, description: "探索" },
+            {
+              groupId: 0,
+              condition: { type: "player_reached_room", target: { kind: "room", id: "room_test" } },
+              count: 1,
+              description: "探索",
+            },
           ],
           rewards: { narrative: "完成了" },
           repeatable: false,
@@ -616,7 +621,12 @@ describe("writeEvolveDeltas", () => {
         description: "LLM 演化的任务",
         giverNpcId: null,
         objectives: [
-          { groupId: 0, type: "talk", targetId: "npc_test", count: 1, description: "对话" },
+          {
+            groupId: 0,
+            condition: { type: "player_talked_to_npc", target: { kind: "npc", id: "npc_test" } },
+            count: 1,
+            description: "对话",
+          },
         ],
         rewards: {},
         repeatable: false,

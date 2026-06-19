@@ -411,6 +411,14 @@ function executeMove(
         delta: restCost,
       },
     ],
+    questObjectiveEvents: [
+      {
+        type: "player_reached_room",
+        tick: world.tick,
+        actorId: entityId,
+        data: { roomId: exit.to },
+      },
+    ],
   };
 
   // 移动叙事 (使用边的 description 或默认模板)
@@ -468,7 +476,7 @@ function executeLook(
           }),
         },
       ],
-      delta: buildDelta(entityId, world.contentPool, "look"),
+      delta: buildDelta(world, entityId, "look"),
       ended: false,
     };
   }
@@ -498,7 +506,7 @@ function executeLook(
           }),
         },
       ],
-      delta: buildDelta(entityId, world.contentPool, "look"),
+      delta: buildDelta(world, entityId, "look"),
       ended: false,
     };
   }
@@ -527,14 +535,28 @@ function executeTalk(
   if (typeof params.optionId === "string" && params.optionId.length > 0) {
     return {
       events: [],
-      delta: buildDelta(entityId, world.contentPool, "talk"),
+      delta: {
+        ...buildDelta(world, entityId, "talk"),
+        questObjectiveEvents: [
+          {
+            type: "player_talked_to_npc",
+            tick: world.tick,
+            actorId: entityId,
+            data: {
+              npcId,
+              optionId: params.optionId,
+              optionType: params.optionType,
+            },
+          },
+        ],
+      },
       ended: false,
     };
   }
 
   return {
     events: [],
-    delta: buildDelta(entityId, world.contentPool, "talk"),
+    delta: buildDelta(world, entityId, "talk"),
     ended: false,
     needsDialogueOptions: { npcId: npc.id, npcName: npc.name },
   };
@@ -577,6 +599,14 @@ function executeTake(
           qty: 1,
           itemId,
           name: item.name,
+        },
+      ],
+      questObjectiveEvents: [
+        {
+          type: "player_acquired_item",
+          tick: world.tick,
+          actorId: entityId,
+          data: { itemId, templateId: item.templateId, qty: 1 },
         },
       ],
     },
@@ -775,7 +805,7 @@ function executeOperate(
 }
 
 function executeRest(world: WorldState, entityId: EntityId): CommandResult {
-  const delta = buildDelta(entityId, world.contentPool, "rest");
+  const delta = buildDelta(world, entityId, "rest");
   return {
     events: [{ type: "rest", description: commandMessages(world).rest }],
     delta,
@@ -800,7 +830,7 @@ function executeWait(
 
   return {
     events: [{ type: "wait", description: desc }],
-    delta: buildDelta(entityId, world.contentPool, "wait"),
+    delta: buildDelta(world, entityId, "wait"),
     ended: false,
   };
 }
@@ -886,7 +916,7 @@ function executeSay(
         }),
       },
     ],
-    delta: buildDelta(entityId, world.contentPool, "say"),
+    delta: buildDelta(world, entityId, "say"),
     ended: false,
   };
 }
@@ -1413,8 +1443,15 @@ function fail(message: string): CommandResult {
   };
 }
 
-function buildDelta(entityId: EntityId, pool: ContentPool, action: string): SimulationDelta {
-  return resolveActionEffect(entityId, pool, action);
+function buildDelta(world: WorldState, entityId: EntityId, action: string): SimulationDelta {
+  const delta = resolveActionEffect(entityId, world.contentPool, action);
+  if (delta.questObjectiveEvents?.length) {
+    delta.questObjectiveEvents = delta.questObjectiveEvents.map((event) => ({
+      ...event,
+      tick: world.tick,
+    }));
+  }
+  return delta;
 }
 
 /**
@@ -1452,6 +1489,15 @@ export function resolveActionEffect(
   const delta: SimulationDelta = {};
   if (needChanges.length > 0) delta.needChanges = needChanges;
   if (itemChanges.length > 0) delta.itemChanges = itemChanges;
+  const acquiredItems = itemChanges.filter((change) => change.operation === "add");
+  if (acquiredItems.length > 0) {
+    delta.questObjectiveEvents = acquiredItems.map((change) => ({
+      type: "player_acquired_item",
+      tick: 0,
+      actorId: entityId,
+      data: { itemId: change.itemId, templateId: change.templateId, qty: change.qty },
+    }));
+  }
   return delta;
 }
 

@@ -261,13 +261,7 @@ export class RoundEngine {
     }
 
     // 任务进度评估
-    const questDelta = evaluateQuestImpacts(
-      this.world,
-      playerId,
-      loopResult.delta,
-      action,
-      extractTargetId(params),
-    );
+    const questDelta = evaluateQuestImpacts(this.world, playerId, loopResult.delta);
     if (questDelta) {
       applyDelta(this.world, questDelta);
       const needLabel = (nt: string) => this.world.contentPool.needLabels[nt] ?? nt;

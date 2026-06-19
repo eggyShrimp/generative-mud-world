@@ -5,12 +5,13 @@
  * 纯规则层，不调 LLM。
  */
 
+import { getQuestObjectiveDefinition } from "../core/quest-objective-registry.ts";
+import { checkPrerequisites } from "../core/quest-utils.ts";
 import { renderTemplate } from "../core/template.ts";
 import type {
   EntityId,
   PlayerEntity,
   QuestObjective,
-  QuestPrerequisite,
   SimulationDelta,
   WorldState,
 } from "../core/types.ts";
@@ -31,8 +32,6 @@ export function evaluateQuestImpacts(
   world: WorldState,
   actorId: EntityId,
   delta: SimulationDelta,
-  action?: string,
-  targetId?: EntityId,
 ): SimulationDelta | null {
   const player = getEntity<PlayerEntity>(world, actorId);
   if (player?.type !== "player") return null;
@@ -53,7 +52,7 @@ export function evaluateQuestImpacts(
       if (wouldBeGroupCompleted[obj.groupId]) continue;
 
       const previous = quest.objectiveProgress[i] ?? 0;
-      const current = evaluateObjectiveFromDelta(world, player, obj, delta, action, targetId);
+      const current = evaluateObjectiveFromDelta(world, player, obj, delta);
       if (current <= previous) continue;
 
       result.questChanges = result.questChanges ?? [];
@@ -224,150 +223,6 @@ export function checkQuestProgress(world: WorldState, playerId?: EntityId): Simu
   return delta.questChanges ? delta : null;
 }
 
-/**
- * 检查前置条件是否满足
- */
-export function checkPrerequisites(
-  completedQuests: string[],
-  prerequisites: string | QuestPrerequisite,
-): boolean {
-  if (typeof prerequisites === "string") {
-    return completedQuests.includes(prerequisites);
-  }
-  const results = prerequisites.conditions.map((c) => checkPrerequisites(completedQuests, c));
-  return prerequisites.logic === "and" ? results.every(Boolean) : results.some(Boolean);
-}
-
-/**
- * 收集所有被 storyline（有 stages 的 quest）引用的子 quest ID。
- * 用于 availableQuests 构建时排除子 quest（它们只能通过 storyline stage 激活）。
- */
-export function collectSubQuestIds(pool: WorldState["contentPool"]): Set<string> {
-  const ids = new Set<string>();
-  for (const t of pool.questTemplates) {
-    if (!t.stages) continue;
-    for (const stage of t.stages) {
-      for (const qid of stage.questIds) {
-        ids.add(qid);
-      }
-    }
-  }
-  return ids;
-}
-
-/**
- * 预解析阶段：验证 template 引用实体的有效性，按模板形态展开 delta。
- *
- * - 有 stages 的模板（剧情）：创建 StorylineState，展开 stage 0 的子 quest
- * - 无 stages 的模板（普通任务）：直接发 QuestChange:accept
- *
- * 调用方负责将返回的 delta 传给 applyDelta。
- */
-export function resolveQuestAccept(
-  world: WorldState,
-  playerId: EntityId,
-  templateId: string,
-): { success: boolean; delta: SimulationDelta | null; warnings: string[] } {
-  const player = getEntity<PlayerEntity>(world, playerId);
-  if (!player) return { success: false, delta: null, warnings: ["player not found"] };
-
-  const pool = world.contentPool;
-  const template = pool.questTemplates.find((t) => t.id === templateId);
-  if (!template)
-    return { success: false, delta: null, warnings: [`template ${templateId} not found`] };
-
-  // 去重检查
-  if (!template.repeatable) {
-    if (
-      world.completedStorylines.includes(templateId) ||
-      player.completedQuests.includes(templateId)
-    ) {
-      return { success: true, delta: null, warnings: [] };
-    }
-    if (player.activeStorylines.some((s) => s.storylineId === templateId)) {
-      return { success: true, delta: null, warnings: [] };
-    }
-  }
-
-  // Stale reference 验证
-  const warnings: string[] = [];
-  const invalidatedQuestIds = new Set<string>();
-
-  if (template.stages) {
-    for (const stage of template.stages) {
-      for (const qid of stage.questIds) {
-        if (invalidatedQuestIds.has(qid)) continue;
-
-        const subQuest = pool.questTemplates.find((t) => t.id === qid);
-        if (!subQuest) {
-          invalidatedQuestIds.add(qid);
-          warnings.push(`子任务 ${qid} 模板不存在`);
-          continue;
-        }
-
-        const allObjectivesInvalid = subQuest.objectives.every(
-          (obj) => !isObjectiveReachable(world, obj),
-        );
-        if (allObjectivesInvalid && subQuest.objectives.length > 0) {
-          invalidatedQuestIds.add(qid);
-          warnings.push(`子任务 ${qid} 的所有目标已不可达`);
-        }
-      }
-    }
-  } else {
-    const allInvalid = template.objectives.every((obj) => !isObjectiveReachable(world, obj));
-    if (allInvalid && template.objectives.length > 0) {
-      return {
-        success: false,
-        delta: null,
-        warnings: [`任务 ${templateId} 的所有目标已不可达`],
-      };
-    }
-  }
-
-  const delta: SimulationDelta = { questChanges: [] };
-
-  if (template.stages) {
-    const stage0 = template.stages[0];
-    const validStage0QuestIds = stage0.questIds.filter((qid) => !invalidatedQuestIds.has(qid));
-
-    player.activeStorylines.push({
-      storylineId: templateId,
-      currentStage: 0,
-      activeQuestIdsOfCurrentStage: validStage0QuestIds,
-      startedAt: world.time.tick,
-    });
-
-    for (const qid of validStage0QuestIds) {
-      delta.questChanges?.push({ type: "accept", playerId, templateId: qid });
-    }
-
-    if ((delta.questChanges?.length ?? 0) > 0) {
-      delta.worldEvents = [
-        {
-          id: `storyline_${playerId}_${templateId}_${world.tick}`,
-          type: "storyline_triggered",
-          title: template.title,
-          description: template.description,
-          scope: "global",
-          tick: world.tick,
-          source: "simulation",
-          data: { storylineId: templateId, playerId },
-        },
-      ];
-      logWrite("srv", "info", `[QuestTracker] 激活剧情: ${templateId}`);
-    }
-  } else {
-    delta.questChanges?.push({ type: "accept", playerId, templateId: template.id });
-  }
-
-  return {
-    success: true,
-    delta: (delta.questChanges?.length ?? 0) > 0 ? delta : null,
-    warnings,
-  };
-}
-
 // ─── 内部函数 ─────────────────────────────────────────
 
 function checkObjective(
@@ -376,38 +231,12 @@ function checkObjective(
   obj: QuestObjective,
   _previousCount: number,
 ): number {
-  switch (obj.type) {
-    case "explore":
-      return player.knownRooms.includes(obj.targetId) || player.roomId === obj.targetId ? 1 : 0;
-    case "collect": {
-      const count = player.inventory.filter(
-        (i) => i.id === obj.targetId || i.id.startsWith(`${obj.targetId}_`),
-      ).length;
-      return count;
-    }
-    case "talk": {
-      const hasTalked = player.memories.some(
-        (m) =>
-          m.type === "conversation" &&
-          m.entityIds?.includes(obj.targetId) &&
-          m.tick > world.tick - 100,
-      );
-      return hasTalked ? 1 : 0;
-    }
-    case "deliver": {
-      const npc = world.entities.get(obj.targetId);
-      if (npc?.type !== "npc") return 0;
-      return player.roomId === npc.roomId ? 1 : 0;
-    }
-    case "fetch": {
-      const count = player.inventory.filter(
-        (i) => i.id === obj.targetId || i.id.startsWith(`${obj.targetId}_`),
-      ).length;
-      return count;
-    }
-    default:
-      return 0;
+  const definition = getQuestObjectiveDefinition(obj.condition.type);
+  if (!definition) {
+    logWrite("srv", "warn", `[QuestTracker] 未知任务目标类型: ${obj.condition.type}`);
+    return 0;
   }
+  return definition.evaluateFromWorld({ world, player, condition: obj.condition });
 }
 
 function checkAutoDiscover(world: WorldState, player: PlayerEntity, delta: SimulationDelta): void {
@@ -484,89 +313,18 @@ function evaluateObjectiveFromDelta(
   player: PlayerEntity,
   obj: QuestObjective,
   delta: SimulationDelta,
-  action?: string,
-  targetId?: EntityId,
 ): number {
-  switch (obj.type) {
-    case "collect":
-    case "fetch": {
-      // 1. 直接查背包（exchange_item give 方向已直接写入 inventory）
-      const inInventory = player.inventory.filter(
-        (i) => i.id === obj.targetId || i.id.startsWith(`${obj.targetId}_`),
-      ).length;
-      if (inInventory > 0) return inInventory;
-
-      // 2. 检查 delta 中的 item_exchange 事件（receive 方向：玩家把物品给了 NPC）
-      //    物品已离开背包，但事件记录了这次交付
-      for (const event of delta.worldEvents ?? []) {
-        if (event.type !== "item_exchange") continue;
-        const data = event.data as {
-          direction?: string;
-          item?: string;
-          itemId?: string;
-          transferred?: boolean;
-        };
-        if (data.direction !== "receive" || !data.transferred) continue;
-        // 优先用 itemId 精确匹配，兜底用 display name 匹配
-        if (
-          data.itemId &&
-          (data.itemId === obj.targetId || data.itemId.startsWith(`${obj.targetId}_`))
-        ) {
-          return 1;
-        }
-        if (
-          !data.itemId &&
-          data.item &&
-          (obj.description.includes(data.item) ||
-            data.item.includes(obj.description.replace(/^(获得|持有|收集)/, "")))
-        ) {
-          return 1;
-        }
-      }
-      return 0;
-    }
-
-    case "talk": {
-      // 当前行为就是 talk 到目标 NPC
-      if (action === "talk" && targetId === obj.targetId) return 1;
-      return 0;
-    }
-
-    case "explore": {
-      if (player.roomId === obj.targetId || player.knownRooms.includes(obj.targetId)) {
-        return 1;
-      }
-      if (delta.revealRooms?.some((r) => r.roomId === obj.targetId)) {
-        return 1;
-      }
-      return 0;
-    }
-
-    case "deliver": {
-      const npc = world.entities.get(obj.targetId);
-      if (npc?.type !== "npc") return 0;
-      return player.roomId === npc.roomId ? 1 : 0;
-    }
-
-    default:
-      return 0;
+  const definition = getQuestObjectiveDefinition(obj.condition.type);
+  if (!definition) {
+    logWrite("srv", "warn", `[QuestTracker] 未知任务目标类型: ${obj.condition.type}`);
+    return 0;
   }
-}
-
-function isObjectiveReachable(world: WorldState, obj: QuestObjective): boolean {
-  switch (obj.type) {
-    case "talk":
-    case "deliver": {
-      const entity = world.entities.get(obj.targetId);
-      return entity?.type === "npc";
-    }
-    case "explore": {
-      return world.rooms.has(obj.targetId);
-    }
-    case "collect":
-    case "fetch":
-      return true;
-    default:
-      return true;
-  }
+  const fromEvent = definition.evaluateFromEvent({
+    world,
+    player,
+    condition: obj.condition,
+    delta,
+  });
+  if (fromEvent > 0) return fromEvent;
+  return definition.evaluateFromWorld({ world, player, condition: obj.condition });
 }

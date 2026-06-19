@@ -68,6 +68,12 @@ export function composeDeltas(...deltas: SimulationDelta[]): SimulationDelta {
         ...delta.discoverableChanges,
       ];
     }
+    if (delta.questObjectiveEvents?.length) {
+      result.questObjectiveEvents = [
+        ...(result.questObjectiveEvents ?? []),
+        ...delta.questObjectiveEvents,
+      ];
+    }
   }
 
   return result;
@@ -106,7 +112,8 @@ function isEmptyDelta(delta: SimulationDelta): boolean {
     !delta.itemChanges?.length &&
     !delta.revealRooms?.length &&
     !delta.knownClueChanges?.length &&
-    !delta.discoverableChanges?.length
+    !delta.discoverableChanges?.length &&
+    !delta.questObjectiveEvents?.length
   );
 }
 

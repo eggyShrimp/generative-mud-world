@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { validateQuestObjectiveCondition } from "../quest-objective-registry.ts";
 
 // needDefinitions
 export const NeedDefinitionSchema = z.object({
@@ -312,13 +313,33 @@ export const ConversationDirectionSchema = z.object({
 });
 
 // questTemplates
-export const QuestObjectiveSchema = z.object({
-  groupId: z.number().int().min(0),
-  type: z.enum(["explore", "collect", "talk", "deliver", "fetch"]),
-  targetId: z.string().min(1),
-  count: z.number().int().min(1),
-  description: z.string(),
+export const QuestObjectiveConditionSchema = z.object({
+  type: z.string().min(1),
+  target: z
+    .object({
+      kind: z.enum(["npc", "room", "item", "entity", "none"]),
+      id: z.string().min(1).optional(),
+    })
+    .optional(),
+  params: z.record(z.string(), z.unknown()).optional(),
 });
+
+export const QuestObjectiveSchema = z
+  .object({
+    groupId: z.number().int().min(0),
+    condition: QuestObjectiveConditionSchema,
+    count: z.number().int().min(1),
+    description: z.string(),
+  })
+  .superRefine((objective, ctx) => {
+    for (const message of validateQuestObjectiveCondition(objective.condition)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message,
+        path: ["condition"],
+      });
+    }
+  });
 
 export const QuestRewardSchema = z.object({
   narrative: z.string().optional(),

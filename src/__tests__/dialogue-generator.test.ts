@@ -139,6 +139,7 @@ describe("DialogueGenerator.generateFixedChatMenu", () => {
     const func = options.find((o) => o.type === "functional_menu");
     expect(func).toBeDefined();
     expect(func!.label).toBe("酒馆老板");
+    expect(func!.behavior).toEqual({ kind: "continue", expects: "chat_options" });
   });
 
   it("NPC 无 tags → 不含 functional_menu", () => {
@@ -189,18 +190,21 @@ describe("DialogueGenerator.generateFixedChatMenu", () => {
         id: "chat:personal_story",
         label: "法显，你为何踏上这条路？",
         type: "idle_chat",
+        behavior: { kind: "continue", expects: "chat_options" },
         meta: { directionKey: "personal_story" },
       },
       {
         id: "chat:world_rumor",
         label: "最近敦煌可有什么传闻？",
         type: "idle_chat",
+        behavior: { kind: "continue", expects: "chat_options" },
         meta: { directionKey: "world_rumor" },
       },
       {
         id: "chat:freeform",
         label: "你怎么看这座莫高窟？",
         type: "idle_chat",
+        behavior: { kind: "continue", expects: "chat_options" },
         meta: { freeform: true },
       },
     ]);
@@ -245,7 +249,12 @@ describe("DialogueGenerator.generateFixedChatMenu", () => {
         description: "老马需要帮助",
         giverNpcId: "npc1",
         objectives: [
-          { groupId: 0, type: "talk", targetId: "npc1", count: 1, description: "找老马谈谈" },
+          {
+            groupId: 0,
+            condition: { type: "player_talked_to_npc", target: { kind: "npc", id: "npc1" } },
+            count: 1,
+            description: "找老马谈谈",
+          },
         ],
         rewards: {},
         repeatable: false,
@@ -288,7 +297,12 @@ describe("DialogueGenerator.generateFixedChatMenu", () => {
         description: "法显需要玩家帮忙核实壁画后的线索",
         giverNpcId: "npc1",
         objectives: [
-          { groupId: 0, type: "talk", targetId: "npc1", count: 1, description: "听法显讲述暗码" },
+          {
+            groupId: 0,
+            condition: { type: "player_talked_to_npc", target: { kind: "npc", id: "npc1" } },
+            count: 1,
+            description: "听法显讲述暗码",
+          },
         ],
         rewards: {},
         repeatable: false,
@@ -316,6 +330,7 @@ describe("DialogueGenerator.generateFixedChatMenu", () => {
       id: "menu:quest_trigger__q_faxian_cipher",
       label: "法显，壁画后藏着什么？",
       type: "quest_trigger_menu",
+      behavior: { kind: "continue", expects: "chat_options" },
       tag: "quest",
       meta: { directionKey: "quest_trigger__q_faxian_cipher" },
     });
@@ -324,6 +339,81 @@ describe("DialogueGenerator.generateFixedChatMenu", () => {
     expect(player.inventory).toEqual(before.inventory);
     expect(player.relations).toEqual(before.relations);
     expect(player.activeStorylines).toEqual(before.activeStorylines);
+  });
+
+  it("任务场景首轮所有类型选项合计不超过 4 条", async () => {
+    const world = setupWorld({ npcTags: ["tavern_keeper"] });
+    world.contentPool.questTemplates = [
+      {
+        id: "q_faxian_cipher",
+        title: "千佛暗码",
+        description: "法显需要玩家帮忙核实壁画后的线索",
+        giverNpcId: "npc1",
+        objectives: [],
+        rewards: {},
+        repeatable: false,
+        deadlineDays: null,
+      },
+    ];
+    const adapter = mockAdapter(
+      JSON.stringify({
+        options: [
+          { key: "personal_story", label: "你为何留在这里？" },
+          { key: "world_rumor", label: "最近有什么传闻？" },
+          { key: "quest_trigger__q_faxian_cipher", label: "法显，壁画后藏着什么？" },
+          { key: "freeform", label: "你怎么看这座洞窟？" },
+        ],
+      }),
+    );
+
+    const options = await new DialogueGenerator(adapter, mockSaveManager()).generateChatMenu(
+      world,
+      "p1",
+      "npc1",
+    );
+
+    expect(options).toHaveLength(4);
+    expect(options.map((option) => option.type)).toEqual([
+      "functional_menu",
+      "quest_trigger_menu",
+      "idle_chat",
+      "idle_chat",
+    ]);
+  });
+
+  it("任务场景固定决策项超过 4 条时不裁掉固定项", async () => {
+    const world = setupWorld();
+    world.contentPool.questTemplates = Array.from({ length: 5 }, (_, index) => ({
+      id: `q_fixed_${index}`,
+      title: `固定任务 ${index}`,
+      description: "需要玩家决策的任务入口",
+      giverNpcId: "npc1",
+      objectives: [],
+      rewards: {},
+      repeatable: false,
+      deadlineDays: null,
+    }));
+    const adapter = mockAdapter(
+      JSON.stringify({
+        options: [
+          { key: "quest_trigger__q_fixed_0", label: "任务 0" },
+          { key: "quest_trigger__q_fixed_1", label: "任务 1" },
+          { key: "quest_trigger__q_fixed_2", label: "任务 2" },
+          { key: "quest_trigger__q_fixed_3", label: "任务 3" },
+          { key: "quest_trigger__q_fixed_4", label: "任务 4" },
+          { key: "personal_story", label: "你为何留在这里？" },
+        ],
+      }),
+    );
+
+    const options = await new DialogueGenerator(adapter, mockSaveManager()).generateChatMenu(
+      world,
+      "p1",
+      "npc1",
+    );
+
+    expect(options).toHaveLength(5);
+    expect(options.every((option) => option.type === "quest_trigger_menu")).toBe(true);
   });
 
   it("quest 方向 LLM 失败时退回内容池方向并保留 quest tag", async () => {
@@ -348,6 +438,7 @@ describe("DialogueGenerator.generateFixedChatMenu", () => {
       id: "menu:quest_trigger__q_faxian_cipher",
       label: '提及关于"千佛暗码"的委托',
       type: "quest_trigger_menu",
+      behavior: { kind: "continue", expects: "chat_options" },
       tag: "quest",
       meta: { directionKey: "quest_trigger__q_faxian_cipher" },
     });
@@ -504,7 +595,12 @@ describe("DialogueGenerator.generateFixedChatMenu", () => {
         description: "把信送给老马",
         giverNpcId: "npc1",
         objectives: [
-          { groupId: 0, type: "talk", targetId: "npc1", count: 1, description: "和老马说话" },
+          {
+            groupId: 0,
+            condition: { type: "player_talked_to_npc", target: { kind: "npc", id: "npc1" } },
+            count: 1,
+            description: "和老马说话",
+          },
         ],
         rewards: {},
         repeatable: false,
@@ -536,7 +632,7 @@ describe("DialogueGenerator.generateFixedChatMenu", () => {
     });
   });
 
-  it("quest_trigger_menu → subOptions 使用已有 quest accept 路径", async () => {
+  it("quest_trigger_menu → 生成叙事协商菜单，接受时使用已有 quest accept 路径", async () => {
     const world = setupWorld();
     world.contentPool.questTemplates = [
       {
@@ -550,7 +646,23 @@ describe("DialogueGenerator.generateFixedChatMenu", () => {
         deadlineDays: null,
       },
     ];
-    const gen = new DialogueGenerator(mockAdapter("任务发布。"), mockSaveManager());
+    const adapter = {
+      chat: vi
+        .fn()
+        .mockResolvedValueOnce({
+          text: JSON.stringify({
+            narrative: "法显压低声音，讲起壁画后的暗码。",
+            accept: "我去查清这枚铜符。",
+            defer: "此事我先想想。",
+            deferReply: "法显点点头，让你想清楚再来。",
+            topics: ["你在莫高窟住了多久？"],
+          }),
+          toolCalls: [],
+        })
+        .mockResolvedValueOnce({ text: "那就拜托你了。", toolCalls: [] }),
+      generate: vi.fn(),
+    } as unknown as LLMAdapter;
+    const gen = new DialogueGenerator(adapter, mockSaveManager());
 
     const menuResult = await gen.handleChatOption(
       world,
@@ -558,16 +670,38 @@ describe("DialogueGenerator.generateFixedChatMenu", () => {
       "npc1",
       "quest_trigger_menu",
       "menu:quest_trigger__q_faxian_cipher",
+      "法显，壁画后藏着什么？",
     );
-    expect(menuResult.subOptions).toEqual([
-      {
-        id: "quest_trigger:q_faxian_cipher",
-        label: "千佛暗码",
-        type: "quest_trigger_select",
-        tag: "quest",
-        meta: { templateId: "q_faxian_cipher", title: "千佛暗码" },
-      },
+    expect(menuResult.delta.dialogues).toBeDefined();
+    expect(menuResult.delta.dialogues![0].content).toContain("壁画后的暗码");
+    expect(menuResult.delta.questChanges).toBeUndefined();
+    expect(menuResult.subOptions?.map((o) => o.type)).toEqual([
+      "quest_trigger_select",
+      "quest_defer",
+      "idle_chat",
+      "close",
     ]);
+    expect(menuResult.subOptions?.[0]).toMatchObject({
+      id: "quest_trigger:q_faxian_cipher",
+      label: "我去查清这枚铜符。",
+      tag: "quest",
+      behavior: { kind: "continue", expects: "chat_options" },
+    });
+    expect(menuResult.subOptions?.[1]).toMatchObject({
+      id: "quest_defer:q_faxian_cipher",
+      behavior: { kind: "close" },
+    });
+    expect(menuResult.subOptions?.[2]).toMatchObject({
+      id: "chat:quest_topic_0",
+      label: "你在莫高窟住了多久？",
+      type: "idle_chat",
+      behavior: { kind: "continue", expects: "chat_options" },
+    });
+    expect(menuResult.subOptions?.[3]).toMatchObject({
+      id: "chat:goodbye",
+      behavior: { kind: "close" },
+    });
+    expect(pendingQuestMenuSize(gen)).toBe(1);
 
     const acceptResult = await gen.handleChatOption(
       world,
@@ -579,7 +713,255 @@ describe("DialogueGenerator.generateFixedChatMenu", () => {
     expect(acceptResult.delta.questChanges).toEqual([
       { type: "accept", playerId: "p1", templateId: "q_faxian_cipher" },
     ]);
-    expect(acceptResult.subOptions).toEqual([{ id: "chat:goodbye", label: "告别", type: "close" }]);
+    expect(pendingQuestMenuSize(gen)).toBe(0);
+    expect(acceptResult.subOptions).toEqual([
+      {
+        id: "chat:goodbye",
+        label: "告别",
+        type: "close",
+        behavior: { kind: "close" },
+      },
+    ]);
+  });
+
+  it("quest_trigger_menu LLM 解析失败 → 返回最小协商菜单且不接任务", async () => {
+    const world = setupWorld();
+    world.contentPool.questTemplates = [
+      {
+        id: "q_faxian_cipher",
+        title: "千佛暗码",
+        description: "法显需要玩家帮忙核实壁画后的线索",
+        giverNpcId: "npc1",
+        objectives: [],
+        rewards: {},
+        repeatable: false,
+        deadlineDays: null,
+      },
+    ];
+    const gen = new DialogueGenerator(mockAdapter("not json"), mockSaveManager());
+
+    const result = await gen.handleChatOption(
+      world,
+      "p1",
+      "npc1",
+      "quest_trigger_menu",
+      "menu:quest_trigger__q_faxian_cipher",
+    );
+
+    expect(result.delta.dialogues?.[0].content).toContain("法显需要玩家");
+    expect(result.delta.questChanges).toBeUndefined();
+    expect(result.subOptions?.map((o) => o.type)).toEqual([
+      "quest_trigger_select",
+      "quest_defer",
+      "close",
+    ]);
+    expect(result.subOptions?.[0].label).not.toBe("");
+    expect(result.subOptions?.[1].label).not.toBe("");
+    expect(pendingQuestMenuSize(gen)).toBe(1);
+  });
+
+  it("quest_defer → 清理协商菜单且不接任务", async () => {
+    const world = setupWorld();
+    world.contentPool.questTemplates = [
+      {
+        id: "q_faxian_cipher",
+        title: "千佛暗码",
+        description: "法显需要玩家帮忙核实壁画后的线索",
+        giverNpcId: "npc1",
+        objectives: [],
+        rewards: {},
+        repeatable: false,
+        deadlineDays: null,
+      },
+    ];
+    const adapter = {
+      chat: vi.fn().mockResolvedValueOnce({
+        text: JSON.stringify({
+          narrative: "法显讲起暗码。",
+          accept: "我接下。",
+          defer: "我先想想。",
+          deferReply: "法显点头说，想好了再来。",
+          topics: [],
+        }),
+        toolCalls: [],
+      }),
+      generate: vi.fn(),
+    } as unknown as LLMAdapter;
+    const gen = new DialogueGenerator(adapter, mockSaveManager());
+    await gen.handleChatOption(
+      world,
+      "p1",
+      "npc1",
+      "quest_trigger_menu",
+      "menu:quest_trigger__q_faxian_cipher",
+    );
+
+    const result = await gen.handleChatOption(
+      world,
+      "p1",
+      "npc1",
+      "quest_defer",
+      "quest_defer:q_faxian_cipher",
+    );
+
+    expect(result.delta.dialogues?.[0].content).toContain("想好了再来");
+    expect(result.delta.questChanges).toBeUndefined();
+    expect(result.subOptions).toBeUndefined();
+    expect(pendingQuestMenuSize(gen)).toBe(0);
+  });
+
+  it("close → 清理协商菜单", async () => {
+    const world = setupWorld();
+    world.contentPool.questTemplates = [
+      {
+        id: "q_faxian_cipher",
+        title: "千佛暗码",
+        description: "法显需要玩家帮忙核实壁画后的线索",
+        giverNpcId: "npc1",
+        objectives: [],
+        rewards: {},
+        repeatable: false,
+        deadlineDays: null,
+      },
+    ];
+    const gen = new DialogueGenerator(mockAdapter("not json"), mockSaveManager());
+    await gen.handleChatOption(
+      world,
+      "p1",
+      "npc1",
+      "quest_trigger_menu",
+      "menu:quest_trigger__q_faxian_cipher",
+    );
+    expect(pendingQuestMenuSize(gen)).toBe(1);
+
+    await gen.handleChatOption(world, "p1", "npc1", "close", "chat:goodbye");
+
+    expect(pendingQuestMenuSize(gen)).toBe(0);
+  });
+
+  it("任务协商普通追问后只保留接受、推辞、一条普通追问和告别", async () => {
+    const world = setupWorld();
+    world.contentPool.questTemplates = [
+      {
+        id: "q_faxian_cipher",
+        title: "千佛暗码",
+        description: "法显需要玩家帮忙核实壁画后的线索",
+        giverNpcId: "npc1",
+        objectives: [],
+        rewards: {},
+        repeatable: false,
+        deadlineDays: null,
+      },
+    ];
+    const adapter = {
+      chat: vi
+        .fn()
+        .mockResolvedValueOnce({
+          text: JSON.stringify({
+            narrative: "法显讲起暗码。",
+            accept: "我接下。",
+            defer: "我先想想。",
+            deferReply: "法显点头。",
+            topics: ["你为何这么在意铜符？"],
+          }),
+          toolCalls: [],
+        })
+        .mockResolvedValueOnce({
+          text: "铜符来自旧烽燧。",
+          toolCalls: [
+            {
+              id: "call_topics",
+              function: {
+                name: "suggest_followup_topics",
+                arguments: JSON.stringify({
+                  topics: ["烽燧在哪里？", "铜符是谁留下的？", "还需要问谁？"],
+                }),
+              },
+            },
+          ],
+        }),
+      generate: vi.fn(),
+    } as unknown as LLMAdapter;
+    const gen = new DialogueGenerator(adapter, mockSaveManager());
+    await gen.handleChatOption(
+      world,
+      "p1",
+      "npc1",
+      "quest_trigger_menu",
+      "menu:quest_trigger__q_faxian_cipher",
+    );
+
+    const result = await gen.handleChatOption(
+      world,
+      "p1",
+      "npc1",
+      "idle_chat",
+      "chat:quest_topic_0",
+      "你为何这么在意铜符？",
+    );
+
+    expect(result.delta.dialogues?.[0].content).toContain("烽燧");
+    expect(result.subOptions?.map((o) => o.id)).toEqual([
+      "quest_trigger:q_faxian_cipher",
+      "quest_defer:q_faxian_cipher",
+      "chat:quest_topic_0",
+      "chat:goodbye",
+    ]);
+  });
+
+  it("quest_deliver_menu → LLM 过渡对话 + 子选项", async () => {
+    const world = setupWorld();
+    world.contentPool.questTemplates = [
+      {
+        id: "q1",
+        title: "送信",
+        description: "送一封信给张三",
+        giverNpcId: "npc1",
+        objectives: [
+          {
+            groupId: 0,
+            condition: { type: "player_talked_to_npc", target: { kind: "npc", id: "npc1" } },
+            count: 1,
+            description: "和老马说话",
+          },
+        ],
+        rewards: {},
+        repeatable: false,
+        deadlineDays: null,
+      },
+    ];
+    const player = world.entities.get("p1") as PlayerEntity;
+    player.activeQuests = [
+      {
+        templateId: "q1",
+        status: "active",
+        acceptedDay: 1,
+        deadlineDay: null,
+        groupCompleted: [true],
+        objectiveProgress: [1],
+      },
+    ];
+    const gen = new DialogueGenerator(mockAdapter("信送到了！"), mockSaveManager());
+    const result = await gen.handleChatOption(
+      world,
+      "p1",
+      "npc1",
+      "quest_deliver_menu",
+      "menu:quest_deliver__q1",
+      "信送到了！",
+    );
+    expect(result.delta.dialogues).toBeDefined();
+    expect(result.delta.dialogues![0].speakerId).toBe("npc1");
+    expect(result.subOptions).toEqual([
+      {
+        id: "quest_deliver:q1",
+        label: "送信",
+        type: "quest_deliver_select",
+        behavior: { kind: "continue", expects: "chat_options" },
+        tag: "quest",
+        meta: { templateId: "q1" },
+      },
+    ]);
   });
 
   it("quest_deliver_select → 返回后续 close 选项", async () => {
@@ -591,7 +973,12 @@ describe("DialogueGenerator.generateFixedChatMenu", () => {
         description: "送一封信给张三",
         giverNpcId: "npc1",
         objectives: [
-          { groupId: 0, type: "talk", targetId: "npc1", count: 1, description: "和老马说话" },
+          {
+            groupId: 0,
+            condition: { type: "player_talked_to_npc", target: { kind: "npc", id: "npc1" } },
+            count: 1,
+            description: "和老马说话",
+          },
         ],
         rewards: {},
         repeatable: false,
@@ -620,7 +1007,14 @@ describe("DialogueGenerator.generateFixedChatMenu", () => {
     expect(result.delta.questChanges).toEqual([
       { templateId: "q1", type: "complete", playerId: "p1" },
     ]);
-    expect(result.subOptions).toEqual([{ id: "chat:goodbye", label: "告别", type: "close" }]);
+    expect(result.subOptions).toEqual([
+      {
+        id: "chat:goodbye",
+        label: "告别",
+        type: "close",
+        behavior: { kind: "close" },
+      },
+    ]);
   });
 });
 
@@ -986,9 +1380,35 @@ describe("DialogueGenerator.generateTradeMenu — pricing", () => {
 // ============================================================
 
 describe("DialogueGenerator.handleChatOption — functional", () => {
-  it("functional_menu → 返回 entityActionsByTag 子菜单", async () => {
+  it("functional_menu → 返回 entityActionsByTag 子菜单 + LLM 过渡对话", async () => {
     const world = setupWorld({ npcTags: ["tavern_keeper"] });
-    const gen = new DialogueGenerator(mockAdapter(""), mockSaveManager());
+    const gen = new DialogueGenerator(mockAdapter("欢迎光临！"), mockSaveManager());
+    const result = await gen.handleChatOption(
+      world,
+      "p1",
+      "npc1",
+      "functional_menu",
+      "menu:functional",
+      "老板，来点吃的",
+    );
+    expect(result.delta.dialogues).toBeDefined();
+    expect(result.delta.dialogues![0].speakerId).toBe("npc1");
+    expect(result.subOptions).toHaveLength(2);
+    expect(result.subOptions![0].type).toBe("functional_select");
+    expect(result.subOptions![0].meta?.actionId).toBe("serve_ale");
+    expect(result.subOptions![0].behavior).toEqual({
+      kind: "continue",
+      expects: "chat_options",
+    });
+    expect(result.subOptions![1].meta?.actionId).toBe("serve_meal");
+  });
+
+  it("_menu LLM 失败 → 子选项正常返回，delta 为空", async () => {
+    const world = setupWorld({ npcTags: ["tavern_keeper"] });
+    const failAdapter = {
+      chat: vi.fn().mockRejectedValue(new Error("LLM timeout")),
+    } as unknown as LLMAdapter;
+    const gen = new DialogueGenerator(failAdapter, mockSaveManager());
     const result = await gen.handleChatOption(
       world,
       "p1",
@@ -996,10 +1416,9 @@ describe("DialogueGenerator.handleChatOption — functional", () => {
       "functional_menu",
       "menu:functional",
     );
+    expect(result.delta.dialogues).toBeUndefined();
     expect(result.subOptions).toHaveLength(2);
     expect(result.subOptions![0].type).toBe("functional_select");
-    expect(result.subOptions![0].meta?.actionId).toBe("serve_ale");
-    expect(result.subOptions![1].meta?.actionId).toBe("serve_meal");
   });
 
   it("functional_select → 执行 actionEffect + LLM 对话", async () => {
@@ -1019,7 +1438,14 @@ describe("DialogueGenerator.handleChatOption — functional", () => {
     expect(result.delta.itemChanges).toBeDefined();
     expect(result.delta.dialogues).toBeDefined();
     expect(result.delta.dialogues![0].content).toContain("麦酒");
-    expect(result.subOptions).toEqual([{ id: "chat:goodbye", label: "告别", type: "close" }]);
+    expect(result.subOptions).toEqual([
+      {
+        id: "chat:goodbye",
+        label: "告别",
+        type: "close",
+        behavior: { kind: "close" },
+      },
+    ]);
   });
 
   it("functional_select actionId 不在 actionEffects → 返回空", async () => {
@@ -1229,6 +1655,10 @@ function mockAdapterWithTopics(
   return mockAdapter(reply, allToolCalls.length > 0 ? allToolCalls : undefined);
 }
 
+function pendingQuestMenuSize(gen: DialogueGenerator) {
+  return (gen as unknown as { pendingQuestMenu: Map<string, unknown> }).pendingQuestMenu.size;
+}
+
 describe("DialogueGenerator.handleChatOption — 连续对话", () => {
   it("idle_chat 返回 subOptions：LLM 话题全部转换 + 告别在末位", async () => {
     const world = setupWorld();
@@ -1253,6 +1683,8 @@ describe("DialogueGenerator.handleChatOption — 连续对话", () => {
     const last = result.subOptions![result.subOptions!.length - 1];
     expect(last.type).toBe("close");
     expect(last.id).toBe("chat:goodbye");
+    expect(last.behavior).toEqual({ kind: "close" });
+    expect(topicOptions.every((o) => o.behavior?.kind === "continue")).toBe(true);
   });
 
   it('idle_chat + "chat:goodbye" optionId → 不返回 subOptions', async () => {

@@ -289,6 +289,13 @@ export interface WorldEvent {
   data: Record<string, unknown>;
 }
 
+export interface QuestObjectiveEvent {
+  type: string;
+  tick: Tick;
+  actorId: EntityId;
+  data: Record<string, unknown>;
+}
+
 // SimulationDelta – LLM 产出的统一数据格式
 export interface SimulationDelta {
   // 实体状态变更
@@ -304,6 +311,8 @@ export interface SimulationDelta {
   // 叙事记录
   worldEvents?: WorldEvent[];
   dialogues?: DialogueLine[];
+  // 任务目标检测事件，只读输入，不由 applyDelta 消费
+  questObjectiveEvents?: QuestObjectiveEvent[];
 }
 
 export interface TraitModifier {
@@ -357,10 +366,18 @@ export interface ItemChange {
 // Quest / Storyline 系统
 // ============================================================
 
+export interface QuestObjectiveCondition {
+  type: string;
+  target?: {
+    kind: "npc" | "room" | "item" | "entity" | "none";
+    id?: EntityId;
+  };
+  params?: Record<string, unknown>;
+}
+
 export interface QuestObjective {
   groupId: number;
-  type: "explore" | "collect" | "talk" | "deliver" | "fetch";
-  targetId: EntityId;
+  condition: QuestObjectiveCondition;
   count: number;
   description: string;
 }

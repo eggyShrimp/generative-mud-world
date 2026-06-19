@@ -16,6 +16,13 @@
  *   - 逻辑常量 (Math.PI, 方向数组)
  */
 
+import { z } from "zod";
+import {
+  checkPrerequisites,
+  collectSubQuestIds,
+  getQuestInteractionsForEntity,
+  resolveQuestAccept,
+} from "../core/quest-utils.ts";
 import type { SaveManager } from "../core/save-manager.ts";
 import type {
   DialogueEffectMapping,
@@ -29,11 +36,6 @@ import type {
   WorldState,
 } from "../core/types.ts";
 import { getRoomEntities } from "../core/world.ts";
-import {
-  checkPrerequisites,
-  collectSubQuestIds,
-  resolveQuestAccept,
-} from "../engine/quest-tracker.ts";
 import { formatItemProperties } from "../shared/item-format.ts";
 import { logWrite } from "../shared/log.ts";
 import type { DialogueOption, DialogueOptionType, TradeOption } from "../shared/protocol.ts";
@@ -57,6 +59,52 @@ interface ConversationEntry {
 
 const MAX_HISTORY_ROUNDS = 10;
 
+const QuestMenuSchema = z.object({
+  narrative: z.string().trim().min(1),
+  accept: z.string().trim().min(1),
+  defer: z.string().trim().min(1),
+  deferReply: z.string().trim().min(1).optional(),
+  topics: z.array(z.string().trim().min(1)).default([]),
+});
+
+interface PendingQuestMenu {
+  questId: string;
+  acceptOption: DialogueOption;
+  deferOption: DialogueOption;
+  deferReply: string;
+  casualTopics: DialogueOption[];
+}
+
+function makeContinueOption(
+  id: string,
+  label: string,
+  type: DialogueOptionType,
+  extra: Omit<Partial<DialogueOption>, "id" | "label" | "type" | "behavior"> = {},
+): DialogueOption {
+  return {
+    ...extra,
+    id,
+    label,
+    type,
+    behavior: { kind: "continue", expects: "chat_options" },
+  };
+}
+
+function makeCloseOption(
+  id: string,
+  label: string,
+  type: DialogueOptionType,
+  extra: Omit<Partial<DialogueOption>, "id" | "label" | "type" | "behavior"> = {},
+): DialogueOption {
+  return {
+    ...extra,
+    id,
+    label,
+    type,
+    behavior: { kind: "close" },
+  };
+}
+
 /**
  * 对话生成器 — 固定菜单 + type-based 路由
  *
@@ -70,6 +118,7 @@ export class DialogueGenerator {
   private adapter: LLMAdapter;
   private saveManager: SaveManager;
   private conversationHistories: Map<string, ConversationEntry[]> = new Map();
+  private pendingQuestMenu: Map<string, PendingQuestMenu> = new Map();
 
   constructor(adapter: LLMAdapter, saveManager: SaveManager) {
     this.adapter = adapter;
@@ -117,6 +166,9 @@ export class DialogueGenerator {
       npc,
       questDirections.length > 0 ? questDirections : undefined,
     );
+    if (questDirections.length > 0) {
+      return this.limitTaskSceneOptions(baseOptions, chatOptions);
+    }
     return [...baseOptions, ...chatOptions];
   }
 
@@ -186,11 +238,34 @@ export class DialogueGenerator {
     // 1. Functional: NPC tags 匹配 entityActionsByTag
     const functionalActions = this.getFunctionalActions(world, npc);
     if (functionalActions.length > 0) {
-      options.push({
-        id: "menu:functional",
-        label: this.getFunctionalLabel(world, npc),
-        type: "functional_menu",
-      });
+      options.push(
+        makeContinueOption(
+          "menu:functional",
+          this.getFunctionalLabel(world, npc),
+          "functional_menu",
+        ),
+      );
+    }
+
+    if (player.type === "player") {
+      const interactions = getQuestInteractionsForEntity(world, player as PlayerEntity, npc.id);
+      for (const interaction of interactions) {
+        if (!interaction.isPending) continue;
+        options.push(
+          makeContinueOption(
+            interaction.optionId,
+            interaction.objectiveDescription,
+            interaction.optionType,
+            {
+              tag: "quest",
+              meta: {
+                questId: interaction.questId,
+                objectiveIndex: interaction.objectiveIndex,
+              },
+            },
+          ),
+        );
+      }
     }
 
     return options;
@@ -232,30 +307,31 @@ export class DialogueGenerator {
     return directions.map((direction) => {
       if (direction.key.startsWith("quest_trigger__")) {
         const storylineId = direction.key.replace("quest_trigger__", "");
-        return {
-          id: `menu:quest_trigger__${storylineId}`,
-          label: direction.instruction,
-          type: "quest_trigger_menu" as DialogueOptionType,
-          tag: "quest",
-          meta: { directionKey: direction.key },
-        };
+        return makeContinueOption(
+          `menu:quest_trigger__${storylineId}`,
+          direction.instruction,
+          "quest_trigger_menu",
+          {
+            tag: "quest",
+            meta: { directionKey: direction.key },
+          },
+        );
       }
       if (direction.key.startsWith("quest_deliver__")) {
         const templateId = direction.key.replace("quest_deliver__", "");
-        return {
-          id: `menu:quest_deliver__${templateId}`,
-          label: direction.instruction,
-          type: "quest_deliver_menu" as DialogueOptionType,
-          tag: "quest",
-          meta: { directionKey: direction.key },
-        };
+        return makeContinueOption(
+          `menu:quest_deliver__${templateId}`,
+          direction.instruction,
+          "quest_deliver_menu",
+          {
+            tag: "quest",
+            meta: { directionKey: direction.key },
+          },
+        );
       }
-      return {
-        id: `chat:${direction.key}`,
-        label: direction.instruction,
-        type: "idle_chat" as DialogueOptionType,
+      return makeContinueOption(`chat:${direction.key}`, direction.instruction, "idle_chat", {
         meta: { directionKey: direction.key },
-      };
+      });
     });
   }
 
@@ -334,29 +410,39 @@ ${directionLines}
       // Quest 方向映射：quest_trigger__${id} / quest_deliver__${id} → 对应类型 + tag: "quest"
       if (key.startsWith("quest_trigger__")) {
         const storylineId = key.replace("quest_trigger__", "");
-        options.push({
-          id: `menu:quest_trigger__${storylineId}`,
-          label: label.trim(),
-          type: "quest_trigger_menu",
-          tag: "quest",
-          meta: { directionKey: key },
-        });
+        options.push(
+          makeContinueOption(
+            `menu:quest_trigger__${storylineId}`,
+            label.trim(),
+            "quest_trigger_menu",
+            {
+              tag: "quest",
+              meta: { directionKey: key },
+            },
+          ),
+        );
       } else if (key.startsWith("quest_deliver__")) {
         const templateId = key.replace("quest_deliver__", "");
-        options.push({
-          id: `menu:quest_deliver__${templateId}`,
-          label: label.trim(),
-          type: "quest_deliver_menu",
-          tag: "quest",
-          meta: { directionKey: key },
-        });
+        options.push(
+          makeContinueOption(
+            `menu:quest_deliver__${templateId}`,
+            label.trim(),
+            "quest_deliver_menu",
+            {
+              tag: "quest",
+              meta: { directionKey: key },
+            },
+          ),
+        );
       } else {
-        options.push({
-          id: key === "freeform" ? "chat:freeform" : `chat:${key}`,
-          label: label.trim(),
-          type: "idle_chat",
-          meta: key === "freeform" ? { freeform: true } : { directionKey: key },
-        });
+        options.push(
+          makeContinueOption(
+            key === "freeform" ? "chat:freeform" : `chat:${key}`,
+            label.trim(),
+            "idle_chat",
+            { meta: key === "freeform" ? { freeform: true } : { directionKey: key } },
+          ),
+        );
       }
     }
 
@@ -399,20 +485,21 @@ ${directionLines}
 
     switch (optionType) {
       case "quest_trigger_menu":
-        return {
-          delta: {},
-          subOptions: this.getQuestTriggerSubOptions(world, player as PlayerEntity, npc),
-        };
+        return this.handleQuestTriggerMenu(world, player as PlayerEntity, npc, optionId);
 
       case "quest_trigger_select":
+        this.clearPendingQuestMenu(playerId, npcId);
         return {
           delta: await this.executeQuestTrigger(world, playerId, npc, optionId),
           subOptions: this.getPostSelectOptions(),
         };
 
+      case "quest_defer":
+        return this.handleQuestDefer(world, player as PlayerEntity, npc, optionId);
+
       case "quest_deliver_menu":
         return {
-          delta: {},
+          delta: await this.generateMenuTransitionDelta(world, npc, playerMessage, "quest_deliver"),
           subOptions: this.getQuestDeliverSubOptions(world, player as PlayerEntity, npc),
         };
 
@@ -422,8 +509,14 @@ ${directionLines}
           subOptions: this.getPostSelectOptions(),
         };
 
+      case "quest_talk_menu":
+        return this.handleQuestTalkMenu(world, player as PlayerEntity, npc, optionId);
+
       case "functional_menu":
-        return { delta: {}, subOptions: this.getFunctionalSubOptions(world, npc) };
+        return {
+          delta: await this.generateMenuTransitionDelta(world, npc, playerMessage, "functional"),
+          subOptions: this.getFunctionalSubOptions(world, npc),
+        };
 
       case "functional_select":
         return {
@@ -441,19 +534,20 @@ ${directionLines}
         if (optionId !== "chat:goodbye") {
           return {
             delta,
-            subOptions: this.buildFollowUpOptions(
-              followUpTopics,
-              world,
-              player as PlayerEntity,
-              npc,
+            subOptions: this.injectQuestOptions(
+              playerId,
+              npcId,
+              this.buildFollowUpOptions(followUpTopics, world, player as PlayerEntity, npc),
             ),
           };
         }
+        this.clearPendingQuestMenu(playerId, npcId);
         this.scheduleConversationSummary(world, playerId, npcId);
         return { delta };
       }
 
       case "close":
+        this.clearPendingQuestMenu(playerId, npcId);
         this.scheduleConversationSummary(world, playerId, npcId);
         return {
           delta: {
@@ -608,20 +702,6 @@ ${directionLines}
     return buyOptions;
   }
 
-  private getQuestTriggerSubOptions(
-    world: WorldState,
-    player: PlayerEntity,
-    npc: NPCEntity,
-  ): DialogueOption[] {
-    return this.getEligibleQuestTriggers(world, player, npc).map((t) => ({
-      id: `quest_trigger:${t.id}`,
-      label: t.title,
-      type: "quest_trigger_select" as DialogueOptionType,
-      tag: "quest",
-      meta: { templateId: t.id, title: t.title },
-    }));
-  }
-
   private getQuestDeliverSubOptions(
     world: WorldState,
     player: PlayerEntity,
@@ -634,21 +714,299 @@ ${directionLines}
         return template?.giverNpcId === npc.id && q.groupCompleted.every(Boolean);
       })
       .map((q) => ({
-        id: `quest_deliver:${q.templateId}`,
-        label: this.getQuestTemplate(world, q.templateId)?.title ?? q.templateId,
-        type: "quest_deliver_select" as DialogueOptionType,
-        tag: "quest",
-        meta: { templateId: q.templateId },
+        ...makeContinueOption(
+          `quest_deliver:${q.templateId}`,
+          this.getQuestTemplate(world, q.templateId)?.title ?? q.templateId,
+          "quest_deliver_select",
+          {
+            tag: "quest",
+            meta: { templateId: q.templateId },
+          },
+        ),
       }));
   }
 
   private getFunctionalSubOptions(world: WorldState, npc: NPCEntity): DialogueOption[] {
-    return this.getFunctionalActions(world, npc).map((a) => ({
-      id: `functional:${a.actionId}`,
-      label: a.label,
-      type: "functional_select" as DialogueOptionType,
-      meta: { actionId: a.actionId, label: a.label },
-    }));
+    return this.getFunctionalActions(world, npc).map((a) =>
+      makeContinueOption(`functional:${a.actionId}`, a.label, "functional_select", {
+        meta: { actionId: a.actionId, label: a.label },
+      }),
+    );
+  }
+
+  private limitTaskSceneOptions(
+    baseOptions: DialogueOption[],
+    chatOptions: DialogueOption[],
+  ): DialogueOption[] {
+    const maxOptions = 4;
+    const base = baseOptions;
+    const questOptions = chatOptions.filter((option) => option.tag === "quest");
+    const ordinaryOptions = chatOptions.filter((option) => option.tag !== "quest");
+    const fixedOptions = [...base, ...questOptions];
+    const ordinarySlots = Math.max(0, maxOptions - fixedOptions.length);
+    return [...fixedOptions, ...ordinaryOptions.slice(0, ordinarySlots)];
+  }
+
+  private async handleQuestTriggerMenu(
+    world: WorldState,
+    player: PlayerEntity,
+    npc: NPCEntity,
+    optionId: string,
+  ): Promise<{ delta: SimulationDelta; subOptions?: DialogueOption[] }> {
+    const questId = optionId.replace("menu:quest_trigger__", "");
+    const quest =
+      this.getEligibleQuestTriggers(world, player, npc).find((t) => t.id === questId) ??
+      this.getEligibleQuestTriggers(world, player, npc)[0];
+    if (!quest) {
+      this.clearPendingQuestMenu(player.id, npc.id);
+      return { delta: {}, subOptions: [] };
+    }
+
+    const menu = await this.generateQuestMenu(world, player, npc, quest);
+    this.pendingQuestMenu.set(this.getHistoryKey(player.id, npc.id), menu.pending);
+    return {
+      delta: {
+        dialogues: [
+          {
+            speakerId: npc.id,
+            content: menu.narrative,
+            roomId: player.roomId ?? "",
+            tick: world.tick,
+          },
+        ],
+      },
+      subOptions: menu.subOptions,
+    };
+  }
+
+  private async handleQuestDefer(
+    world: WorldState,
+    player: PlayerEntity,
+    npc: NPCEntity,
+    _optionId: string,
+  ): Promise<{ delta: SimulationDelta; subOptions?: DialogueOption[] }> {
+    const key = this.getHistoryKey(player.id, npc.id);
+    const pending = this.pendingQuestMenu.get(key);
+    this.pendingQuestMenu.delete(key);
+    const reply = pending?.deferReply ?? `${npc.name}点了点头，示意你可以之后再谈。`;
+    return {
+      delta: {
+        dialogues: [
+          {
+            speakerId: npc.id,
+            content: reply,
+            roomId: player.roomId ?? "",
+            tick: world.tick,
+          },
+        ],
+      },
+    };
+  }
+
+  private async handleQuestTalkMenu(
+    world: WorldState,
+    player: PlayerEntity,
+    npc: NPCEntity,
+    optionId: string,
+  ): Promise<{ delta: SimulationDelta; subOptions?: DialogueOption[] }> {
+    const parts = optionId.split(":");
+    const questId = parts[1];
+    const objectiveIndex = Number(parts[2]);
+    const interactions = getQuestInteractionsForEntity(world, player, npc.id);
+    const interaction = interactions.find(
+      (candidate) =>
+        candidate.questId === questId &&
+        candidate.objectiveIndex === objectiveIndex &&
+        candidate.isPending,
+    );
+    if (!interaction) return { delta: {}, subOptions: this.getPostSelectOptions() };
+
+    const prompt = {
+      system: `你是 MUD 游戏的 NPC。${npc.name}正在回答玩家关于任务"${interaction.questTitle}"的问题。生成 2-3 句中文对话，不要调用任何工具。`,
+      user: `玩家问起：${interaction.objectiveDescription}`,
+    };
+
+    let content = `${npc.name}认真回答了你关于「${interaction.questTitle}」的问题。`;
+    try {
+      const response = await this.adapter.chat(
+        prompt.system,
+        prompt.user,
+        undefined,
+        undefined,
+        "dialogue-quest-talk",
+        false,
+      );
+      content = this.extractReplyText(response.text, npc.name) || content;
+    } catch (err) {
+      logWrite(
+        "srv",
+        "warn",
+        `[dialogue] quest talk generation failed quest=${interaction.questId}: ${String(err)}`,
+      );
+    }
+
+    return {
+      delta: {
+        dialogues: [
+          {
+            speakerId: npc.id,
+            content,
+            roomId: player.roomId ?? "",
+            tick: world.tick,
+          },
+        ],
+        questObjectiveEvents: [
+          {
+            type: "player_talked_to_npc",
+            tick: world.tick,
+            actorId: player.id,
+            data: {
+              npcId: npc.id,
+              optionId,
+              optionType: "quest_talk_menu",
+            },
+          },
+        ],
+      },
+      subOptions: this.getPostSelectOptions(),
+    };
+  }
+
+  private async generateQuestMenu(
+    world: WorldState,
+    player: PlayerEntity,
+    npc: NPCEntity,
+    quest: WorldState["contentPool"]["questTemplates"][number],
+  ): Promise<{ narrative: string; subOptions: DialogueOption[]; pending: PendingQuestMenu }> {
+    const parsed = await this.tryGenerateQuestMenu(world, player, npc, quest);
+    const fallback = this.buildFallbackQuestMenu(quest, npc);
+    const data = parsed ?? fallback;
+    const acceptOption = makeContinueOption(
+      `quest_trigger:${quest.id}`,
+      data.accept,
+      "quest_trigger_select",
+      {
+        tag: "quest",
+        meta: { templateId: quest.id, title: quest.title },
+      },
+    );
+    const deferOption = makeCloseOption(`quest_defer:${quest.id}`, data.defer, "quest_defer", {
+      tag: "quest",
+      meta: { templateId: quest.id, title: quest.title },
+    });
+    const casualTopics = data.topics
+      .slice(0, 1)
+      .map((label, index) => makeContinueOption(`chat:quest_topic_${index}`, label, "idle_chat"));
+    const pending: PendingQuestMenu = {
+      questId: quest.id,
+      acceptOption,
+      deferOption,
+      deferReply: data.deferReply ?? fallback.deferReply ?? `${npc.name}点了点头。`,
+      casualTopics,
+    };
+
+    return {
+      narrative: data.narrative,
+      pending,
+      subOptions: [
+        acceptOption,
+        deferOption,
+        ...casualTopics,
+        makeCloseOption("chat:goodbye", "告别", "close"),
+      ],
+    };
+  }
+
+  private async tryGenerateQuestMenu(
+    world: WorldState,
+    player: PlayerEntity,
+    npc: NPCEntity,
+    quest: WorldState["contentPool"]["questTemplates"][number],
+  ): Promise<z.infer<typeof QuestMenuSchema> | null> {
+    const context = this.buildContext(world, player, npc);
+    const objectives = quest.objectives.map((o) => `- ${o.description}`).join("\n") || "无";
+    const system = `你是 MUD 游戏的任务对话生成器。请根据 NPC、地点和任务资料生成一个任务协商回合。
+
+NPC: ${context.npcName}
+身份: ${context.npcRole}
+性格: ${context.npcPersonality}
+地点: ${context.roomName}
+任务: ${quest.title}
+任务描述: ${quest.description}
+目标:
+${objectives}
+
+要求:
+- narrative 是 NPC 讲述任务背景的 2-4 句中文
+- accept 是玩家明确接受任务的话术
+- defer 是玩家暂时推辞的话术
+- deferReply 是 NPC 对玩家暂时推辞的简短回应
+- topics 是 0-1 个普通追问或闲聊延伸话题
+- 只输出 JSON，不要解释`;
+    const user = `输出格式:
+{"narrative":"NPC讲述任务背景","accept":"玩家接受任务","defer":"玩家暂时推辞","deferReply":"NPC回应推辞","topics":["普通追问"]}`;
+    try {
+      const response = await this.adapter.chat(
+        system,
+        user,
+        undefined,
+        undefined,
+        "dialogue-quest-menu",
+        false,
+      );
+      const jsonMatch = response.text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) return null;
+      return QuestMenuSchema.parse(JSON.parse(jsonMatch[0]));
+    } catch (err) {
+      logWrite(
+        "srv",
+        "warn",
+        `[dialogue] quest menu generation failed quest=${quest.id}: ${String(err)}`,
+      );
+      return null;
+    }
+  }
+
+  private buildFallbackQuestMenu(
+    quest: WorldState["contentPool"]["questTemplates"][number],
+    npc: NPCEntity,
+  ): z.infer<typeof QuestMenuSchema> {
+    return {
+      narrative: quest.description || quest.title,
+      accept: `我愿意接下「${quest.title}」。`,
+      defer: "我先考虑一下。",
+      deferReply: `${npc.name}点了点头，示意你可以之后再谈。`,
+      topics: [],
+    };
+  }
+
+  private injectQuestOptions(
+    playerId: EntityId,
+    npcId: EntityId,
+    baseOptions: DialogueOption[],
+  ): DialogueOption[] {
+    const pending = this.pendingQuestMenu.get(this.getHistoryKey(playerId, npcId));
+    if (!pending) return baseOptions;
+    const seen = new Set<string>();
+    const ordinaryChatOptions = [...pending.casualTopics, ...baseOptions].filter(
+      (option) => option.type === "idle_chat",
+    );
+    const closeOptions = baseOptions.filter((option) => option.type === "close");
+    const merged = [
+      pending.acceptOption,
+      pending.deferOption,
+      ...ordinaryChatOptions.slice(0, 1),
+      ...closeOptions,
+    ];
+    return merged.filter((option) => {
+      if (seen.has(option.id)) return false;
+      seen.add(option.id);
+      return true;
+    });
+  }
+
+  private clearPendingQuestMenu(playerId: EntityId, npcId: EntityId): void {
+    this.pendingQuestMenu.delete(this.getHistoryKey(playerId, npcId));
   }
 
   // --- Action executors ---
@@ -782,6 +1140,14 @@ ${directionLines}
           data: { direction: "give", item: item.name, price: actualPrice, outcome },
         },
       ];
+      delta.questObjectiveEvents = [
+        {
+          type: "player_acquired_item",
+          tick: world.tick,
+          actorId: player.id,
+          data: { itemId, templateId: tradeItemTemplateId, qty: 1, npcId: npc.id },
+        },
+      ];
     }
 
     return delta;
@@ -909,6 +1275,14 @@ ${directionLines}
           tick: 0,
           source: "simulation",
           data: { direction: "sell", item: item.name, price: actualPrice, outcome },
+        },
+      ];
+      delta.questObjectiveEvents = [
+        {
+          type: "player_delivered_item",
+          tick: world.tick,
+          actorId: player.id,
+          data: { itemId, templateId: tradeItemTemplateId, qty: 1, npcId: npc.id },
         },
       ];
     }
@@ -1552,11 +1926,7 @@ NPC 说的原文: "${selectedText}"
       if (seen.has(dedupKey)) continue;
       seen.add(dedupKey);
 
-      options.push({
-        id: `followup:${index}`,
-        label: trimmed,
-        type: "idle_chat",
-      });
+      options.push(makeContinueOption(`followup:${index}`, trimmed, "idle_chat"));
       index++;
 
       if (options.length >= 5) break;
@@ -1699,11 +2069,11 @@ NPC 说的原文: "${selectedText}"
 
     // 1. LLM 话题
     for (let i = 0; i < topics.length; i++) {
-      add({ id: `chat:followup_${i}`, label: topics[i], type: "idle_chat" });
+      add(makeContinueOption(`chat:followup_${i}`, topics[i], "idle_chat"));
     }
 
     // 2. 告别
-    add({ id: "chat:goodbye", label: "告别", type: "close" });
+    add(makeCloseOption("chat:goodbye", "告别", "close"));
 
     return options;
   }
@@ -1713,7 +2083,54 @@ NPC 说的原文: "${selectedText}"
    * 完成后统一返回的后续选项。当前只返回告别，确保对话回合协议闭环。
    */
   private getPostSelectOptions(): DialogueOption[] {
-    return [{ id: "chat:goodbye", label: "告别", type: "close" }];
+    return [makeCloseOption("chat:goodbye", "告别", "close")];
+  }
+
+  private async generateMenuTransitionDelta(
+    world: WorldState,
+    npc: NPCEntity,
+    playerMessage: string | undefined,
+    transitionType: "quest_trigger" | "quest_deliver" | "functional",
+  ): Promise<SimulationDelta> {
+    const npcContext = this.buildMinimalContext(world, npc);
+
+    const userPrompts: Record<string, string> = {
+      quest_trigger: `玩家对你说："${playerMessage ?? ""}"。判定他有接任务的意图。生成 1-2 句向玩家过渡到正题的回应。`,
+      quest_deliver: `玩家对你说："${playerMessage ?? ""}"。判定他想交付已完成的任务。生成 1-2 句向玩家过渡到正题的回应。`,
+      functional: `玩家对你说："${playerMessage ?? ""}"。判定他想使用你的服务。生成 1-2 句向玩家过渡到正题的回应。`,
+    };
+
+    const prompt = {
+      system: `你是 MUD 游戏的 NPC。${npc.name}（${npcContext.npcRole}）。生成 1-2 句过渡对话，用中文。不要调用任何工具。`,
+      user: userPrompts[transitionType],
+    };
+
+    try {
+      const response = await this.adapter.chat(
+        prompt.system,
+        prompt.user,
+        undefined,
+        undefined,
+        `dialogue-${transitionType}-menu`,
+        false,
+      );
+      const replyText = this.extractReplyText(response.text, npc.name);
+      if (replyText) {
+        return {
+          dialogues: [
+            {
+              speakerId: npc.id,
+              content: replyText,
+              roomId: npc.roomId ?? "",
+              tick: world.tick,
+            },
+          ],
+        };
+      }
+    } catch (err) {
+      logWrite("srv", "warn", `[menu-transition] LLM failed for ${npc.name}: ${String(err)}`);
+    }
+    return {};
   }
 
   // --- Tool call processing ---

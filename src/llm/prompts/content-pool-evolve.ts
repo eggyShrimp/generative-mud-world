@@ -1,3 +1,5 @@
+import { listQuestObjectiveDefinitions } from "../../core/quest-objective-registry.ts";
+
 export function buildContentPoolEvolvePrompt(context: {
   era: string;
   existingNeeds: string[];
@@ -18,6 +20,13 @@ export function buildContentPoolEvolvePrompt(context: {
   existingItemTemplates?: Array<{ id: string; name: string }>;
   existingClues?: Array<{ id: string; description: string }>;
 }): { system: string; user: string } {
+  const objectiveTypes = listQuestObjectiveDefinitions()
+    .map(
+      (definition) =>
+        `- ${definition.type}: ${definition.llmSchemaHint.description}，target.kind=${definition.llmSchemaHint.targetKind}`,
+    )
+    .join("\n");
+
   const npcHint = context.existingNpcs?.length
     ? `\n## 已知 NPC\n${context.existingNpcs.map((n) => `- ${n.id}: ${n.name}（${n.role}，在 ${n.room}，${n.personality}）`).join("\n")}`
     : "";
@@ -98,6 +107,9 @@ export function buildContentPoolEvolvePrompt(context: {
 - 奖励应与任务内容挂钩（关系给任务相关 NPC，物品是任务中提到的物件）
 - 可以引用现有线索列表中的线索作为任务的信息锚点
 - 如果任务适合自动发现而非 NPC 主动给予，使用 autoDiscover + giverNpcId: null
+- objectives 必须使用 condition 新格式，不要输出旧的 type/targetId 字段
+- 可用任务目标类型：
+${objectiveTypes}
 
 **禁止做的（这些是浅层任务的标志）：**
 - ❌ 单一 talk 目标："与某人交谈"——这无法构成任务，只是对话

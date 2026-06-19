@@ -1,3 +1,4 @@
+import { resolveQuestAccept } from "../core/quest-utils.ts";
 import type {
   EntityId,
   PlayerEntity,
@@ -8,7 +9,6 @@ import type {
   WorldState,
 } from "../core/types.ts";
 import { getEntity, logEvent } from "../core/world.ts";
-import { resolveQuestAccept } from "../engine/quest-tracker.ts";
 
 /**
  * 检查是否有新剧情触发（自动触发类型：time/trait/relation/world_event）。

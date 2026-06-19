@@ -26,9 +26,9 @@ import {
   computeTabSwitch,
   createDialogueState,
   extractNpcReply,
+  getDialogueOptionBehavior,
+  hasVisibleQuestNegotiation,
   responseTabForOptionType,
-  shouldExpectDialogueOptions,
-  shouldKeepPopupOpen,
   shouldRunPendingDialogueRequest,
   tradeOptionDetail,
 } from "./dialogue-state.ts";
@@ -164,6 +164,17 @@ export function createGameClient(url: string): GameClient {
 
   const showFollowUpSelectionRequired = () => {
     pushEvents([{ type: "system", description: "请先选中一句 NPC 的话。" }]);
+  };
+
+  const sendDialogueCleanupIfNeeded = (current: DialogueState | null) => {
+    if (!current || hasActiveRequest() || !hasVisibleQuestNegotiation(current)) return;
+    send({
+      type: "talk",
+      npcId: current.npcId,
+      optionId: "chat:goodbye",
+      label: "告别",
+      optionType: "close",
+    });
   };
 
   const hideDialogue = () => {
@@ -660,11 +671,14 @@ export function createGameClient(url: string): GameClient {
     const current = dialogue();
     if (!current) return;
 
-    const expectOptions = shouldExpectDialogueOptions(option);
+    const behavior = getDialogueOptionBehavior(option);
+    const expectOptions = behavior.kind === "continue" && behavior.expects === "chat_options";
     const responseTab = responseTabForOptionType(option.type);
 
     pushEvents([{ type: "say", description: `你：${option.label}` }]);
-    if (shouldKeepPopupOpen(option.type)) {
+    if (behavior.kind === "close") {
+      hideDialogue();
+    } else {
       const activeState =
         responseTab === current.activeTab ? current : { ...current, activeTab: responseTab };
       const withPlayerEntry = {
@@ -680,8 +694,6 @@ export function createGameClient(url: string): GameClient {
       setDialogue(
         expectOptions ? buildLoadingDialogueState(withPlayerEntry, responseTab) : withPlayerEntry,
       );
-    } else {
-      hideDialogue();
     }
     sendRequest(
       {
@@ -912,7 +924,11 @@ export function createGameClient(url: string): GameClient {
     chooseDialogueOption,
     chooseTradeOption,
     clearTradeSelection,
-    closeDialogue: () => hideDialogue(),
+    closeDialogue: () => {
+      const current = dialogue();
+      sendDialogueCleanupIfNeeded(current);
+      hideDialogue();
+    },
     switchDialogueTab,
     requestTradeOptions,
     stashFollowUpSelection,

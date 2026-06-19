@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { checkPrerequisites } from "../core/quest-utils.ts";
 import type { QuestTemplate, SimulationDelta, WorldState } from "../core/types.ts";
 import {
   addEntity,
@@ -8,11 +9,7 @@ import {
   createRoom,
   createWorld,
 } from "../core/world.ts";
-import {
-  checkPrerequisites,
-  checkQuestProgress,
-  evaluateQuestImpacts,
-} from "../engine/quest-tracker.ts";
+import { checkQuestProgress, evaluateQuestImpacts } from "../engine/quest-tracker.ts";
 
 function createTestWorld(quests: QuestTemplate[] = []): WorldState {
   const world = createWorld();
@@ -22,6 +19,16 @@ function createTestWorld(quests: QuestTemplate[] = []): WorldState {
   return world;
 }
 
+function questObjectiveEvent(
+  type: string,
+  data: Record<string, unknown>,
+  actorId = "p1",
+): SimulationDelta {
+  return {
+    questObjectiveEvents: [{ type, tick: 0, actorId, data }],
+  };
+}
+
 const QUEST_EXPLORE: QuestTemplate = {
   id: "quest_explore_forest",
   title: "探索密林",
@@ -29,7 +36,12 @@ const QUEST_EXPLORE: QuestTemplate = {
   giverNpcId: null,
   autoDiscover: { triggerRoomId: "room_forest", triggerText: "你发现了密林中的一条小路。" },
   objectives: [
-    { groupId: 0, type: "explore", targetId: "room_forest", count: 1, description: "前往密林" },
+    {
+      groupId: 0,
+      condition: { type: "player_reached_room", target: { kind: "room", id: "room_forest" } },
+      count: 1,
+      description: "前往密林",
+    },
   ],
   rewards: { narrative: "你成功探索了密林。" },
   repeatable: false,
@@ -44,8 +56,7 @@ const QUEST_COLLECT: QuestTemplate = {
   objectives: [
     {
       groupId: 0,
-      type: "collect",
-      targetId: "item_qinghao",
+      condition: { type: "player_has_item", target: { kind: "item", id: "item_qinghao" } },
       count: 2,
       description: "收集青蒿 (0/2)",
     },
@@ -65,8 +76,18 @@ const QUEST_OR_OBJECTIVES: QuestTemplate = {
   description: "完成任意一个目标即可。",
   giverNpcId: null,
   objectives: [
-    { groupId: 0, type: "explore", targetId: "room_forest", count: 1, description: "前往密林" },
-    { groupId: 0, type: "collect", targetId: "item_qinghao", count: 1, description: "收集青蒿" },
+    {
+      groupId: 0,
+      condition: { type: "player_reached_room", target: { kind: "room", id: "room_forest" } },
+      count: 1,
+      description: "前往密林",
+    },
+    {
+      groupId: 0,
+      condition: { type: "player_has_item", target: { kind: "item", id: "item_qinghao" } },
+      count: 1,
+      description: "收集青蒿",
+    },
   ],
   rewards: { narrative: "完成。" },
   repeatable: false,
@@ -79,7 +100,12 @@ const _QUEST_CHAIN: QuestTemplate = {
   description: "需要先完成 A。",
   giverNpcId: null,
   objectives: [
-    { groupId: 0, type: "explore", targetId: "room_forest", count: 1, description: "前往密林" },
+    {
+      groupId: 0,
+      condition: { type: "player_reached_room", target: { kind: "room", id: "room_forest" } },
+      count: 1,
+      description: "前往密林",
+    },
   ],
   rewards: { narrative: "完成。" },
   prerequisites: { conditions: ["quest_chain_a"], logic: "and" as const },
@@ -96,22 +122,19 @@ const QUEST_MOGAO_CIPHER: QuestTemplate = {
   objectives: [
     {
       groupId: 0,
-      type: "talk",
-      targetId: "npc_monk_faxian",
+      condition: { type: "player_talked_to_npc", target: { kind: "npc", id: "npc_monk_faxian" } },
       count: 1,
       description: "听法显讲述千佛壁画中的暗码",
     },
     {
       groupId: 1,
-      type: "explore",
-      targetId: "room_yumen_beacon",
+      condition: { type: "player_reached_room", target: { kind: "room", id: "room_yumen_beacon" } },
       count: 1,
       description: "前往玉门烽燧寻找铜符的线索",
     },
     {
       groupId: 2,
-      type: "talk",
-      targetId: "npc_zhang_xiaowei",
+      condition: { type: "player_talked_to_npc", target: { kind: "npc", id: "npc_zhang_xiaowei" } },
       count: 1,
       description: "向张校尉求证烽燧铜符的来历",
     },
@@ -135,7 +158,12 @@ const _QUEST_CHAIN_OR: QuestTemplate = {
   description: "需要完成 A 或 B。",
   giverNpcId: null,
   objectives: [
-    { groupId: 0, type: "explore", targetId: "room_forest", count: 1, description: "前往密林" },
+    {
+      groupId: 0,
+      condition: { type: "player_reached_room", target: { kind: "room", id: "room_forest" } },
+      count: 1,
+      description: "前往密林",
+    },
   ],
   rewards: { narrative: "完成。" },
   prerequisites: { logic: "or", conditions: ["quest_chain_a", "quest_chain_b"] },
@@ -494,15 +522,19 @@ describe("QuestTracker", () => {
       objectives: [
         {
           groupId: 0,
-          type: "talk",
-          targetId: "npc_frostwolf_hunter",
+          condition: {
+            type: "player_talked_to_npc",
+            target: { kind: "npc", id: "npc_frostwolf_hunter" },
+          },
           count: 1,
           description: "与猎人冯铁柱交谈",
         },
         {
           groupId: 1,
-          type: "collect",
-          targetId: "npc_frostwolf_hunter_item_0",
+          condition: {
+            type: "player_has_item",
+            target: { kind: "item", id: "npc_frostwolf_hunter_item_0" },
+          },
           count: 1,
           description: "获得熏鹿肉干粮袋",
         },
@@ -520,15 +552,16 @@ describe("QuestTracker", () => {
       objectives: [
         {
           groupId: 0,
-          type: "talk",
-          targetId: "npc_lao_ma",
+          condition: { type: "player_talked_to_npc", target: { kind: "npc", id: "npc_lao_ma" } },
           count: 1,
           description: "回酒馆向老马复命",
         },
         {
           groupId: 1,
-          type: "collect",
-          targetId: "npc_frostwolf_hunter_item_0",
+          condition: {
+            type: "player_has_item",
+            target: { kind: "item", id: "npc_frostwolf_hunter_item_0" },
+          },
           count: 1,
           description: "持有熏鹿肉干粮袋",
         },
@@ -542,13 +575,21 @@ describe("QuestTracker", () => {
       const world = createTestWorld([QUEST_EXPLORE]);
       const player = createPlayer("p1", "测试玩家", "room_tavern", world.contentPool);
       addEntity(world, player);
-      const result = evaluateQuestImpacts(world, "p1", {}, "talk", "npc_lao_ma");
+      const result = evaluateQuestImpacts(
+        world,
+        "p1",
+        questObjectiveEvent("player_talked_to_npc", { npcId: "npc_lao_ma" }),
+      );
       expect(result).toBeNull();
     });
 
     it("should return null for non-player actor", () => {
       const world = createTestWorld([QUEST_EXPLORE]);
-      const result = evaluateQuestImpacts(world, "nonexistent", {}, "talk", "npc_lao_ma");
+      const result = evaluateQuestImpacts(
+        world,
+        "nonexistent",
+        questObjectiveEvent("player_talked_to_npc", { npcId: "npc_lao_ma" }),
+      );
       expect(result).toBeNull();
     });
 
@@ -568,7 +609,11 @@ describe("QuestTracker", () => {
       });
 
       // 模拟玩家和冯铁柱交谈
-      const result = evaluateQuestImpacts(world, "p1", {}, "talk", "npc_frostwolf_hunter");
+      const result = evaluateQuestImpacts(
+        world,
+        "p1",
+        questObjectiveEvent("player_talked_to_npc", { npcId: "npc_frostwolf_hunter" }),
+      );
       expect(result).not.toBeNull();
       const progress = result?.questChanges?.filter((c) => c.type === "progress");
       expect(progress?.length).toBe(1);
@@ -605,7 +650,7 @@ describe("QuestTracker", () => {
       world.entities.set(meat.id, meat);
       player.inventory.push(meat);
 
-      const result = evaluateQuestImpacts(world, "p1", {}, "wait");
+      const result = evaluateQuestImpacts(world, "p1", {});
       expect(result).not.toBeNull();
       const progress = result?.questChanges?.filter((c) => c.type === "progress");
       expect(progress?.length).toBe(1);
@@ -650,7 +695,17 @@ describe("QuestTracker", () => {
       };
 
       // talk objective 也同时满足
-      const result = evaluateQuestImpacts(world, "p1", delta, "talk", "npc_lao_ma");
+      delta.questObjectiveEvents = [
+        { type: "player_talked_to_npc", tick: 0, actorId: "p1", data: { npcId: "npc_lao_ma" } },
+        {
+          type: "player_delivered_item",
+          tick: 0,
+          actorId: "p1",
+          data: { itemId: "npc_frostwolf_hunter_item_0" },
+        },
+      ];
+
+      const result = evaluateQuestImpacts(world, "p1", delta);
       expect(result).not.toBeNull();
       const progress = result?.questChanges?.filter((c) => c.type === "progress");
       expect(progress?.length).toBe(2); // talk + collect
@@ -688,7 +743,11 @@ describe("QuestTracker", () => {
       player.inventory.push(meat);
 
       // 同时 talk + collect
-      const result = evaluateQuestImpacts(world, "p1", {}, "talk", "npc_frostwolf_hunter");
+      const result = evaluateQuestImpacts(
+        world,
+        "p1",
+        questObjectiveEvent("player_talked_to_npc", { npcId: "npc_frostwolf_hunter" }),
+      );
       expect(result).not.toBeNull();
       const complete = result?.questChanges?.filter((c) => c.type === "complete");
       expect(complete?.length).toBe(1);
@@ -711,7 +770,11 @@ describe("QuestTracker", () => {
       });
 
       // 只触发 talk（已完成后不再重复计数）
-      const result = evaluateQuestImpacts(world, "p1", {}, "talk", "npc_frostwolf_hunter");
+      const result = evaluateQuestImpacts(
+        world,
+        "p1",
+        questObjectiveEvent("player_talked_to_npc", { npcId: "npc_frostwolf_hunter" }),
+      );
       // groupCompleted[0] 已经是 true，不会产出 progress
       expect(result).toBeNull();
     });
@@ -733,7 +796,10 @@ describe("QuestTracker", () => {
         revealRooms: [{ entityId: "p1", roomId: "room_forest" }],
       };
 
-      const result = evaluateQuestImpacts(world, "p1", delta, "move");
+      delta.questObjectiveEvents = [
+        { type: "player_reached_room", tick: 0, actorId: "p1", data: { roomId: "room_forest" } },
+      ];
+      const result = evaluateQuestImpacts(world, "p1", delta);
       expect(result).not.toBeNull();
       const progress = result?.questChanges?.filter((c) => c.type === "progress");
       expect(progress?.length).toBe(1);
@@ -753,7 +819,11 @@ describe("QuestTracker", () => {
       });
 
       player.roomId = "room_forest";
-      const result = evaluateQuestImpacts(world, "p1", {}, "move");
+      const result = evaluateQuestImpacts(
+        world,
+        "p1",
+        questObjectiveEvent("player_reached_room", { roomId: "room_forest" }),
+      );
       expect(result).toBeNull();
     });
   });
@@ -777,7 +847,11 @@ describe("QuestTracker", () => {
         objectiveProgress: [],
       });
 
-      let result = evaluateQuestImpacts(world, "p1", {}, "talk", "npc_monk_faxian");
+      let result = evaluateQuestImpacts(
+        world,
+        "p1",
+        questObjectiveEvent("player_talked_to_npc", { npcId: "npc_monk_faxian" }),
+      );
       expect(result).not.toBeNull();
       const step1Progress = result?.questChanges?.filter((c) => c.type === "progress");
       expect(step1Progress?.length).toBe(1);
@@ -791,7 +865,11 @@ describe("QuestTracker", () => {
       if (delta2) applyDelta(world, delta2);
       expect(player.activeQuests[0].groupCompleted[1]).toBe(true);
 
-      result = evaluateQuestImpacts(world, "p1", {}, "talk", "npc_zhang_xiaowei");
+      result = evaluateQuestImpacts(
+        world,
+        "p1",
+        questObjectiveEvent("player_talked_to_npc", { npcId: "npc_zhang_xiaowei" }),
+      );
       expect(result).not.toBeNull();
       const complete = result?.questChanges?.filter((c) => c.type === "complete");
       expect(complete?.length).toBe(1);
@@ -838,7 +916,11 @@ describe("QuestTracker", () => {
         objectiveProgress: [],
       });
 
-      const result = evaluateQuestImpacts(world, "p1", {}, "talk", "npc_zhang_xiaowei");
+      const result = evaluateQuestImpacts(
+        world,
+        "p1",
+        questObjectiveEvent("player_talked_to_npc", { npcId: "npc_zhang_xiaowei" }),
+      );
       expect(result).not.toBeNull();
 
       const hasComplete = result?.questChanges?.some((c) => c.type === "complete");
@@ -889,7 +971,11 @@ describe("QuestTracker", () => {
         objectiveProgress: [],
       });
 
-      const result = evaluateQuestImpacts(world, "p1", {}, "talk", "npc_zhang_xiaowei");
+      const result = evaluateQuestImpacts(
+        world,
+        "p1",
+        questObjectiveEvent("player_talked_to_npc", { npcId: "npc_zhang_xiaowei" }),
+      );
       const complete = result?.questChanges?.filter((c) => c.type === "complete");
       expect(complete?.length ?? 0).toBe(0);
       if (result) applyDelta(world, result);

@@ -49,7 +49,7 @@ export function enrichQuests(quests: ActiveQuest[], templates: QuestTemplate[]):
       deadlineDay: aq.deadlineDay,
       objectives: tpl.objectives.map((obj, i) => ({
         groupId: obj.groupId,
-        type: obj.type,
+        type: obj.condition.type,
         count: obj.count,
         current: aq.objectiveProgress[i] ?? 0,
         description: obj.description,

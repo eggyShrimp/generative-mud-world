@@ -12,6 +12,7 @@ import {
   createDialogueState,
   createGameClient,
   extractNpcReply,
+  getDialogueOptionBehavior,
   getDialogueVisibleOptions,
   isDialogueTabLoading,
   responseTabForOptionType,
@@ -85,7 +86,7 @@ function restoreWebSocket() {
   globalThis.WebSocket = originalWebSocket;
 }
 
-function setupClientWithDialogue() {
+function setupClientWithDialogue(options: DialogueOption[] = chatOptions) {
   const client = createGameClient("ws://test");
   client.connect();
   const socket = MockWebSocket.instances[0];
@@ -113,7 +114,7 @@ function setupClientWithDialogue() {
     groundRestRecovery: 20,
   });
   client.interactWithEntity("npc1");
-  socket.receive({ type: "chat_options", npcId: "npc1", npcName: "老马", options: chatOptions });
+  socket.receive({ type: "chat_options", npcId: "npc1", npcName: "老马", options });
   return { client, socket };
 }
 
@@ -168,12 +169,56 @@ describe("shouldKeepPopupOpen", () => {
   it("trade_menu → true", () => {
     expect(shouldKeepPopupOpen("trade_menu")).toBe(true);
   });
+
+  it("quest_defer → false", () => {
+    expect(shouldKeepPopupOpen("quest_defer")).toBe(false);
+  });
 });
 
 describe("shouldExpectDialogueOptions", () => {
-  it("menu 和 idle_chat 会等待子选项", () => {
+  it("显式 behavior 优先于 type 推断", () => {
+    const closeByBehavior: DialogueOption = {
+      id: "chat:1",
+      label: "只是停留",
+      type: "idle_chat",
+      behavior: { kind: "close" },
+    };
+    const continueByBehavior: DialogueOption = {
+      id: "close",
+      label: "继续",
+      type: "close",
+      behavior: { kind: "continue", expects: "chat_options" },
+    };
+
+    expect(getDialogueOptionBehavior(closeByBehavior)).toEqual({ kind: "close" });
+    expect(shouldExpectDialogueOptions(closeByBehavior)).toBe(false);
+    expect(shouldExpectDialogueOptions(continueByBehavior)).toBe(true);
+  });
+
+  it("menu、select 和 idle_chat 会等待子选项", () => {
     expect(
       shouldExpectDialogueOptions({ id: "menu:chat", label: "聊聊", type: "functional_menu" }),
+    ).toBe(true);
+    expect(
+      shouldExpectDialogueOptions({
+        id: "quest_trigger:q_faxian_cipher",
+        label: "接受",
+        type: "quest_trigger_select",
+      }),
+    ).toBe(true);
+    expect(
+      shouldExpectDialogueOptions({
+        id: "quest_deliver:q_faxian_cipher",
+        label: "交付",
+        type: "quest_deliver_select",
+      }),
+    ).toBe(true);
+    expect(
+      shouldExpectDialogueOptions({
+        id: "functional:rest",
+        label: "休息",
+        type: "functional_select",
+      }),
     ).toBe(true);
     expect(shouldExpectDialogueOptions({ id: "chat:1", label: "聊聊", type: "idle_chat" })).toBe(
       true,
@@ -182,6 +227,17 @@ describe("shouldExpectDialogueOptions", () => {
 
   it("close 不等待子选项", () => {
     expect(shouldExpectDialogueOptions({ id: "close", label: "告别", type: "close" })).toBe(false);
+  });
+
+  it("stay 保持弹窗且不等待子选项", () => {
+    const option: DialogueOption = {
+      id: "hint",
+      label: "再看看",
+      type: "idle_chat",
+      behavior: { kind: "stay" },
+    };
+
+    expect(shouldExpectDialogueOptions(option)).toBe(false);
   });
 });
 
@@ -522,5 +578,153 @@ describe("follow-up request lifecycle", () => {
     expect(client.dialogue()?.tabs.chat.loading).toBe(false);
     expect(client.dialogue()?.tabs.chat.options).toEqual(chatOptions);
     expect(client.events().at(-1)?.description).toBe("尚未连接服务器。");
+  });
+});
+
+describe("quest negotiation client behavior", () => {
+  const questOptions: DialogueOption[] = [
+    {
+      id: "quest_trigger:q_faxian_cipher",
+      label: "我去查清这枚铜符。",
+      type: "quest_trigger_select",
+      tag: "quest",
+    },
+    {
+      id: "quest_background:q_faxian_cipher:0",
+      label: "铜符是什么来历？",
+      type: "idle_chat",
+    },
+    {
+      id: "quest_defer:q_faxian_cipher",
+      label: "我先想想。",
+      type: "quest_defer",
+      tag: "quest",
+    },
+    { id: "chat:goodbye", label: "告别", type: "close" },
+  ];
+
+  function setupClientWithQuestNegotiation() {
+    return setupClientWithDialogue(questOptions);
+  }
+
+  it("selecting quest_defer sends talk and closes popup", () => {
+    const { client, socket } = setupClientWithQuestNegotiation();
+
+    client.chooseDialogueOption(questOptions[2]);
+
+    expect(lastSent(socket)).toEqual({
+      type: "talk",
+      npcId: "npc1",
+      optionId: "quest_defer:q_faxian_cipher",
+      label: "我先想想。",
+      optionType: "quest_defer",
+    });
+    expect(client.dialogue()).toBeNull();
+  });
+
+  it("selecting quest accept waits for returned chat options", () => {
+    const { client, socket } = setupClientWithQuestNegotiation();
+    const postAcceptOptions: DialogueOption[] = [
+      { id: "chat:goodbye", label: "告别", type: "close" },
+    ];
+
+    client.chooseDialogueOption(questOptions[0]);
+
+    expect(lastSent(socket)).toEqual({
+      type: "talk",
+      npcId: "npc1",
+      optionId: "quest_trigger:q_faxian_cipher",
+      label: "我去查清这枚铜符。",
+      optionType: "quest_trigger_select",
+    });
+    expect(client.dialogue()?.tabs.chat.loading).toBe(true);
+    expect(client.dialogue()?.tabs.chat.options).toEqual([]);
+
+    socket.receive({
+      type: "command_result",
+      events: [{ type: "dialogue", description: "法显：就拜托你了。" }],
+      ended: false,
+    });
+    socket.receive({
+      type: "chat_options",
+      npcId: "npc1",
+      npcName: "老马",
+      options: postAcceptOptions,
+    });
+
+    expect(client.dialogue()?.tabs.chat.loading).toBe(false);
+    expect(client.dialogue()?.tabs.chat.options).toEqual(postAcceptOptions);
+    expect(client.dialogue()?.tabs.chat.history).toEqual([
+      { speaker: "player", content: "我去查清这枚铜符。" },
+      { speaker: "npc", content: "法显：就拜托你了。" },
+    ]);
+  });
+
+  it("explicit behavior controls popup behavior instead of type name", () => {
+    const option: DialogueOption = {
+      id: "legacy-looking-close",
+      label: "继续聊",
+      type: "close",
+      behavior: { kind: "continue", expects: "chat_options" },
+    };
+    const { client, socket } = setupClientWithDialogue([option]);
+
+    client.chooseDialogueOption(option);
+
+    expect(lastSent(socket)).toMatchObject({
+      type: "talk",
+      optionId: "legacy-looking-close",
+      optionType: "close",
+    });
+    expect(client.dialogue()?.tabs.chat.loading).toBe(true);
+    expect(client.dialogue()?.tabs.chat.options).toEqual([]);
+  });
+
+  it("stay behavior keeps current options without loading", () => {
+    const option: DialogueOption = {
+      id: "stay:hint",
+      label: "我再想想",
+      type: "idle_chat",
+      behavior: { kind: "stay" },
+    };
+    const { client, socket } = setupClientWithDialogue([option]);
+
+    client.chooseDialogueOption(option);
+
+    expect(lastSent(socket)).toMatchObject({
+      type: "talk",
+      optionId: "stay:hint",
+      optionType: "idle_chat",
+    });
+    expect(client.dialogue()?.tabs.chat.loading).toBe(false);
+    expect(client.dialogue()?.tabs.chat.options).toEqual([option]);
+    expect(client.dialogue()?.tabs.chat.history).toEqual([
+      { speaker: "player", content: "我再想想" },
+    ]);
+  });
+
+  it("direct close during quest negotiation sends cleanup talk", () => {
+    const { client, socket } = setupClientWithQuestNegotiation();
+
+    client.closeDialogue();
+
+    expect(lastSent(socket)).toEqual({
+      type: "talk",
+      npcId: "npc1",
+      optionId: "chat:goodbye",
+      label: "告别",
+      optionType: "close",
+    });
+    expect(client.dialogue()).toBeNull();
+  });
+
+  it("normal local close does not send cleanup talk", () => {
+    const { client, socket } = setupClientWithDialogue();
+    const sentBefore = socket.sent.length;
+
+    client.closeDialogue();
+
+    expect(socket.sent).toHaveLength(sentBefore);
+    expect(client.dialogue()).toBeNull();
   });
 });

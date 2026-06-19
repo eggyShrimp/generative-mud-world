@@ -112,6 +112,7 @@ function isEmptyDelta(delta: SimulationDelta): boolean {
     !delta.itemChanges?.length &&
     !delta.revealRooms?.length &&
     !delta.knownClueChanges?.length &&
-    !delta.discoverableChanges?.length
+    !delta.discoverableChanges?.length &&
+    !delta.questObjectiveEvents?.length
   );
 }

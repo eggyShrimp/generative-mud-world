@@ -1,7 +1,15 @@
+import { listQuestObjectiveDefinitions } from "../../core/quest-objective-registry.ts";
 import type { ToolDefinition } from "../adapter.ts";
 import { ADD_NPC_TOOL, CREATE_ROOM_TOOL } from "./room-mutation.ts";
 
 export const SETTLEMENT_GROWTH_TOOLS: ToolDefinition[] = [CREATE_ROOM_TOOL, ADD_NPC_TOOL];
+
+const QUEST_OBJECTIVE_DEFINITIONS = listQuestObjectiveDefinitions();
+const QUEST_OBJECTIVE_TYPES = QUEST_OBJECTIVE_DEFINITIONS.map((definition) => definition.type);
+const QUEST_OBJECTIVE_DESCRIPTION = QUEST_OBJECTIVE_DEFINITIONS.map(
+  (definition) =>
+    `${definition.type}=${definition.llmSchemaHint.description}，target.kind=${definition.llmSchemaHint.targetKind}`,
+).join("; ");
 
 export const ADD_ACTION_TOOL: ToolDefinition = {
   type: "function",
@@ -106,17 +114,42 @@ export const ADD_QUEST_TEMPLATE_TOOL: ToolDefinition = {
             type: "object",
             properties: {
               groupId: { type: "integer", minimum: 0, description: "所属目标组 ID" },
-              type: {
-                type: "string",
-                enum: ["explore", "collect", "talk", "deliver", "fetch"],
-                description:
-                  "目标类型：explore=探索房间, collect=收集物品, talk=与NPC交谈, deliver=交付物品给NPC, fetch=从NPC处获取物品",
+              condition: {
+                type: "object",
+                description: `目标条件。可用类型：${QUEST_OBJECTIVE_DESCRIPTION}`,
+                properties: {
+                  type: {
+                    type: "string",
+                    enum: QUEST_OBJECTIVE_TYPES,
+                    description: "目标条件类型，必须使用注册表公开的类型",
+                  },
+                  target: {
+                    type: "object",
+                    properties: {
+                      kind: {
+                        type: "string",
+                        enum: ["npc", "room", "item", "entity", "none"],
+                        description: "目标 ID 的种类，必须与 condition.type 的说明一致",
+                      },
+                      id: {
+                        type: "string",
+                        description: "目标 NPC ID / 房间 ID / 物品 templateId / 实体 ID",
+                      },
+                    },
+                    required: ["kind", "id"],
+                  },
+                  params: {
+                    type: "object",
+                    additionalProperties: true,
+                    description: "目标类型的扩展参数；没有需要时省略",
+                  },
+                },
+                required: ["type", "target"],
               },
-              targetId: { type: "string", description: "目标 NPC ID / 房间 ID / 物品 templateId" },
               count: { type: "integer", minimum: 1, description: "所需次数" },
               description: { type: "string", description: "目标文本描述" },
             },
-            required: ["groupId", "type", "targetId", "count", "description"],
+            required: ["groupId", "condition", "count", "description"],
           },
         },
         rewards: {

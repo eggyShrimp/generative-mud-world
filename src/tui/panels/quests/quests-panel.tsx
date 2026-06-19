@@ -5,6 +5,7 @@
 import { For, Show } from "solid-js";
 import type { QuestInfo } from "../../../shared/protocol.ts";
 import type { GameClient } from "../../client/game-client.ts";
+import { getQuestsPanelLayout } from "../../features/quests/layout.ts";
 import { objectiveProgressText, statusLabel } from "../../features/quests/progress.ts";
 import type { ModalMetrics } from "../../layout/metrics.ts";
 import { PopupPanel } from "../../layout/popup-panel.tsx";
@@ -17,6 +18,10 @@ export function QuestsPanel(props: { client: GameClient; metrics: ModalMetrics }
     const idx = selectedIndex();
     return idx !== null ? (quests()[idx] ?? null) : null;
   };
+
+  const layout = () => getQuestsPanelLayout(props.metrics.width);
+  const listWidth = () => layout().listWidth;
+  const detailWidth = () => layout().detailWidth;
 
   return (
     <Show when={props.client.isLayerActive("quests")}>
@@ -41,7 +46,7 @@ export function QuestsPanel(props: { client: GameClient; metrics: ModalMetrics }
           }
         >
           <box flexDirection={"row"} height={props.metrics.bodyHeight}>
-            <scrollbox height={props.metrics.bodyHeight} width={28} scrollY>
+            <scrollbox height={props.metrics.bodyHeight} width={listWidth()} scrollY>
               <For each={quests()}>
                 {(quest, i) => {
                   const selected = () => selectedIndex() === i();
@@ -74,13 +79,13 @@ export function QuestsPanel(props: { client: GameClient; metrics: ModalMetrics }
                   paddingLeft={1}
                   marginLeft={1}
                   height={props.metrics.bodyHeight}
-                  flexGrow={1}
+                  width={detailWidth()}
                   scrollY
                 >
-                  <text fg={THEME.title} wrapMode="word">
+                  <text fg={THEME.title} width={detailWidth()} wrapMode="word">
                     {quest().title}
                   </text>
-                  <text fg={THEME.text} wrapMode="word">
+                  <text fg={THEME.text} width={detailWidth()} wrapMode="word">
                     {quest().description}
                   </text>
                   <Show when={quest().status !== "active"}>
@@ -98,7 +103,7 @@ export function QuestsPanel(props: { client: GameClient; metrics: ModalMetrics }
                         const checkmark = () => (obj.completed ? "\u2713" : "\u25CB");
                         const color = () => (obj.completed ? THEME.success : THEME.muted);
                         return (
-                          <text fg={color()} wrapMode="word">
+                          <text fg={color()} width={detailWidth()} wrapMode="word">
                             {` ${checkmark()} ${obj.description} (${objectiveProgressText(obj.current, obj.count)})`}
                           </text>
                         );
@@ -106,7 +111,7 @@ export function QuestsPanel(props: { client: GameClient; metrics: ModalMetrics }
                     </For>
                   </Show>
                   <Show when={quest().narrative}>
-                    <text fg={THEME.muted} wrapMode="word">
+                    <text fg={THEME.muted} width={detailWidth()} wrapMode="word">
                       {quest().narrative}
                     </text>
                   </Show>

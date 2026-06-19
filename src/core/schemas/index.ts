@@ -22,6 +22,7 @@ export {
   NeedLabelsSchema,
   QuestAutoDiscoverSchema,
   QuestAutoTriggerSchema,
+  QuestObjectiveConditionSchema,
   QuestObjectiveSchema,
   QuestPrerequisiteSchema,
   QuestRewardSchema,
