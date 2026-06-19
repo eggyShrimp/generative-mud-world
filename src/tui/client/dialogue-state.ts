@@ -6,30 +6,11 @@ import type {
 } from "../../shared/protocol.ts";
 import type { DialogueHistoryEntry, DialogueState, DialogueTab } from "./types.ts";
 
-export function classifyLegacyDialogueOption(option: DialogueOption): DialogueOptionBehavior {
-  if (option.type === "close" || option.type === "quest_defer") return { kind: "close" };
-  if (
-    option.type.endsWith("_menu") ||
-    option.type.endsWith("_select") ||
-    option.type === "idle_chat"
-  ) {
-    return { kind: "continue", expects: "chat_options" };
-  }
-  return { kind: "stay" };
-}
-
 export function getDialogueOptionBehavior(option: DialogueOption): DialogueOptionBehavior {
-  return option.behavior ?? classifyLegacyDialogueOption(option);
-}
-
-export function shouldKeepPopupOpen(optionType: string): boolean {
-  return (
-    classifyLegacyDialogueOption({
-      id: "",
-      label: "",
-      type: optionType as DialogueOption["type"],
-    }).kind !== "close"
-  );
+  if (!option.behavior) {
+    throw new Error(`DialogueOption missing behavior field: id=${option.id} type=${option.type}`);
+  }
+  return option.behavior;
 }
 
 export function shouldExpectDialogueOptions(option: DialogueOption): boolean {
@@ -40,8 +21,9 @@ export function shouldExpectDialogueOptions(option: DialogueOption): boolean {
 export function hasVisibleQuestNegotiation(state: DialogueState): boolean {
   return state.tabs.chat.options.some(
     (option) =>
-      option.type === "quest_defer" ||
-      (option.type === "quest_trigger_select" && option.id.startsWith("quest_trigger:")),
+      option.id.startsWith("quest_defer:") ||
+      (option.id.startsWith("quest_trigger:") &&
+        getDialogueOptionBehavior(option).kind !== "close"),
   );
 }
 

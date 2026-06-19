@@ -491,7 +491,7 @@ ${directionLines}
         this.clearPendingQuestMenu(playerId, npcId);
         return {
           delta: await this.executeQuestTrigger(world, playerId, npc, optionId),
-          subOptions: this.getPostSelectOptions(),
+          subOptions: this.getPostSelectOptions(world),
         };
 
       case "quest_defer":
@@ -506,7 +506,7 @@ ${directionLines}
       case "quest_deliver_select":
         return {
           delta: await this.executeQuestDeliver(world, playerId, npc, optionId),
-          subOptions: this.getPostSelectOptions(),
+          subOptions: this.getPostSelectOptions(world),
         };
 
       case "quest_talk_menu":
@@ -521,7 +521,7 @@ ${directionLines}
       case "functional_select":
         return {
           delta: await this.executeFunctional(world, player as PlayerEntity, npc, optionId),
-          subOptions: this.getPostSelectOptions(),
+          subOptions: this.getPostSelectOptions(world),
         };
 
       case "idle_chat": {
@@ -554,7 +554,11 @@ ${directionLines}
             dialogues: [
               {
                 speakerId: npcId,
-                content: `${npc.name}向你点头告别。`,
+                content:
+                  world.contentPool.narrativeTemplates.questMessages.goodbyeNarrative.replace(
+                    "{npcName}",
+                    npc.name,
+                  ),
                 roomId: player.roomId ?? "",
                 tick: world.tick,
               },
@@ -788,7 +792,9 @@ ${directionLines}
     const key = this.getHistoryKey(player.id, npc.id);
     const pending = this.pendingQuestMenu.get(key);
     this.pendingQuestMenu.delete(key);
-    const reply = pending?.deferReply ?? `${npc.name}点了点头，示意你可以之后再谈。`;
+    const reply =
+      pending?.deferReply ??
+      world.contentPool.narrativeTemplates.questMessages.deferReply.replace("{npcName}", npc.name);
     return {
       delta: {
         dialogues: [
@@ -819,7 +825,7 @@ ${directionLines}
         candidate.objectiveIndex === objectiveIndex &&
         candidate.isPending,
     );
-    if (!interaction) return { delta: {}, subOptions: this.getPostSelectOptions() };
+    if (!interaction) return { delta: {}, subOptions: this.getPostSelectOptions(world) };
 
     const prompt = {
       system: `你是 MUD 游戏的 NPC。${npc.name}正在回答玩家关于任务"${interaction.questTitle}"的问题。生成 2-3 句中文对话，不要调用任何工具。`,
@@ -868,7 +874,7 @@ ${directionLines}
           },
         ],
       },
-      subOptions: this.getPostSelectOptions(),
+      subOptions: this.getPostSelectOptions(world),
     };
   }
 
@@ -879,7 +885,11 @@ ${directionLines}
     quest: WorldState["contentPool"]["questTemplates"][number],
   ): Promise<{ narrative: string; subOptions: DialogueOption[]; pending: PendingQuestMenu }> {
     const parsed = await this.tryGenerateQuestMenu(world, player, npc, quest);
-    const fallback = this.buildFallbackQuestMenu(quest, npc);
+    const fallback = this.buildFallbackQuestMenu(
+      quest,
+      npc,
+      world.contentPool.narrativeTemplates.questMessages,
+    );
     const data = parsed ?? fallback;
     const acceptOption = makeContinueOption(
       `quest_trigger:${quest.id}`,
@@ -901,7 +911,13 @@ ${directionLines}
       questId: quest.id,
       acceptOption,
       deferOption,
-      deferReply: data.deferReply ?? fallback.deferReply ?? `${npc.name}点了点头。`,
+      deferReply:
+        data.deferReply ??
+        fallback.deferReply ??
+        world.contentPool.narrativeTemplates.questMessages.deferReplyFallback.replace(
+          "{npcName}",
+          npc.name,
+        ),
       casualTopics,
     };
 
@@ -912,7 +928,11 @@ ${directionLines}
         acceptOption,
         deferOption,
         ...casualTopics,
-        makeCloseOption("chat:goodbye", "告别", "close"),
+        makeCloseOption(
+          "chat:goodbye",
+          world.contentPool.narrativeTemplates.questMessages.goodbyeOptionLabel,
+          "close",
+        ),
       ],
     };
   }
@@ -970,12 +990,13 @@ ${objectives}
   private buildFallbackQuestMenu(
     quest: WorldState["contentPool"]["questTemplates"][number],
     npc: NPCEntity,
+    questMessages: WorldState["contentPool"]["narrativeTemplates"]["questMessages"],
   ): z.infer<typeof QuestMenuSchema> {
     return {
       narrative: quest.description || quest.title,
-      accept: `我愿意接下「${quest.title}」。`,
-      defer: "我先考虑一下。",
-      deferReply: `${npc.name}点了点头，示意你可以之后再谈。`,
+      accept: questMessages.acceptLabelTemplate.replace("{questTitle}", quest.title),
+      defer: questMessages.deferLabel,
+      deferReply: questMessages.deferReply.replace("{npcName}", npc.name),
       topics: [],
     };
   }
@@ -2073,17 +2094,25 @@ NPC 说的原文: "${selectedText}"
     }
 
     // 2. 告别
-    add(makeCloseOption("chat:goodbye", "告别", "close"));
+    add(
+      makeCloseOption(
+        "chat:goodbye",
+        _world.contentPool.narrativeTemplates.questMessages.goodbyeOptionLabel,
+        "close",
+      ),
+    );
 
     return options;
   }
 
-  /**
-   * _select 类型（quest_trigger_select / quest_deliver_select / functional_select）
-   * 完成后统一返回的后续选项。当前只返回告别，确保对话回合协议闭环。
-   */
-  private getPostSelectOptions(): DialogueOption[] {
-    return [makeCloseOption("chat:goodbye", "告别", "close")];
+  private getPostSelectOptions(world: WorldState): DialogueOption[] {
+    return [
+      makeCloseOption(
+        "chat:goodbye",
+        world.contentPool.narrativeTemplates.questMessages.goodbyeOptionLabel,
+        "close",
+      ),
+    ];
   }
 
   private async generateMenuTransitionDelta(

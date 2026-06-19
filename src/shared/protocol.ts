@@ -178,6 +178,11 @@ export interface Capability {
   };
 }
 
+/**
+ * 服务端 talk 路由的 key。决定点击选项后引擎走哪个处理分支。
+ *
+ * 客户端不应根据 type 值推断 UI 行为 —— 弹窗行为由 {@link DialogueOption.behavior} 决定。
+ */
 export type DialogueOptionType =
   | "quest_trigger_menu"
   | "quest_trigger_select"
@@ -190,15 +195,28 @@ export type DialogueOptionType =
   | "idle_chat"
   | "close";
 
+/**
+ * 客户端弹窗行为指令，由选项生成方（DialogueGenerator）在服务端设定。
+ * 与 {@link DialogueOptionType} 解耦：同一个 close behavior 可以对多种 type 生效。
+ */
 export type DialogueOptionBehavior =
+  /** 弹窗保持，等待服务端返回新 chat_options 后替换当前选项 */
   | { kind: "continue"; expects: "chat_options" }
+  /** 选后立即关闭弹窗，不等待返回 */
   | { kind: "close" }
+  /** 弹窗保持，不期待新选项（用于纯状态变更、无对话回复的场景） */
   | { kind: "stay"; expects?: "none" };
 
 export interface DialogueOption {
   id: string;
   label: string;
+  /** 服务端路由 key，决定 talk 请求走哪个处理分支 */
   type: DialogueOptionType;
+  /**
+   * 客户端弹窗行为指令。由服务端 DialogueGenerator 在生成选项时设定。
+   * 与 `type` 解耦：TUI 根据此字段决定弹窗关/留/等待，不根据 `type` 推断。
+   * 新生成的选项必须包含此字段。
+   */
   behavior?: DialogueOptionBehavior;
   tag?: string;
   meta?: Record<string, unknown>;

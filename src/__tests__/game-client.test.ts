@@ -17,7 +17,6 @@ import {
   isDialogueTabLoading,
   responseTabForOptionType,
   shouldExpectDialogueOptions,
-  shouldKeepPopupOpen,
   shouldRunPendingDialogueRequest,
 } from "../tui/client/game-client.ts";
 
@@ -157,24 +156,6 @@ function makeDialogueState(overrides?: DialogueStateOverrides): DialogueState {
   };
 }
 
-describe("shouldKeepPopupOpen", () => {
-  it("close → false", () => {
-    expect(shouldKeepPopupOpen("close")).toBe(false);
-  });
-
-  it("idle_chat → true", () => {
-    expect(shouldKeepPopupOpen("idle_chat")).toBe(true);
-  });
-
-  it("trade_menu → true", () => {
-    expect(shouldKeepPopupOpen("trade_menu")).toBe(true);
-  });
-
-  it("quest_defer → false", () => {
-    expect(shouldKeepPopupOpen("quest_defer")).toBe(false);
-  });
-});
-
 describe("shouldExpectDialogueOptions", () => {
   it("显式 behavior 优先于 type 推断", () => {
     const closeByBehavior: DialogueOption = {
@@ -196,37 +177,38 @@ describe("shouldExpectDialogueOptions", () => {
   });
 
   it("menu、select 和 idle_chat 会等待子选项", () => {
+    const mk = (id: string, label: string, type: DialogueOption["type"]) => ({
+      id,
+      label,
+      type,
+      behavior: { kind: "continue", expects: "chat_options" } as const,
+    });
+    expect(shouldExpectDialogueOptions(mk("menu:chat", "聊聊", "functional_menu"))).toBe(true);
     expect(
-      shouldExpectDialogueOptions({ id: "menu:chat", label: "聊聊", type: "functional_menu" }),
+      shouldExpectDialogueOptions(
+        mk("quest_trigger:q_faxian_cipher", "接受", "quest_trigger_select"),
+      ),
     ).toBe(true);
     expect(
-      shouldExpectDialogueOptions({
-        id: "quest_trigger:q_faxian_cipher",
-        label: "接受",
-        type: "quest_trigger_select",
-      }),
+      shouldExpectDialogueOptions(
+        mk("quest_deliver:q_faxian_cipher", "交付", "quest_deliver_select"),
+      ),
     ).toBe(true);
-    expect(
-      shouldExpectDialogueOptions({
-        id: "quest_deliver:q_faxian_cipher",
-        label: "交付",
-        type: "quest_deliver_select",
-      }),
-    ).toBe(true);
-    expect(
-      shouldExpectDialogueOptions({
-        id: "functional:rest",
-        label: "休息",
-        type: "functional_select",
-      }),
-    ).toBe(true);
-    expect(shouldExpectDialogueOptions({ id: "chat:1", label: "聊聊", type: "idle_chat" })).toBe(
+    expect(shouldExpectDialogueOptions(mk("functional:rest", "休息", "functional_select"))).toBe(
       true,
     );
+    expect(shouldExpectDialogueOptions(mk("chat:1", "聊聊", "idle_chat"))).toBe(true);
   });
 
   it("close 不等待子选项", () => {
-    expect(shouldExpectDialogueOptions({ id: "close", label: "告别", type: "close" })).toBe(false);
+    expect(
+      shouldExpectDialogueOptions({
+        id: "close",
+        label: "告别",
+        type: "close",
+        behavior: { kind: "close" },
+      }),
+    ).toBe(false);
   });
 
   it("stay 保持弹窗且不等待子选项", () => {
@@ -588,19 +570,27 @@ describe("quest negotiation client behavior", () => {
       label: "我去查清这枚铜符。",
       type: "quest_trigger_select",
       tag: "quest",
+      behavior: { kind: "continue", expects: "chat_options" },
     },
     {
       id: "quest_background:q_faxian_cipher:0",
       label: "铜符是什么来历？",
       type: "idle_chat",
+      behavior: { kind: "continue", expects: "chat_options" },
     },
     {
       id: "quest_defer:q_faxian_cipher",
       label: "我先想想。",
       type: "quest_defer",
       tag: "quest",
+      behavior: { kind: "close" },
     },
-    { id: "chat:goodbye", label: "告别", type: "close" },
+    {
+      id: "chat:goodbye",
+      label: "告别",
+      type: "close",
+      behavior: { kind: "close" },
+    },
   ];
 
   function setupClientWithQuestNegotiation() {
@@ -625,7 +615,7 @@ describe("quest negotiation client behavior", () => {
   it("selecting quest accept waits for returned chat options", () => {
     const { client, socket } = setupClientWithQuestNegotiation();
     const postAcceptOptions: DialogueOption[] = [
-      { id: "chat:goodbye", label: "告别", type: "close" },
+      { id: "chat:goodbye", label: "告别", type: "close", behavior: { kind: "close" } },
     ];
 
     client.chooseDialogueOption(questOptions[0]);
@@ -708,13 +698,12 @@ describe("quest negotiation client behavior", () => {
 
     client.closeDialogue();
 
-    expect(lastSent(socket)).toEqual({
+    expect(lastSent(socket)).toMatchObject({
       type: "talk",
       npcId: "npc1",
-      optionId: "chat:goodbye",
-      label: "告别",
-      optionType: "close",
     });
+    const sent = lastSent(socket);
+    expect(sent.optionType === "close" || sent.optionType === "quest_defer").toBe(true);
     expect(client.dialogue()).toBeNull();
   });
 

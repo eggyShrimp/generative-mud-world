@@ -168,12 +168,18 @@ export function createGameClient(url: string): GameClient {
 
   const sendDialogueCleanupIfNeeded = (current: DialogueState | null) => {
     if (!current || hasActiveRequest() || !hasVisibleQuestNegotiation(current)) return;
+    const options = current.tabs.chat.options;
+    const closeOption =
+      options.find(
+        (o) => o.id === "chat:goodbye" && getDialogueOptionBehavior(o).kind === "close",
+      ) ?? options.find((o) => getDialogueOptionBehavior(o).kind === "close");
+    if (!closeOption) return;
     send({
       type: "talk",
       npcId: current.npcId,
-      optionId: "chat:goodbye",
-      label: "告别",
-      optionType: "close",
+      optionId: closeOption.id,
+      label: closeOption.label,
+      optionType: closeOption.type,
     });
   };
 

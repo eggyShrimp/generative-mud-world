@@ -145,6 +145,12 @@ const QuestMessagesSchema = z.object({
   failDescription: z.string(),
   discoverTitle: z.string(),
   discoverDescription: z.string(),
+  goodbyeOptionLabel: z.string(),
+  goodbyeNarrative: z.string(),
+  deferReply: z.string(),
+  deferReplyFallback: z.string(),
+  acceptLabelTemplate: z.string(),
+  deferLabel: z.string(),
 });
 
 export const NarrativeTemplatesSchema = z.object({

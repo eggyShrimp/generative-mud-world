@@ -789,6 +789,12 @@ export interface QuestMessages {
   failDescription: string;
   discoverTitle: string;
   discoverDescription: string;
+  goodbyeOptionLabel: string;
+  goodbyeNarrative: string;
+  deferReply: string;
+  deferReplyFallback: string;
+  acceptLabelTemplate: string;
+  deferLabel: string;
 }
 
 export interface NarrativeTemplates {

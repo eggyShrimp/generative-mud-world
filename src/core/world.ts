@@ -1339,6 +1339,12 @@ export function createDefaultContentPool(): ContentPool {
         failDescription: "你未能在截止日期前完成「{title}」。",
         discoverTitle: "发现任务: {title}",
         discoverDescription: "你发现了「{title}」。",
+        goodbyeOptionLabel: "告别",
+        goodbyeNarrative: "{npcName}向你点头告别。",
+        deferReply: "{npcName}点了点头，示意你可以之后再谈。",
+        deferReplyFallback: "{npcName}点了点头。",
+        acceptLabelTemplate: "我愿意接下「{questTitle}」。",
+        deferLabel: "我先考虑一下。",
       },
       traveloguePrompt: `你是游记作家。请根据玩家今日的经历，以第三人称章回体小说的风格撰写一篇游记。
 
