@@ -1,15 +1,8 @@
 import type { Capability, RoomEntity } from "../../shared/protocol.ts";
 import type { GameClient } from "../client/types.ts";
-import {
-  findGroupForItem,
-  formatGroupedItemName,
-  type GroupedItem,
-  groupInventory,
-} from "../features/inventory/grouping.ts";
+import type { GroupedItem } from "../features/inventory/grouping.ts";
 import { getEventStyle } from "../theme/event-style.ts";
 import type { KeyBinding } from "./types.ts";
-
-export { findGroupForItem, formatGroupedItemName, type GroupedItem, groupInventory };
 
 export function capabilityTargets(capabilities: Capability[], action: string): string[] {
   return capabilities.find((c) => c.action === action)?.params?.values ?? [];

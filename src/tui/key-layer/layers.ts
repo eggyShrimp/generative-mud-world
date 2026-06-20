@@ -13,6 +13,7 @@ import {
   handleQuestSelect,
   handleRoomAction,
 } from "./handlers.ts";
+import { makeMapLinearCursorMover, makeMapRegionCursorMover } from "./map-handlers.ts";
 import type { KeyLayer } from "./types.ts";
 
 // ── Layer Definitions ──
@@ -181,111 +182,23 @@ const MAP_LAYER: KeyLayer = {
     { key: "g", handler: (c) => c.cycleMapGranularity(), label: "切换" },
     {
       key: "left",
-      handler: (c) => {
-        const minimap = c.room()?.minimap;
-        const cursor = c.mapCursor();
-        const granularity = c.mapGranularity();
-        if (!minimap) return;
-        if (granularity === "region") {
-          const tiles = minimap.tiles.filter(
-            (t) => t.regionId === minimap.playerRegionId && t.roomName,
-          );
-          const idx = tiles.findIndex((t) => t.x === cursor.x && t.y === cursor.y);
-          const next = Math.max(0, idx - 1);
-          if (next !== idx) {
-            const t = tiles[next];
-            c.setMapCursor({ x: t.x, y: t.y, regionId: t.regionId });
-          }
-        } else {
-          const nodes = minimap.regionNodes;
-          const idx = nodes.findIndex((n) =>
-            cursor.regionId ? n.regionId === cursor.regionId : n.isCurrent,
-          );
-          const next = Math.max(0, idx - 1);
-          if (next !== idx) {
-            const n = nodes[next];
-            c.setMapCursor({ x: n.x, y: n.y, regionId: n.regionId });
-          }
-        }
-      },
+      handler: makeMapLinearCursorMover("prev"),
       label: "←",
     },
     {
       key: "right",
-      handler: (c) => {
-        const minimap = c.room()?.minimap;
-        const cursor = c.mapCursor();
-        const granularity = c.mapGranularity();
-        if (!minimap) return;
-        if (granularity === "region") {
-          const tiles = minimap.tiles.filter(
-            (t) => t.regionId === minimap.playerRegionId && t.roomName,
-          );
-          const idx = tiles.findIndex((t) => t.x === cursor.x && t.y === cursor.y);
-          const next = Math.min(tiles.length - 1, idx + 1);
-          if (next !== idx) {
-            const t = tiles[next];
-            c.setMapCursor({ x: t.x, y: t.y, regionId: t.regionId });
-          }
-        } else {
-          const nodes = minimap.regionNodes;
-          const idx = nodes.findIndex((n) =>
-            cursor.regionId ? n.regionId === cursor.regionId : n.isCurrent,
-          );
-          const next = Math.min(nodes.length - 1, idx + 1);
-          if (next !== idx) {
-            const n = nodes[next];
-            c.setMapCursor({ x: n.x, y: n.y, regionId: n.regionId });
-          }
-        }
-      },
+      handler: makeMapLinearCursorMover("next"),
       label: "→",
     },
     {
       key: "up",
-      handler: (c) => {
-        const minimap = c.room()?.minimap;
-        const cursor = c.mapCursor();
-        if (!minimap || c.mapGranularity() !== "region") return;
-        const tiles = minimap.tiles.filter(
-          (t) => t.regionId === minimap.playerRegionId && t.roomName,
-        );
-        const above = tiles.filter((t) => t.y < cursor.y);
-        if (above.length > 0) {
-          const closest = above.reduce((a, b) =>
-            Math.abs(a.x - cursor.x) <= Math.abs(b.x - cursor.x) ? a : b,
-          );
-          c.setMapCursor({
-            x: closest.x,
-            y: closest.y,
-            regionId: closest.regionId,
-          });
-        }
-      },
+      handler: makeMapRegionCursorMover("up"),
       label: "↑",
       enabled: (c) => c.mapGranularity() === "region",
     },
     {
       key: "down",
-      handler: (c) => {
-        const minimap = c.room()?.minimap;
-        const cursor = c.mapCursor();
-        if (!minimap || c.mapGranularity() !== "region") return;
-        const tiles = minimap.tiles.filter(
-          (t) => t.regionId === minimap.playerRegionId && t.roomName,
-        );
-        const below = tiles.filter((t) => t.y > cursor.y);
-        if (below.length > 0) {
-          const closest = below.reduce((a, b) =>
-            Math.abs(a.x - cursor.x) <= Math.abs(b.x - cursor.x) ? a : b,
-          );
-          c.setMapCursor({
-            x: closest.x,
-            y: closest.y,
-            regionId: closest.regionId,
-          });
-        }
-      },
+      handler: makeMapRegionCursorMover("down"),
       label: "↓",
       enabled: (c) => c.mapGranularity() === "region",
     },

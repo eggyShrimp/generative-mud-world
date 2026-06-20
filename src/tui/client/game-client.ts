@@ -7,13 +7,12 @@ import type {
   DialogueOption,
   EntityState,
   RoomInfo,
-  SaveSlotInfo,
   ServerMessage,
   StatusMessage,
   TradeOption,
-  TravelogueDataMessage,
 } from "../../shared/protocol.ts";
 import { activeLayer, getLayerStack, hasLayer, popLayer, pushLayer } from "../key-layer/index.ts";
+import { createCombatSystem } from "./combat.ts";
 import {
   appendToHistory,
   applyDialogueOptionsToTab,
@@ -32,6 +31,9 @@ import {
   shouldRunPendingDialogueRequest,
   tradeOptionDetail,
 } from "./dialogue-state.ts";
+import { createEndDaySystem } from "./end-day.ts";
+import { handleMessage } from "./message-handler.ts";
+import { createSavePanelSystem } from "./save-panel.ts";
 import type {
   ActiveRequest,
   BookReaderState,
@@ -228,10 +230,6 @@ export function createGameClient(url: string): GameClient {
     message: null,
   });
 
-  let combatTargetId: string | null = null;
-  let _combatTargetName: string | null = null;
-  let combatTimer: ReturnType<typeof setInterval> | null = null;
-
   let ws: WebSocket | null = null;
   let eventId = 0;
 
@@ -249,68 +247,6 @@ export function createGameClient(url: string): GameClient {
     );
   };
 
-  const pushCombatLog = (events: CommandEvent[], round: number) => {
-    const entries = events
-      .filter((e) => e.type && (e.type.startsWith("combat_") || e.type === "defend"))
-      .map((e) => ({ round, type: e.type, description: e.description }));
-    if (entries.length > 0) {
-      setCombatLog((prev) => [...prev, ...entries]);
-    }
-  };
-
-  const endCombat = () => {
-    combatTargetId = null;
-    _combatTargetName = null;
-    popLayer("combat");
-    if (combatTimer) {
-      clearInterval(combatTimer);
-      combatTimer = null;
-    }
-  };
-
-  const startCombat = (targetId: string, targetName: string) => {
-    combatTargetId = targetId;
-    _combatTargetName = targetName;
-    setCombatLog([]);
-    setCombatRound(0);
-    setSelectedEntityId(null);
-    pushLayer("combat");
-    pushEvents([{ type: "system", description: `\u2694 进入战斗！对手：${targetName}` }]);
-    ensureCombatTimer();
-  };
-
-  const checkCombatEnd = () => {
-    const ent = entity();
-    if (!ent?.combatState) return;
-    if (ent.combatState.isIncapacitated) {
-      pushEvents([{ type: "combat_defeat", description: "你倒下了……" }]);
-      endCombat();
-      return;
-    }
-    if (!ent.combatState.combatTarget) {
-      pushEvents([{ type: "combat_victory", description: "战斗结束！" }]);
-      endCombat();
-      return;
-    }
-  };
-
-  const ensureCombatTimer = () => {
-    if (combatTimer) clearInterval(combatTimer);
-    combatTimer = setInterval(sendAutoAttack, 1200);
-  };
-
-  const sendAutoAttack = () => {
-    if (!combatTargetId || hasActiveRequest()) return;
-    const ent = entity();
-    if (!ent?.combatState) return;
-    if (ent.combatState.isIncapacitated || !ent.combatState.combatTarget) {
-      endCombat();
-      return;
-    }
-    setCombatRound((r) => r + 1);
-    execute("attack", { targetId: combatTargetId });
-  };
-
   const pushBlockedEvent = () => {
     if (!hasActiveRequest()) return;
     pushEvents([{ type: "system", description: "正在处理操作，请稍候。" }]);
@@ -325,24 +261,11 @@ export function createGameClient(url: string): GameClient {
     return true;
   };
 
-  const selectDefaultSaveSlot = (slots: SaveSlotInfo[]): number | null => {
-    if (slots.length === 0) return null;
-    const current = slots.findIndex((slot) => slot.isCurrent);
-    return current >= 0 ? current : 0;
-  };
-
-  const makeSlotId = (): string => {
-    const date = new Date();
-    const pad = (value: number) => String(value).padStart(2, "0");
-    return `slot_${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
-  };
-
-  const requestSaveSlots = () => {
-    setSavePanel((prev) => ({ ...prev, loading: true, message: null }));
-    if (!send({ type: "request_save_slots" })) {
-      setSavePanel((prev) => ({ ...prev, loading: false }));
-    }
-  };
+  const saveSystem = createSavePanelSystem({
+    savePanel,
+    setSavePanel,
+    send,
+  });
 
   const openBookReader = (book: BookDisplay) => {
     setBookReader({ title: book.title, pages: book.pages, pageIndex: 0, scrollTop: 0 });
@@ -374,194 +297,34 @@ export function createGameClient(url: string): GameClient {
     );
   };
 
-  const manualSave = () => {
-    const panel = savePanel();
-    const slot = panel.selectedIndex !== null ? panel.slots[panel.selectedIndex] : null;
-    const slotId = slot?.slotId;
-    setSavePanel((prev) => ({
-      ...prev,
-      loading: true,
-      message: slotId ? `正在保存到 ${slotId}...` : "正在保存...",
-    }));
-    if (!send({ type: "manual_save", slotId })) {
-      setSavePanel((prev) => ({ ...prev, loading: false }));
-    }
+  const execute = (action: string, params: Record<string, unknown> = {}) => {
+    sendRequest({ type: "execute", action, params }, (req) => {
+      req.onCommandResult = () => "complete";
+    });
   };
 
-  const createSaveSlot = () => {
-    const slotId = makeSlotId();
-    setSavePanel((prev) => ({ ...prev, loading: true, message: `正在创建 ${slotId}...` }));
-    if (!send({ type: "create_save_slot", slotId })) {
-      setSavePanel((prev) => ({ ...prev, loading: false }));
-    }
-  };
+  const combat = createCombatSystem({
+    entity,
+    hasActiveRequest,
+    pushEvents,
+    pushLayer,
+    popLayer,
+    execute,
+    setSelectedEntityId,
+    combatLog: setCombatLog,
+    combatRound,
+    setCombatRound,
+  });
 
-  const handleMessage = (message: ServerMessage) => {
-    switch (message.type) {
-      case "init":
-        pushEvents([{ type: "system", description: `已进入世界：${message.boundEntityName}` }]);
-        break;
-      case "bound":
-        pushEvents([{ type: "system", description: `当前角色：${message.entityName}` }]);
-        break;
-      case "state_update":
-        logWrite("cli", "dbg", `[DIAG] state_update recv, caps=${message.capabilities?.length}`);
-        setEntity(message.entity);
-        setRoom(message.room);
-        setCapabilities(message.capabilities);
-        setItemPropertyLabels(message.itemPropertyLabels ?? {});
-        setGroundRestRecovery(message.groundRestRecovery);
-        if (hasLayer("combat")) {
-          checkCombatEnd();
-          if (hasLayer("combat")) {
-            ensureCombatTimer();
-          }
-        }
-        break;
-      case "command_result": {
-        pushEvents(message.events);
-        if (hasLayer("combat")) {
-          pushCombatLog(message.events, combatRound());
-        }
-        if (message.delta?.itemChanges?.length) {
-          const playerId = entity()?.id;
-          if (playerId) {
-            const playerChanges = message.delta.itemChanges.filter((c) => c.targetId === playerId);
-            if (playerChanges.length > 0) {
-              const gains = playerChanges
-                .filter((c) => c.operation === "add")
-                .map((c) => ({ name: c.name ?? c.templateId, qty: c.qty }));
-              const losses = playerChanges
-                .filter((c) => c.operation === "remove")
-                .map((c) => ({ name: c.name ?? c.templateId, qty: c.qty }));
-              if (gains.length > 0 || losses.length > 0) {
-                showItemChangeNotification({ gains, losses });
-              }
-            }
-          }
-        }
-        if (message.bookDisplay) {
-          openBookReader(message.bookDisplay);
-        }
-        if (message.ended) {
-          pushEvents([{ type: "system", description: "今天已经结束，等待结算。" }]);
-          setSettlementPending(true);
-        }
-        const req = activeRequest();
-        req?.onCommandResult?.(message);
-        if (req && !req.onDialogueOptions && !req.onChatOptions && !req.onTradeOptions) {
-          completeActiveRequest();
-        }
-        break;
-      }
-      case "dialogue_options": {
-        const req = activeRequest();
-        logWrite(
-          "cli",
-          "dbg",
-          `[DIAG] recv dialogue_options options=${message.options?.length} hasCallback=${!!req?.onDialogueOptions} activeTab=${dialogue()?.activeTab}`,
-        );
-        if (req?.onDialogueOptions) {
-          req.onDialogueOptions(message);
-          completeActiveRequest();
-        }
-        break;
-      }
-      case "chat_options": {
-        const req = activeRequest();
-        logWrite(
-          "cli",
-          "dbg",
-          `[DIAG] recv chat_options options=${message.options?.length} hasCallback=${!!req?.onChatOptions} activeTab=${dialogue()?.activeTab}`,
-        );
-        if (req?.onChatOptions) {
-          req.onChatOptions(message);
-          completeActiveRequest();
-        }
-        break;
-      }
-      case "trade_options": {
-        const req = activeRequest();
-        logWrite(
-          "cli",
-          "dbg",
-          `[DIAG] recv trade_options options=${message.options?.length} hasCallback=${!!req?.onTradeOptions} activeTab=${dialogue()?.activeTab}`,
-        );
-        if (req?.onTradeOptions) {
-          req.onTradeOptions(message);
-          completeActiveRequest();
-        }
-        break;
-      }
-      case "follow_up_options": {
-        const req = activeRequest();
-        if (req?.onFollowUpOptions) {
-          req.onFollowUpOptions(message);
-        }
-        break;
-      }
-      case "daily_report":
-        setSettlementPending(false);
-        pushEvents([{ type: "daily_report", description: message.report.summary }]);
-        if (message.report.travelogue) {
-          const existing = travelogue();
-          if (!existing.some((e) => e.date === message.report.travelogue?.date)) {
-            setTravelogue([...existing, message.report.travelogue]);
-          }
-        }
-        break;
-      case "settlement_started":
-        setSettlementPending(true);
-        break;
-      case "travelogue_data": {
-        const msg = message as TravelogueDataMessage;
-        setTravelogue(msg.entries);
-        break;
-      }
-      case "save_slots": {
-        setSavePanel((prev) => {
-          const selectedIndex =
-            prev.selectedIndex !== null && prev.selectedIndex < message.slots.length
-              ? prev.selectedIndex
-              : selectDefaultSaveSlot(message.slots);
-          return {
-            ...prev,
-            slots: message.slots,
-            selectedIndex,
-            loading: false,
-          };
-        });
-        break;
-      }
-      case "save_result": {
-        setSavePanel((prev) => ({
-          ...prev,
-          loading: false,
-          message: message.ok
-            ? `已保存到 ${message.slot?.slotId ?? "当前存档"}`
-            : (message.error ?? "存档操作失败"),
-        }));
-        pushEvents([
-          {
-            type: message.ok ? "system" : "error",
-            description: message.ok
-              ? `存档已保存：${message.slot?.slotId ?? "当前存档"}`
-              : (message.error ?? "存档操作失败"),
-          },
-        ]);
-        break;
-      }
-      case "status":
-        setStatus(message);
-        break;
-      case "error": {
-        pushEvents([{ type: "error", description: message.message }]);
-        activeRequest()?.onError?.();
-        completeActiveRequest();
-        break;
-      }
-    }
-  };
+  const endDay = createEndDaySystem({
+    entity,
+    room,
+    groundRestRecovery,
+    endDayOptions: setEndDayOptions,
+    pushLayer,
+    popLayer,
+    execute,
+  });
 
   const connect = () => {
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
@@ -576,7 +339,31 @@ export function createGameClient(url: string): GameClient {
 
     ws.addEventListener("message", (event) => {
       try {
-        handleMessage(JSON.parse(String(event.data)) as ServerMessage);
+        handleMessage(JSON.parse(String(event.data)) as ServerMessage, {
+          entity,
+          room,
+          combatRound,
+          activeRequest,
+          travelogue,
+          setEntity,
+          setRoom,
+          setCapabilities,
+          setItemPropertyLabels,
+          setGroundRestRecovery,
+          setSettlementPending,
+          setStatus,
+          setTravelogue,
+          setSavePanel,
+          pushEvents,
+          pushCombatLog: combat.pushCombatLog,
+          hasLayer,
+          checkCombatEnd: combat.checkCombatEnd,
+          ensureCombatTimer: combat.ensureCombatTimer,
+          completeActiveRequest,
+          showItemChangeNotification,
+          openBookReader,
+          selectDefaultSaveSlot: saveSystem.selectDefaultSaveSlot,
+        });
       } catch {
         pushEvents([{ type: "error", description: "收到无法解析的服务器消息。" }]);
       }
@@ -585,18 +372,12 @@ export function createGameClient(url: string): GameClient {
     ws.addEventListener("close", () => {
       setConnectionState("disconnected");
       pushEvents([{ type: "system", description: "服务器连接已断开。" }]);
-      endCombat();
+      combat.endCombat();
     });
 
     ws.addEventListener("error", () => {
       setConnectionState("error");
       pushEvents([{ type: "error", description: "无法连接服务器。" }]);
-    });
-  };
-
-  const execute = (action: string, params: Record<string, unknown> = {}) => {
-    sendRequest({ type: "execute", action, params }, (req) => {
-      req.onCommandResult = () => "complete";
     });
   };
 
@@ -923,7 +704,7 @@ export function createGameClient(url: string): GameClient {
         ws = null;
       }
       setConnectionState("disconnected");
-      endCombat();
+      combat.endCombat();
     },
     execute,
     requestDialogueOptions,
@@ -1027,8 +808,8 @@ export function createGameClient(url: string): GameClient {
       });
     },
     isTrackingQuest: (templateId: string) => trackedQuestIds().has(templateId),
-    startCombat,
-    endCombat,
+    startCombat: combat.startCombat,
+    endCombat: combat.endCombat,
     questNotification,
     showQuestNotification: (notif: { type: string; title: string }) => {
       setQuestNotification(notif);
@@ -1047,63 +828,9 @@ export function createGameClient(url: string): GameClient {
     groundRestRecovery,
     itemPropertyLabels,
     endDayOptions,
-    requestEndDay: () => {
-      const currentRoom = room();
-      const currentEntity = entity();
-      if (!currentRoom || !currentEntity) return;
-
-      const options: RestOption[] = [];
-
-      for (const action of currentRoom.roomActions ?? []) {
-        if (action.endsDay && action.restRecovery) {
-          options.push({
-            type: "room",
-            actionId: action.id,
-            label: action.label,
-            restRecovery: action.restRecovery,
-          });
-        }
-      }
-
-      for (const item of currentEntity.inventory ?? []) {
-        if (item.properties.restItem) {
-          options.push({
-            type: "item",
-            itemId: item.id,
-            label: `使用${item.name}`,
-            restRecovery: Number(item.properties.restRecovery ?? 0),
-            durability: item.properties.durability as number | undefined,
-          });
-        }
-      }
-
-      options.push({
-        type: "ground",
-        label: "原地休息",
-        restRecovery: groundRestRecovery(),
-      });
-
-      options.sort((a, b) => b.restRecovery - a.restRecovery);
-
-      setEndDayOptions(options);
-      pushLayer("confirm-end-day");
-    },
-    confirmEndDay: (option: RestOption) => {
-      setEndDayOptions([]);
-      popLayer("confirm-end-day");
-
-      if (option.type === "ground") {
-        execute("end_day");
-      } else if (option.type === "item") {
-        execute("end_day", { context: "item", itemId: option.itemId });
-      } else if (option.type === "room" && option.actionId) {
-        execute(option.actionId);
-      }
-    },
-    cancelEndDay: () => {
-      setEndDayOptions([]);
-      popLayer("confirm-end-day");
-    },
+    requestEndDay: endDay.requestEndDay,
+    confirmEndDay: endDay.confirmEndDay,
+    cancelEndDay: endDay.cancelEndDay,
     travelogue,
     bookReader,
     openBookReader,
@@ -1135,14 +862,14 @@ export function createGameClient(url: string): GameClient {
       setSelectedInventoryItemId(null);
       hideDialogue();
       pushLayer("save");
-      requestSaveSlots();
+      saveSystem.requestSaveSlots();
     },
     closeSavePanel: () => {
       setSavePanel((prev) => ({ ...prev, loading: false }));
       popLayer("save");
     },
-    requestSaveSlots,
-    manualSave,
-    createSaveSlot,
+    requestSaveSlots: saveSystem.requestSaveSlots,
+    manualSave: saveSystem.manualSave,
+    createSaveSlot: saveSystem.createSaveSlot,
   };
 }

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Capability, InventoryItem, RoomEntity } from "../shared/protocol.ts";
 import type { GameClient } from "../tui/client/game-client.ts";
+import { groupInventory } from "../tui/features/inventory/grouping.ts";
 import {
   activeLayer,
   directionKeyChar,
@@ -10,7 +11,6 @@ import {
   getGlobalBindings,
   getInventoryActions,
   getLayerStack,
-  groupInventory,
   hasCapability,
   hasLayer,
   popLayer,

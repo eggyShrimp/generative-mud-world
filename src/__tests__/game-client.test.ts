@@ -7,7 +7,6 @@ import {
   applyNpcReply,
   applyTradeOptionsToTab,
   buildLoadingDialogueState,
-  computeContentHeight,
   computeTabSwitch,
   createDialogueState,
   createGameClient,
@@ -19,6 +18,7 @@ import {
   shouldExpectDialogueOptions,
   shouldRunPendingDialogueRequest,
 } from "../tui/client/game-client.ts";
+import { computeContentHeight } from "../tui/layout/metrics.ts";
 
 const chatOptions: DialogueOption[] = [
   { id: "c1", label: "你好", type: "idle_chat" },

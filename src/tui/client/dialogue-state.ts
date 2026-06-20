@@ -99,10 +99,6 @@ export function appendToHistory(
   return [...state.tabs.chat.history, { speaker, content }];
 }
 
-export function computeContentHeight(bodyHeight: number, interactionHeight: number): number {
-  return Math.max(1, bodyHeight - interactionHeight);
-}
-
 export function computeTabSwitch(state: DialogueState, direction: -1 | 1): DialogueState {
   const tabs = state.availableTabs;
   const idx = tabs.indexOf(state.activeTab);
