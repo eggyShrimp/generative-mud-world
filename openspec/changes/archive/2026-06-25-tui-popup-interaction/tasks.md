@@ -6,23 +6,23 @@
 
 ## Component: `src/tui/key-layer/layers.ts`
 
-- [ ] `STATUS_LAYER`: 保持不变，保留 `q` toggle 关闭
-- [ ] `QUESTS_LAYER`: 保持不变，保留 `j` toggle 关闭
-- [ ] `MAP_LAYER`: 去除 `h/j/k/l` 四个 vim 键绑定，只保留箭头键 + `g` 切换粒度 + `escape/m` 关闭
-- [ ] `TRAVELOGUE_LAYER`: 导航从 `["k", "up"]` / `["j", "down"]` 简化为 `"up"` / `"down"`
-- [ ] `BOOK_READER_LAYER`: 翻页从 `["left", "h"]` 简化为 `"left"`，`["right", "l"]` 简化为 `"right"`；滚动从 `["up", "k", "pageup"]` 简化为 `"up"`，`["down", "j", "pagedown"]` 简化为 `"down"`
-- [ ] `QUEST_NOTIFICATION_LAYER`: 从 `["escape", "enter", " "]` 简化为 `" "`
-- [ ] `ITEM_CHANGE_NOTIFICATION_LAYER`: 从 `["escape", "enter", " "]` 简化为 `" "`
-- [ ] `CONFIRM_END_DAY_LAYER`: 保持不变，保留 `0` toggle 取消
-- [ ] 不新增 `inventory-detail` layer；背包详情是 `inventory` 弹窗内部的右列状态
-- [ ] `INVENTORY_LAYER`: 保留 `i` toggle 关闭背包；替换 ESC handler 为 `handleInventoryEscape`；新增 `up`/`down` 绑定 `handleInventoryArrow`
+- [x] `STATUS_LAYER`: 保持不变，保留 `q` toggle 关闭
+- [x] `QUESTS_LAYER`: 保持不变，保留 `j` toggle 关闭
+- [x] `MAP_LAYER`: 去除 `h/j/k/l` 四个 vim 键绑定，只保留箭头键 + `g` 切换粒度 + `escape/m` 关闭
+- [x] `TRAVELOGUE_LAYER`: 导航从 `["k", "up"]` / `["j", "down"]` 简化为 `"up"` / `"down"`
+- [x] `BOOK_READER_LAYER`: 翻页从 `["left", "h"]` 简化为 `"left"`，`["right", "l"]` 简化为 `"right"`；滚动从 `["up", "k", "pageup"]` 简化为 `"up"`，`["down", "j", "pagedown"]` 简化为 `"down"`
+- [x] `QUEST_NOTIFICATION_LAYER`: 从 `["escape", "enter", " "]` 简化为 `" "`
+- [x] `ITEM_CHANGE_NOTIFICATION_LAYER`: 从 `["escape", "enter", " "]` 简化为 `" "`
+- [x] `CONFIRM_END_DAY_LAYER`: 保持不变，保留 `0` toggle 取消
+- [x] 不新增 `inventory-detail` layer；背包详情是 `inventory` 弹窗内部的右列状态
+- [x] `INVENTORY_LAYER`: 保留 `i` toggle 关闭背包；替换 ESC handler 为 `handleInventoryEscape`；新增 `up`/`down` 绑定 `handleInventoryArrow`
 
 ## Component: `src/tui/key-layer/handlers.ts`
 
-- [ ] 新增 `handleInventoryEscape(client)`:
+- [x] 新增 `handleInventoryEscape(client)`:
   - 如果 `selectedInventoryItemId` 不为 null → `client.clearInventorySelection()`
   - 如果为 null → `client.closeInventory()`
-- [ ] 新增 `handleInventoryArrow(client, keyName)`:
+- [x] 新增 `handleInventoryArrow(client, keyName)`:
   - 读取 `client.entity()?.inventory` → `groupInventory` 获取分组列表
   - 若 `groups.length === 0` 直接 return
   - 若 `selectedInventoryItemId` 有值，在 groups 中定位索引
@@ -32,29 +32,25 @@
 
 ## Component: `src/tui/client/game-client.ts`
 
-- [ ] 新增 `selectInventoryItem(id: string)` 方法：
-  - `setSelectedInventoryItemId(id)`
-- [ ] 新增 `clearInventorySelection()` 方法：
-  - `setSelectedInventoryItemId(null)`
-- [ ] 修改 `closeInventory()`：
-  - `setSelectedInventoryItemId(null)` — 清选中
-  - `popLayer("inventory")` — 弹掉 inventory 层
-- [ ] 在返回对象中导出新方法
+- [x] 新增 `selectInventoryItem(id: string)` 方法：包装 `setSelectedInventoryItemId(id)`
+- [x] 新增 `clearInventorySelection()` 方法：包装 `setSelectedInventoryItemId(null)`
+- [x] 修改 `closeInventory()`：`setSelectedInventoryItemId(null)` + `popLayer("inventory")`
+- [x] 在返回对象中导出新方法；从 GameClient 接口移除裸 signal setter
 
 ## Component: `src/tui/client/types.ts`
 
-- [ ] 在 `GameClient` 接口中添加方法签名：
-  - `selectInventoryItem(id: string): void`
-  - `clearInventorySelection(): void`
+- [x] 在 `GameClient` 接口中移除 `setSelectedInventoryItemId` 签名
+- [x] 添加 `selectInventoryItem(id: string): void`
+- [x] 添加 `clearInventorySelection(): void`
 
 ## Component: `src/tui/panels/inventory/inventory-panel.tsx`
 
-- [ ] `onSelect` 回调改为调用 `props.client.selectInventoryItem(group.items[0].id)` 而非 `setSelectedInventoryItemId`
-- [ ] footer 文字调整：列表态 → `"选择物品编号，↑↓ 切换，Esc 关闭"`；详情态 → `"↑↓ 切换物品，1-9 操作，Esc 返回"`
+- [x] `onSelect` 回调改为调用 `props.client.selectInventoryItem(group.items[0].id)` 而非 `setSelectedInventoryItemId`
+- [x] footer 文字调整：列表态 → `"选择物品编号，↑↓ 切换，Esc 关闭"`；详情态 → `"↑↓ 切换物品，1-9 操作，Esc 返回"`
 
 ## Component: `src/tui/panels/dialogue/trade-detail.tsx`
 
-- [ ] footer 文字 `[Esc] 返回` → `[Esc] 返回`（不变或酌情调整）
+- [x] footer 文字 `[Esc] 返回` → `[Esc] 返回`（不变或酌情调整）
 
 ## Tests
 

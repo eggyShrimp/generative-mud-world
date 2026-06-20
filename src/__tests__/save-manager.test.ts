@@ -252,4 +252,82 @@ describe("SaveManager", () => {
       expect(mgr.conversations.getSummary("p1", "npc1")).toBeNull();
     });
   });
+
+  describe("weather persistence", () => {
+    it("capture persists weatherByRegion", () => {
+      const mgr = SaveManager.create({ rootDir, slotId: "slot_001", worldId: "test_world" });
+      const world = { tick: 10, round: 1, weatherByRegion: new Map() } as WorldState;
+      world.weatherByRegion.set("dunhuang", {
+        id: "blizzard",
+        label: "暴风雪",
+        movementMultiplier: 0.3,
+        visibilityMultiplier: 0.5,
+        narrativeDesc: "漫天飞雪，视线模糊",
+      });
+      world.weatherByRegion.set("yumen", {
+        id: "clear",
+        label: "晴朗",
+        movementMultiplier: 1.0,
+        visibilityMultiplier: 1.0,
+        narrativeDesc: "万里无云",
+      });
+
+      mgr.capture(world);
+      const data = mgr.data;
+
+      expect(data.weatherByRegion).toEqual({
+        dunhuang: {
+          id: "blizzard",
+          label: "暴风雪",
+          movementMultiplier: 0.3,
+          visibilityMultiplier: 0.5,
+          narrativeDesc: "漫天飞雪，视线模糊",
+        },
+        yumen: {
+          id: "clear",
+          label: "晴朗",
+          movementMultiplier: 1.0,
+          visibilityMultiplier: 1.0,
+          narrativeDesc: "万里无云",
+        },
+      });
+    });
+
+    it("restore reads back persisted weather without rerolling", () => {
+      const mgr = SaveManager.create({ rootDir, slotId: "slot_001", worldId: "test_world" });
+      const world = { tick: 10, round: 1, weatherByRegion: new Map() } as WorldState;
+      world.weatherByRegion.set("dunhuang", {
+        id: "blizzard",
+        label: "暴风雪",
+        movementMultiplier: 0.3,
+        visibilityMultiplier: 0.5,
+        narrativeDesc: "漫天飞雪，视线模糊",
+      });
+
+      mgr.capture(world);
+      mgr.save();
+
+      const restoredWorld = { tick: 10, round: 1, weatherByRegion: new Map() } as WorldState;
+      mgr.restore(restoredWorld);
+
+      expect(restoredWorld.weatherByRegion.get("dunhuang")).toEqual({
+        id: "blizzard",
+        label: "暴风雪",
+        movementMultiplier: 0.3,
+        visibilityMultiplier: 0.5,
+        narrativeDesc: "漫天飞雪，视线模糊",
+      });
+    });
+
+    it("capture and restore preserve empty weatherByRegion", () => {
+      const mgr = SaveManager.create({ rootDir, slotId: "slot_001", worldId: "test_world" });
+      const world = { tick: 10, round: 1, weatherByRegion: new Map() } as WorldState;
+
+      mgr.capture(world);
+      const restoredWorld = { tick: 10, round: 1, weatherByRegion: new Map() } as WorldState;
+      mgr.restore(restoredWorld);
+
+      expect(restoredWorld.weatherByRegion.size).toBe(0);
+    });
+  });
 });

@@ -122,7 +122,7 @@ export function InventoryPanel(props: {
               <InventoryList
                 items={props.items}
                 selectedGroupName={props.selectedItem?.name}
-                onSelect={(group) => props.client.setSelectedInventoryItemId(group.items[0].id)}
+                onSelect={(group) => props.client.selectInventoryItem(group.items[0].id)}
               />
             </scrollbox>
           }
@@ -133,9 +133,7 @@ export function InventoryPanel(props: {
                 <InventoryList
                   items={props.items}
                   selectedGroupName={group().name}
-                  onSelect={(candidate) =>
-                    props.client.setSelectedInventoryItemId(candidate.items[0].id)
-                  }
+                  onSelect={(candidate) => props.client.selectInventoryItem(candidate.items[0].id)}
                 />
               </scrollbox>
               <InventoryDetail

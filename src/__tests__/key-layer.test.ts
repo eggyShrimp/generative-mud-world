@@ -37,6 +37,8 @@ function mockClient(overrides: Partial<GameClient> = {}): GameClient {
     setSelectedEntityId: vi.fn(),
     interactWithEntity: vi.fn(),
     setSelectedInventoryItemId: vi.fn(),
+    selectInventoryItem: vi.fn(),
+    clearInventorySelection: vi.fn(),
     setSelectedQuestIndex: vi.fn(),
     closeInventory: vi.fn(),
     closeQuests: vi.fn(),
@@ -338,7 +340,7 @@ describe("dispatchKey", () => {
     const client = mockClient({ selectedInventoryItemId: () => "item_1" });
     const key = mockKey("escape");
     dispatchKey(key, client);
-    expect(client.setSelectedInventoryItemId).toHaveBeenCalledWith(null);
+    expect(client.clearInventorySelection).toHaveBeenCalledWith();
     expect(client.closeInventory).not.toHaveBeenCalled();
     expect(hasLayer("inventory")).toBe(true);
   });
@@ -387,7 +389,7 @@ describe("dispatchKey", () => {
 
     dispatchKey(mockKey("up"), client);
 
-    expect(client.setSelectedInventoryItemId).toHaveBeenCalledWith("item_3");
+    expect(client.selectInventoryItem).toHaveBeenCalledWith("item_3");
   });
 
   it("inventory 层: 其他按键被拦截", () => {

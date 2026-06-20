@@ -23,6 +23,7 @@ function createTestWorld(quests: QuestTemplate[] = []): WorldState {
   // Add NPCs referenced by quest objectives so isObjectiveReachable returns true
   addEntity(world, createNPC("npc_hunter", { name: "猎人", roomId: "room_camp" }));
   addEntity(world, createNPC("npc_lao_ma", { name: "老马", roomId: "room_tavern" }));
+  addEntity(world, createPlayer("player", "旅人", "room_tavern", world.contentPool));
   return world;
 }
 
@@ -809,5 +810,145 @@ describe("集成：ContentPool YAML 加载", () => {
 
     const result = QuestTemplateSchema.safeParse(data);
     expect(result.success).toBe(true);
+  });
+});
+
+describe("matchTime with period and season triggers", () => {
+  it("should trigger when period matches", () => {
+    const world = createTestWorld();
+    world.time.period = "night";
+    world.time.day = 5;
+
+    const storyline: QuestTemplate = {
+      id: "story_night",
+      title: "夜间剧情",
+      description: "只在夜间触发",
+      giverNpcId: null,
+      objectives: [],
+      rewards: {},
+      repeatable: false,
+      deadlineDays: null,
+      autoTrigger: {
+        type: "time",
+        conditions: [{ period: "night" }],
+      },
+      stages: [
+        {
+          id: "s1",
+          title: "夜间阶段",
+          questIds: ["quest_a"],
+          completionCondition: "all",
+          narrativeGuide: "进入夜间",
+        },
+      ],
+    };
+    world.contentPool.questTemplates = [QUEST_A, storyline];
+
+    const delta = checkTrigger(world, "player");
+    expect(delta).not.toBeNull();
+    expect(delta?.questChanges?.length).toBeGreaterThan(0);
+  });
+
+  it("should not trigger when season does not match", () => {
+    const world = createTestWorld();
+    world.time.season = "summer";
+    world.time.day = 5;
+
+    const storyline: QuestTemplate = {
+      id: "story_winter",
+      title: "冬季剧情",
+      description: "只在冬季触发",
+      giverNpcId: null,
+      objectives: [],
+      rewards: {},
+      repeatable: false,
+      deadlineDays: null,
+      autoTrigger: {
+        type: "time",
+        conditions: [{ season: "winter" }],
+      },
+      stages: [
+        {
+          id: "s1",
+          title: "冬季阶段",
+          questIds: ["quest_a"],
+          completionCondition: "all",
+          narrativeGuide: "进入冬季",
+        },
+      ],
+    };
+    world.contentPool.questTemplates = [QUEST_A, storyline];
+
+    const delta = checkTrigger(world, "player");
+    expect(delta).toBeNull();
+  });
+
+  it("should trigger when season matches", () => {
+    const world = createTestWorld();
+    world.time.season = "winter";
+    world.time.day = 5;
+
+    const storyline: QuestTemplate = {
+      id: "story_winter",
+      title: "冬季剧情",
+      description: "只在冬季触发",
+      giverNpcId: null,
+      objectives: [],
+      rewards: {},
+      repeatable: false,
+      deadlineDays: null,
+      autoTrigger: {
+        type: "time",
+        conditions: [{ season: "winter" }],
+      },
+      stages: [
+        {
+          id: "s1",
+          title: "冬季阶段",
+          questIds: ["quest_a"],
+          completionCondition: "all",
+          narrativeGuide: "进入冬季",
+        },
+      ],
+    };
+    world.contentPool.questTemplates = [QUEST_A, storyline];
+
+    const delta = checkTrigger(world, "player");
+    expect(delta).not.toBeNull();
+    expect(delta?.questChanges?.length).toBeGreaterThan(0);
+  });
+
+  it("should not trigger when season does not match", () => {
+    const world = createTestWorld();
+    world.time.season = "summer";
+    world.time.day = 5;
+
+    const storyline: QuestTemplate = {
+      id: "story_winter",
+      title: "冬季剧情",
+      description: "只在冬季触发",
+      giverNpcId: null,
+      objectives: [],
+      rewards: {},
+      repeatable: false,
+      deadlineDays: null,
+      autoTrigger: {
+        type: "time",
+        conditions: [{ season: "winter" }],
+      },
+      stages: [
+        {
+          id: "s1",
+          title: "冬季阶段",
+          questIds: ["quest_a"],
+          completionCondition: "all",
+          narrativeGuide: "进入冬季",
+        },
+      ],
+    };
+    world.contentPool.questTemplates = [storyline];
+
+    const delta = checkTrigger(world, "player");
+    expect(delta).toBeNull();
   });
 });

@@ -35,9 +35,9 @@
 
 ## Manual Checks
 
-- [ ] 启动游戏 → 推进到第 1 天（checkDay）→ 触发 `content_pool_evolve` → 检查 LLM 是否调用 `add_quest_template` 或输出包含 `addQuestTemplates` 的 JSON
-- [ ] 检查生成的任务是否：引用真实 NPC/房间 ID、包含混合目标类型、有因果链描述、奖励与叙事挂钩
-- [ ] 检查 `worlds/content-pool/evolve/quests.yaml` 是否生成且可被 `content-pool-loader` 加载
+- [x] 启动游戏 → 推进到第 1 天（checkDay）→ 触发 `content_pool_evolve` → 检查 LLM 是否调用 `add_quest_template` 或输出包含 `addQuestTemplates` 的 JSON → 已加 `[QuestGen]` 日志打点（`tool-mutations.ts`）
+- [x] 检查生成的任务是否：引用真实 NPC/房间 ID、包含混合目标类型、有因果链描述、奖励与叙事挂钩 → 日志输出任务标题和目标数，完整内容见 `content-pool/evolve/quests.yaml`
+- [x] 检查 `worlds/content-pool/evolve/quests.yaml` 是否生成且可被 `content-pool-loader` 加载 → 持久化走已有 ContentPool 管线，reload 可验证
 
 ## Verification
 - [x] Run `npm run lint` (biome check + tsc --noEmit) — clean on all changed files

@@ -696,7 +696,8 @@ export function createGameClient(url: string): GameClient {
       setMapGranularity(MAP_GRANULARITIES[(idx + 1) % MAP_GRANULARITIES.length]);
     },
     setMapCursor,
-    setSelectedInventoryItemId,
+    selectInventoryItem: (id: string) => setSelectedInventoryItemId(id),
+    clearInventorySelection: () => setSelectedInventoryItemId(null),
     connect,
     disconnect: () => {
       if (ws) {

@@ -21,6 +21,8 @@ description: >
 | `roomId: "一些名字"` | ID 格式假定 | 实体 ID 只能由 `generateRoomId`/`generateNPCId` 等函数生成 |
 | `switch(action)` (不含 `world.contentPool`) | 规则硬编码 | switch 中的标签/映射/数值应从 ContentPool 读取 |
 | `needType: "hardcoded_string"` | Need 类型硬编码 | 应使用 `NeedType` 联合类型或从 `pool.needDefinitions` 读取 |
+| `?? "包含中文的值"` 或 `\|\| "包含中文的值"` | 中文兜底值硬编码 | 应来自 ContentPool（`narrativeTemplates`、`relationLabels` 等）或返回 null 交给上层。由 `no-hardcoded-fallback.grit` 自动拦截 |
+| `return "中文字符串"` (函数末尾) | 兜底 return 值硬编码 | 同上，特别是 `buildContext()` / `buildMinimalContext()` 这类 context builder |
 
 ## 快速自检命令
 

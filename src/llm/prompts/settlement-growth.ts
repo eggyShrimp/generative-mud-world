@@ -5,6 +5,9 @@ export function buildSettlementGrowthPrompt(context: {
   existingRooms: Array<{ id: string; name: string; exits: Record<string, string> }>;
   growthReason: string; // "人口增长" / "贸易繁荣" / "新移民到来"
   npcsToRelocate: Array<{ id: string; name: string; currentRoom: string }>;
+  period?: string; // 当前时段："morning"/"afternoon"/"night" 等
+  season?: string; // 当前季节："spring"/"summer"/"autumn"/"winter"
+  weather?: string; // 当前天气："clear"/"overcast"/"blizzard" 等
 }): { system: string; user: string } {
   return {
     system: `你是世界演化引擎。一个区域正在发生聚落生长——新的定居点、新居民、甚至新的派系正在形成。
@@ -35,7 +38,8 @@ export function buildSettlementGrowthPrompt(context: {
 - newNPCs: 2-8个新NPC，角色合理分布
 - newFactions: 可选，仅在群体有共同目标时
 - 所有内容使用中文
-- 命名符合世界文化风格`,
+- 命名符合世界文化风格
+- 结合 period/season/weather 生成环境合理的叙事：暴风雪天不应有露天集市，深夜不应有欢迎仪式，冬季不应有收获节庆`,
     user: JSON.stringify(context, null, 2),
   };
 }

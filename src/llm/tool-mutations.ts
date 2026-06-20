@@ -180,6 +180,11 @@ export function contentPoolMutationFromToolCalls(
         }
         mutation.addQuestTemplates = mutation.addQuestTemplates ?? [];
         mutation.addQuestTemplates.push(result.data);
+        logWrite(
+          "srv",
+          "info",
+          `[QuestGen] generated quest: "${result.data.title}" (${result.data.objectives?.length ?? 0} objectives)`,
+        );
         break;
       }
       case "add_clue_definition": {

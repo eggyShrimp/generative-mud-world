@@ -78,6 +78,8 @@ function mockClient(overrides: Partial<GameClient> = {}): GameClient {
     mapCursor: () => ({ x: 0, y: 0 }),
     setSelectedEntityId: vi.fn(),
     setSelectedInventoryItemId: vi.fn(),
+    selectInventoryItem: vi.fn(),
+    clearInventorySelection: vi.fn(),
     setSelectedQuestIndex: vi.fn(),
     closeInventory: vi.fn(),
     closeQuests: vi.fn(),

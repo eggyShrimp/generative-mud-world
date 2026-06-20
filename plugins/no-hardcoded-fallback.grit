@@ -1,0 +1,22 @@
+language js(typescript, jsx)
+
+file($name, $body) where {
+    or {
+        $filename <: r".*src/engine/.*\.ts$",
+        $filename <: r".*src/llm/.*\.ts$",
+        $filename <: r".*src/combat/.*\.ts$",
+        $filename <: r".*src/simulation/.*\.ts$",
+        $filename <: r".*src/core/.*\.ts$"
+    },
+    not $filename <: r".*__tests__/.*",
+    not $filename <: r".*types\.ts.*",
+    not $filename <: r".*schemas/.*",
+    $body <: contains or {
+        `$_ ?? $fallback` where { $fallback <: r".*[\u4e00-\u9fff].*" },
+        `$_ || $fallback` where { $fallback <: r".*[\u4e00-\u9fff].*" }
+    } as $match,
+    register_diagnostic(
+        span = $match,
+        message = "硬编码中文兜底值。应来自 ContentPool 或返回 null 交给上层处理。参考: docs/dev-guide/trap-tokens.md"
+    )
+}

@@ -143,7 +143,8 @@ export interface GameClient {
   toggleMinimap: () => void;
   cycleMapGranularity: () => void;
   setMapCursor: (cursor: MapCursor) => void;
-  setSelectedInventoryItemId: (id: string | null) => void;
+  selectInventoryItem: (id: string) => void;
+  clearInventorySelection: () => void;
   connect: () => void;
   disconnect: () => void;
   execute: (action: string, params?: Record<string, unknown>) => void;

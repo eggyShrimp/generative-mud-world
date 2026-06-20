@@ -5,6 +5,7 @@ import {
   isDialogueTabLoading,
 } from "../../client/game-client.ts";
 import { KeyHint, LoadingHint, TabBar } from "../../components/index.ts";
+import { getChatOptionListHeight } from "../../features/dialogue/layout.ts";
 import { InteractionPanel } from "../../layout/interaction-panel.tsx";
 import type { ModalMetrics } from "../../layout/metrics.ts";
 import { THEME } from "../../theme/theme.ts";
@@ -17,6 +18,7 @@ export function ChatDialoguePanel(props: {
 }) {
   const visibleOptions = () => getDialogueVisibleOptions(props.cur());
   const isLoading = () => isDialogueTabLoading(props.cur());
+  const optionListHeight = () => getChatOptionListHeight(8);
 
   return (
     <InteractionPanel
@@ -46,7 +48,7 @@ export function ChatDialoguePanel(props: {
       }
       interaction={
         <box flexDirection="column" flexGrow={1}>
-          <box flexGrow={1}>
+          <scrollbox height={optionListHeight()} scrollY>
             <Show
               when={isLoading()}
               fallback={
@@ -79,7 +81,7 @@ export function ChatDialoguePanel(props: {
             >
               <LoadingHint color={THEME.muted} text="正在思考中..." />
             </Show>
-          </box>
+          </scrollbox>
           <box marginTop={1}>
             <TabBar
               tabs={props.cur().availableTabs}

@@ -60,7 +60,7 @@ export function handleInventoryKey(client: GameClient, keyName: string) {
     const groups = groupInventory(inventory);
     const group = groups[idx];
     if (group) {
-      client.setSelectedInventoryItemId(group.items[0].id);
+      client.selectInventoryItem(group.items[0].id);
     }
   }
 }
@@ -122,7 +122,7 @@ export function handleDialogueFollowUp(client: GameClient) {
 
 export function handleInventoryEscape(client: GameClient) {
   if (client.selectedInventoryItemId() !== null) {
-    client.setSelectedInventoryItemId(null);
+    client.clearInventorySelection();
   } else {
     client.closeInventory();
   }
@@ -141,12 +141,12 @@ export function handleInventoryArrow(client: GameClient, keyName: string) {
 
   if (currentIndex === -1) {
     const initialIndex = keyName === "up" ? groups.length - 1 : 0;
-    client.setSelectedInventoryItemId(groups[initialIndex].items[0].id);
+    client.selectInventoryItem(groups[initialIndex].items[0].id);
     return;
   }
 
   const direction = keyName === "up" ? -1 : 1;
   const newIndex = (currentIndex + direction + groups.length) % groups.length;
 
-  client.setSelectedInventoryItemId(groups[newIndex].items[0].id);
+  client.selectInventoryItem(groups[newIndex].items[0].id);
 }

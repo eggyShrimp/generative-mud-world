@@ -161,6 +161,9 @@ export function createTriggerDetector(): TriggerDetector {
                   name: n.name,
                   currentRoom: n.roomId ?? "",
                 })),
+                period: world.time.period,
+                season: world.time.season,
+                weather: world.weatherByRegion.get(regionId as RegionId)?.id ?? "clear",
               },
             });
           }

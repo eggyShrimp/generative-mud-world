@@ -678,3 +678,133 @@ describe("capability-provider", () => {
     expect(moveCap?.params?.values).toContain("北");
   });
 });
+
+describe("time and season exit conditions", () => {
+  it("should block exit when time period does not match", () => {
+    const world = setupWorld();
+    const market = world.rooms.get("market")!;
+    market.exits.set("east", {
+      to: "secret_room",
+      direction: "east",
+      distance: 1,
+      hidden: false,
+      bidirectional: false,
+      conditions: [{ type: "time", value: "night" }],
+    });
+    addRoom(world, createRoom("secret_room", "密室", "test", "神秘的房间"));
+    world.time.period = "morning";
+
+    const result = executeCommand(world, "p1", "move", { direction: "east" });
+    expect(result.events[0].type).toBe("error");
+  });
+
+  it("should allow exit when time period matches", () => {
+    const world = setupWorld();
+    const market = world.rooms.get("market")!;
+    market.exits.set("east", {
+      to: "secret_room",
+      direction: "east",
+      distance: 1,
+      hidden: false,
+      bidirectional: false,
+      conditions: [{ type: "time", value: "night" }],
+    });
+    addRoom(world, createRoom("secret_room", "密室", "test", "神秘的房间"));
+    world.time.period = "night";
+
+    const result = executeCommand(world, "p1", "move", { direction: "east" });
+    expect(result.events[0].type).toBe("move");
+  });
+
+  it("should block exit when season does not match", () => {
+    const world = setupWorld();
+    const market = world.rooms.get("market")!;
+    market.exits.set("south", {
+      to: "garden",
+      direction: "south",
+      distance: 1,
+      hidden: false,
+      bidirectional: false,
+      conditions: [{ type: "season", value: "spring" }],
+    });
+    addRoom(world, createRoom("garden", "花园", "test", "春天的花园"));
+    world.time.season = "winter";
+
+    const result = executeCommand(world, "p1", "move", { direction: "south" });
+    expect(result.events[0].type).toBe("error");
+  });
+
+  it("should allow exit when season matches", () => {
+    const world = setupWorld();
+    const market = world.rooms.get("market")!;
+    market.exits.set("south", {
+      to: "garden",
+      direction: "south",
+      distance: 1,
+      hidden: false,
+      bidirectional: false,
+      conditions: [{ type: "season", value: "spring" }],
+    });
+    addRoom(world, createRoom("garden", "花园", "test", "春天的花园"));
+    world.time.season = "spring";
+
+    const result = executeCommand(world, "p1", "move", { direction: "south" });
+    expect(result.events[0].type).toBe("move");
+  });
+});
+
+describe("equip and unequip with cloak and accessory slots", () => {
+  it("should equip a cloak item", () => {
+    const world = setupWorld();
+    const cloak = createItem(
+      "cloak1",
+      "麻布披风",
+      "hemp_cloak",
+      { warmth: 5, equipmentSlot: "cloak" },
+      "p1",
+    );
+    addEntity(world, cloak);
+    const player = world.entities.get("p1") as import("../core/types.ts").PlayerEntity;
+    player.inventory = [cloak];
+
+    const result = executeCommand(world, "p1", "equip", { itemId: "cloak1" });
+    expect(result.events[0].type).toBe("equip");
+    expect(player.equipment.cloak?.id).toBe("cloak1");
+  });
+
+  it("should equip an accessory item", () => {
+    const world = setupWorld();
+    const hat = createItem(
+      "hat1",
+      "毡帽",
+      "felt_hat",
+      { warmth: 5, equipmentSlot: "accessory" },
+      "p1",
+    );
+    addEntity(world, hat);
+    const player = world.entities.get("p1") as import("../core/types.ts").PlayerEntity;
+    player.inventory = [hat];
+
+    const result = executeCommand(world, "p1", "equip", { itemId: "hat1" });
+    expect(result.events[0].type).toBe("equip");
+    expect(player.equipment.accessory?.id).toBe("hat1");
+  });
+
+  it("should unequip a cloak", () => {
+    const world = setupWorld();
+    const cloak = createItem(
+      "cloak1",
+      "麻布披风",
+      "hemp_cloak",
+      { warmth: 5, equipmentSlot: "cloak" },
+      "p1",
+    );
+    addEntity(world, cloak);
+    const player = world.entities.get("p1") as import("../core/types.ts").PlayerEntity;
+    player.equipment.cloak = cloak;
+
+    const result = executeCommand(world, "p1", "unequip", { slot: "cloak" });
+    expect(result.events[0].type).toBe("unequip");
+    expect(player.equipment.cloak).toBeNull();
+  });
+});
