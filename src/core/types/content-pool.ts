@@ -218,6 +218,7 @@ export interface CommandMessages {
   say: string;
   endDay: string;
   endDayRestItem: string;
+  endDayRestGround: string;
   equip: string;
   equipWithSwap: string;
   unequip: string;

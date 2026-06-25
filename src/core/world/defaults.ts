@@ -437,6 +437,7 @@ export function createDefaultContentPool(): ContentPool {
         inventoryList: "携带物品: {items}",
         say: '{actor}: "{message}"',
         endDayRestItem: "你使用{item}休息，精力恢复 +{recovery}。",
+        endDayRestGround: "你在{label}，精力恢复 +{recovery}。",
         endDay: "{actor} {command}",
         equip: "装备了 {item}。",
         equipWithSwap: "装备了 {item}，卸下了 {previous}。",

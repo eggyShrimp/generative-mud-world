@@ -115,7 +115,10 @@ export function executeEndDayRoomAction(
     events: [
       {
         type: "end_day",
-        description: `你在${label}，精力恢复 +${restDelta}。`,
+        description: renderTemplate(commandMessages(world).endDayRestGround, {
+          label,
+          recovery: String(restDelta),
+        }),
       },
     ],
     delta: {

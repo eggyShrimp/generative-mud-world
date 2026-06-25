@@ -31,6 +31,7 @@ export interface MessageHandlerDeps {
   handleDialogueOptionsRequest: (session: Session, npcId: string) => Promise<void>;
   handleChatOptionsRequest: (session: Session, npcId: string) => Promise<void>;
   handleTradeOptionsRequest: (session: Session, npcId: string) => Promise<void>;
+  handleFollowUpOptionsRequest: (session: Session, npcId: string, context: string) => Promise<void>;
 }
 
 export async function handleMessage(
@@ -139,7 +140,7 @@ export async function handleMessage(
         `recv request_follow_up_options npc=${msg.npcId} ctx_len=${msg.context.length}`,
       );
       if (session.playerId) {
-        await handleFollowUpOptionsRequest(deps, session, msg.npcId, msg.context);
+        await deps.handleFollowUpOptionsRequest(session, msg.npcId, msg.context);
       }
       break;
     }

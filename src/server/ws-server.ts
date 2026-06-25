@@ -6,6 +6,7 @@ import { logWrite } from "../shared/log.ts";
 import {
   handleChatOptionsRequest,
   handleDialogueOptionsRequest,
+  handleFollowUpOptionsRequest,
   handleMessage,
   handleTradeOptionsRequest,
   type MessageHandlerDeps,
@@ -163,6 +164,7 @@ export class GameServer {
       handleDialogueOptionsRequest: this.handleDialogueOptionsRequest.bind(this),
       handleChatOptionsRequest: this.handleChatOptionsRequest.bind(this),
       handleTradeOptionsRequest: this.handleTradeOptionsRequest.bind(this),
+      handleFollowUpOptionsRequest: this.handleFollowUpOptionsRequest.bind(this),
     };
   }
 
@@ -184,6 +186,14 @@ export class GameServer {
 
   private async handleTradeOptionsRequest(session: Session, npcId: string): Promise<void> {
     await handleTradeOptionsRequest(this.getMessageDeps(), session, npcId);
+  }
+
+  private async handleFollowUpOptionsRequest(
+    session: Session,
+    npcId: string,
+    context: string,
+  ): Promise<void> {
+    await handleFollowUpOptionsRequest(this.getMessageDeps(), session, npcId, context);
   }
 
   broadcastStatus(llmReachable: boolean): void {

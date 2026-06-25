@@ -118,6 +118,7 @@ const CommandMessagesSchema = z.object({
   say: z.string(),
   endDay: z.string(),
   endDayRestItem: z.string(),
+  endDayRestGround: z.string(),
   equip: z.string(),
   equipWithSwap: z.string(),
   unequip: z.string(),
