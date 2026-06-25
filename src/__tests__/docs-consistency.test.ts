@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 describe("docs consistency", () => {
   it("ContentPool action docs use current entity action mutation names", () => {
-    const docs = ["docs/06-content-pool.md", "docs/TODO.md", "docs/08-code-quality-review.md"];
+    const docs = ["docs/TODO.md", "AGENTS.md"];
     const staleNames = [
       "replaceRoomActionsByTag",
       "replaceRoomActionLabels",

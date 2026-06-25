@@ -1,3 +1,23 @@
+/**
+ * @module ContentPool — 内容池类型定义
+ *
+ * World Framework 的数据层。ContentPool 是 LLM 可演化的游戏世界数据容器。
+ *
+ * ## 核心约束
+ * - 数据在 ContentPool，逻辑在引擎。硬边界：引擎不持有世界观数据。
+ * - 消费者通过 `world.contentPool.xxx` 读取，禁止调用 `createDefaultXxx()`。
+ * - 新增字段需走完整 16 步 checklist（参考 AGENTS.md）。
+ * - 可演化字段必有对应的 tool、parser、materializer、write-back。
+ *
+ * ## 字段分类
+ * - 标签映射 (`*Labels`)：Record<string, string>，路由到 social-dialogue domain
+ * - 列表数据：数组，路由到对应 domain
+ * - 配置对象：复杂嵌套，路由到对应 domain
+ *
+ * @see docs/00-architecture.md — 架构全景
+ * @see docs/dev-guide/add-contentpool-field.md — 新增字段 checklist
+ */
+
 import type { CombatConfig, CombatSkill } from "../../combat/types.ts";
 import type { TerrainConfigEntry } from "../schemas/index.ts";
 import type {

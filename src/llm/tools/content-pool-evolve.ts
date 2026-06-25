@@ -1,3 +1,7 @@
+/**
+ * @module ContentPool LLM 演化工具 | LLM 通过 tool_calls 提议 ContentPool 变更的接口
+ */
+
 import { listQuestObjectiveDefinitions } from "../../core/quest-objective-registry.ts";
 import type { ToolDefinition } from "../adapter.ts";
 import { ADD_NPC_TOOL, CREATE_ROOM_TOOL } from "./room-mutation.ts";

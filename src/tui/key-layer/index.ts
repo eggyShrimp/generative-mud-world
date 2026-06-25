@@ -1,3 +1,7 @@
+/**
+ * @module 键位层级 | TUI 键盘输入的优先级处理、层级栈管理、事件传播
+ */
+
 import { createSignal, untrack } from "solid-js";
 import type { GameClient } from "../client/types.ts";
 import { ALL_LAYERS, BASE_LAYER } from "./layers.ts";

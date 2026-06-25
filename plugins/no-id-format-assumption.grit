@@ -1,0 +1,20 @@
+language js(typescript, jsx)
+
+file($name, $body) where {
+    or {
+        $filename <: r".*src/engine/.*",
+        $filename <: r".*src/llm/.*",
+        $filename <: r".*src/combat/.*",
+        $filename <: r".*src/simulation/.*",
+        $filename <: r".*src/core/.*"
+    },
+    $body <: contains or {
+        `roomId: $value` where { $value <: r"^\"[^\"]+\"$" },
+        `npcId: $value` where { $value <: r"^\"[^\"]+\"$" },
+        `entityId: $value` where { $value <: r"^\"[^\"]+\"$" }
+    } as $match,
+    register_diagnostic(
+        span = $match,
+        message = "ID 格式假设。实体 ID 只能由 generateRoomId/generateNPCId 等函数生成。"
+    )
+}

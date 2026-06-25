@@ -1,3 +1,7 @@
+/**
+ * @module ContentPool 加载器 | 三层加载流程（默认值 → YAML → LLM 演化）+ 持久化写回路由
+ */
+
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";

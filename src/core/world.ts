@@ -1,3 +1,7 @@
+/**
+ * @module World 状态管理 | 实体 CRUD、时间推进、delta 应用、工厂函数
+ */
+
 import type { WorldState } from "./types.ts";
 import { createDefaultContentPool } from "./world/defaults.ts";
 

@@ -1,3 +1,7 @@
+/**
+ * @module ContentPool 类型定义 | World Framework 核心数据模型
+ */
+
 // Re-exports from schema packages
 export type { CombatConfig, CombatHpChange, CombatSkill, CombatState } from "../../combat/types.ts";
 export type {

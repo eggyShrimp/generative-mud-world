@@ -7,7 +7,10 @@
     "./plugins/no-hardcoded-fallback.grit",
     "./plugins/no-direct-world-mutation.grit",
     "./plugins/no-direct-save-data-access.grit",
-    "./plugins/no-direct-contentpool-write.grit"
+    "./plugins/no-direct-contentpool-write.grit",
+    "./plugins/no-array-constant-labels.grit",
+    "./plugins/no-id-format-assumption.grit",
+    "./plugins/no-switch-without-contentpool.grit"
   ],
   "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "formatter": {

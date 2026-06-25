@@ -1,3 +1,7 @@
+/**
+ * @module 回合引擎 | 驱动 NPC 自主行动循环（act-loop），结算每日状态
+ */
+
 import { executeCombatPulse, resolveCombatConsequences } from "../combat/pulse.ts";
 import { executeEntityAction } from "../engine/act-loop.ts";
 import {

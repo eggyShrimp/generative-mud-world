@@ -1,3 +1,7 @@
+/**
+ * @module World 加载器 | 从 YAML 数据组装 WorldState，包含地图、NPC、物品、区域
+ */
+
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { parse as parseYaml } from "yaml";

@@ -1,8 +1,5 @@
 /**
- * 能力推导
- *
- * 根据 Entity 属性和所在房间，推导当前可用的操作。
- * 输出用于 state_update.capabilities 和客户端按钮渲染。
+ * @module 能力推断 | 根据房间出口和 tag 推断玩家可用动作，生成按钮标签
  */
 
 import type { EntityId, WorldState } from "../core/types.ts";

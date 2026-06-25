@@ -8,30 +8,11 @@
 
 ---
 
-## 任何修改前，必须执行这三步
+## 修改前
 
-### 1. 确定你改的是什么
-
-| 类型 | 判断 | 后续操作 |
-|------|------|----------|
-| 数据结构 | 改了 types/schema/ContentPool 字段 | → 执行步骤 2 |
-| 引擎逻辑 | 改了 simulation/engine/combat 中的逻辑 | → 执行步骤 3 |
-| 内容数据 | 改了 YAML/Prompt 示例/标签 | → 改数据文件，不写代码 |
-
-### 2. 如果接触了 ContentPool 字段
-
-```bash
-# 第一步：找到所有消费者（复制执行）
-rg "字段名" src/ --type ts | grep -v __tests__ | grep -v "\.d\.ts"
-```
-
-然后对照完整 checklist：**`docs/dev-guide/add-contentpool-field.md`**（12 项）。
-
-### 3. 如果你写了常量/映射表/中文标签
-
-对照 **`docs/dev-guide/trap-tokens.md`**。如果代码匹配表中任何 pattern → 停止硬编码，走 ContentPool 路径。
-
-详细工作流：**`docs/dev-guide/modification-workflow.md`**
+1. 判断改的是什么类型（数据结构 / 引擎逻辑 / 内容数据）
+2. 跑 `npm run lint`。通过表示自动化检查全部通过
+3. 如果新增 ContentPool 字段，对照 `docs/dev-guide/add-contentpool-field.md` 的 checklist
 
 ---
 
@@ -63,20 +44,22 @@ rg "字段名" src/ --type ts | grep -v __tests__ | grep -v "\.d\.ts"
 
 ---
 
-## 陷阱 Token 速查
+## 自动化检查覆盖
 
-代码中出现以下 pattern 时硬拦截：
+以下 pattern 由 biome grit 插件 + depcruise 自动拦截，无需手动检查：
 
-| Pattern | 应改为 |
-|---------|--------|
-| `createDefaultCombatConfig()` (非 world.ts) | `world.contentPool.combatConfig` |
-| `createDefaultXxx()` (任何) | 检查 ContentPool 是否已有对应字段 |
-| `const X: Record<string, string> = {` | ContentPool 的 `xxxLabels` 字段 |
-| `["str1", "str2", ...]` (常量数组) | 来自 ContentPool 的数据 |
-| `` `中文模板 ${name}...` `` | `ContentPool.narrativeTemplates` |
-| `catch { }` (空块) | 至少写一行错误处理代码（注释不算） |
-
-完整表：**`docs/dev-guide/trap-tokens.md`**
+| Pattern | 拦截方式 |
+|---------|---------|
+| `createDefaultXxx()` 越界调用 | `no-create-default-outside-world.grit` |
+| `Record<string, string>` 硬编码映射表 | `no-hardcoded-labels.grit` |
+| 中文兜底值 `?? "xxx"` | `no-hardcoded-fallback.grit` |
+| 直接 world mutation (push/assign) | `no-direct-world-mutation.grit` |
+| 空 catch 块 | `no-empty-catch.grit` |
+| 中文硬编码数组 `["str1","str2"]` | `no-array-constant-labels.grit` |
+| ID 格式假设 `roomId: "字面量"` | `no-id-format-assumption.grit` |
+| switch 不含 contentPool | `no-switch-without-contentpool.grit` |
+| `import "../combat/config.ts"` | depcruise `combat-config-only-via-contentpool` |
+| TUI 跨模块 import | depcruise 30+ rules |
 
 ---
 
@@ -84,26 +67,18 @@ rg "字段名" src/ --type ts | grep -v __tests__ | grep -v "\.d\.ts"
 
 | 文件 | 何时阅读 |
 |------|----------|
-| `docs/dev-guide/modification-workflow.md` | **任何修改前** |
-| `docs/dev-guide/trap-tokens.md` | **写了常量/映射表后** |
-| `docs/dev-guide/add-contentpool-field.md` | **新增 ContentPool 字段** |
-| `docs/dev-guide/add-command.md` | **新增玩家命令** |
-| `docs/dev-guide/common-pitfalls.md` | **提交前自查** |
-| `docs/dev-guide/design-errors.md` | **不确定是否在踩已知坑时** |
-| `docs/dev-guide/mud-interaction.md` | **修改 TUI/交互逻辑** |
-| `docs/dev-guide/testing.md` | **写测试** |
-| `docs/dev-guide/logging.md` | **加日志** |
-| `docs/08-code-quality-review.md` | **了解当前代码质量状态** |
+| `docs/00-architecture.md` | 架构全景 |
+| `docs/dev-guide/add-contentpool-field.md` | 新增 ContentPool 字段 |
+| `docs/dev-guide/design-errors.md` | 不确定是否在踩已知坑 |
+| `docs/dev-guide/testing.md` | 写测试 |
+| `docs/dev-guide/how-to-add-tests.md` | 学习如何写测试 |
+| `docs/TODO.md` | 查看待实现计划 |
 
 ### 文档发现
-
-所有 `docs/` 下的 `.md` 文件都包含 YAML frontmatter（`name` + `description`）。当上表不够精确时，用以下命令搜索全部文档的元数据：
 
 ```bash
 grep -r --include="*.md" -A 2 "^name:" docs/
 ```
-
-根据任务关键词匹配 `description` 字段，然后 `Read` 匹配到的文档全文。
 
 ## 技术栈
 

@@ -1,11 +1,5 @@
 /**
- * 命令执行器 — 分发壳
- *
- * 接收结构化命令 {action, params}，执行副作用，返回 {events, delta, ended}。
- * 只产出 delta，不做 applyDelta（由 round-engine 负责）。
- * 不调 LLM（talk 只返回"需要生成选项"的信号）。
- *
- * 实际执行逻辑已拆分到 commands/ 子模块中。
+ * @module 命令执行器 | 分发玩家命令到领域 executor，检查可行性和冷却时间
  */
 
 import type { EntityId, WorldState } from "../core/types.ts";

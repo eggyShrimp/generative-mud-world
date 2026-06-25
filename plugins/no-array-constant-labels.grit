@@ -1,0 +1,18 @@
+language js(typescript, jsx)
+
+file($name, $body) where {
+    $body <: r".*\[[^\]]*[\u4e00-\u9fff][^\]]*\].*",
+    or {
+        $filename <: r".*src/engine/.*",
+        $filename <: r".*src/llm/.*",
+        $filename <: r".*src/combat/.*",
+        $filename <: r".*src/simulation/.*",
+        $filename <: r".*src/core/.*"
+    },
+    not $filename <: r".*types\.ts.*",
+    not $filename <: r".*schemas/.*",
+    register_diagnostic(
+        span = $name,
+        message = "硬编码中文字符串数组。应来自 ContentPool 的列表数据。参考: docs/dev-guide/trap-tokens.md"
+    )
+}

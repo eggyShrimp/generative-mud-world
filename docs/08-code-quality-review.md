@@ -7,9 +7,9 @@ description: >
 
 # 代码质量评审报告
 
-> 评审日期：2026-06-07　|　P0 修复完成：2026-06-08　|　双源维护审计：2026-06-08　|　P1 修复完成：2026-06-08　|　P2 修复完成：2026-06-08　|　Need定义修复：2026-06-08　|　P3/P4 OpenSpec 批次完成：2026-06-25
-> 当前代码规模：108 个非测试 TS 源文件、58 个 TS 测试文件
-> 当前基线：TypeScript 编译错误 0，Biome lint 0 (220 files checked)，Vitest 969/969 通过
+> 评审日期：2026-06-07　|　P0 修复完成：2026-06-08　|　双源维护审计：2026-06-08　|　P1 修复完成：2026-06-08　|　P2 修复完成：2026-06-08　|　Need定义修复：2026-06-08　|　大文件拆分：2026-06-25　|　day/night 硬编码修复：2026-06-25
+> 当前代码规模：161 个非测试 TS 源文件、56 个 TS 测试文件（含 6 个目录模块拆分）
+> 当前基线：TypeScript 编译错误 0，Biome lint 0 (261 files checked)，depcruise 0 violations，Vitest 969/969 通过
 
 ---
 
@@ -57,21 +57,17 @@ description: >
 
 ## 一、严重问题（CRITICAL）
 
-### 1. 错误 #3 — MVP 占位代码未标注 TODO
+### 1. 错误 #3 — MVP 占位代码未标注 TODO ✅ 已修复 (2026-06-25)
 
 #### 位置
-- `src/index.ts:22-62` — `simulation.runDay` 整个内联函数
-- `src/server/ws-server.ts:378-388` — `legacyParseAction()` 残余旧命令解析器
+- ~~`src/index.ts:22-62`~~ — `simulation.runDay` 中 `6..22` 已改为读取 `calendar.hourStart` 和 `dayNightConfig.periods`
+- ~~`src/server/ws-server.ts:378-388`~~ — `legacyParseAction()` 已随大文件拆分清理
 
-#### 问题
-`srunDay` 硬编码了白天时间范围 `6..22`、实体类型过滤 (npc/player)、日程回退逻辑 (`e.schedule ?? []`)。`legacyParseAction` 硬编码了 `找`、`问` 等中文模式匹配。两者均无 `// TODO: move to ContentPool` 标记。
-
-#### 影响
-任何想修改白天时间范围或日程行为的开发者都需要改代码而非配置文件。
-
-#### 修复方向
-- 白天时间范围 → `ContentPool.llmTriggerConfig.daytimeRange`
-- NPC 每日结算逻辑 → `ContentPool.narrativeTemplates.dailyRoutine`
+#### 修复详情
+- 白天时间范围：`for (let hour = 6; hour <= 22; hour++)` → 从 `calendar.hourStart` 和 `dayNightConfig.periods` 的 `night` 周期 `startHour` 计算
+- 日程回退逻辑：`e.schedule ?? []` → `e.schedule`（`NPCEntity.schedule` 已是非空数组类型）
+- `legacyParseAction`：已在 ws-server.ts 拆分时随代码搬迁自然移除
+- 新增 `openspec/changes/fix-daynight-hardcoding/` 完整记录本次修复
 
 ---
 
@@ -462,18 +458,19 @@ const { stringify } = require("yaml");
 
 ## 四、可维护性问题
 
-### 19. 文件体积热点
+### 19. 文件体积热点 ✅ 已拆分 (2026-06-25)
 
-| 文件 | 行数 | 问题 | 拆分建议 |
-|------|------|------|----------|
-| `core/world.ts` | 1765 | 职责混杂（实体 CRUD + applyDelta + 时间推进 + 天气 + 发现） | 拆为 entity-ops.ts + delta-application.ts + defaults.ts；拆 `delta-application.ts` 前先决定是否保持 `applyDelta(world, delta): void` |
-| `engine/command-executor.ts` | 1685 | 一个 switch 覆盖所有 20 个命令 | 按命令类别拆分：move.ts, combat.ts, dialogue.ts, item.ts |
-| `llm/dialogue-generator.ts` | 2359 | 对话菜单 + quest 协商 + 交易 + 闲聊 + functional 全在一个文件 | 按交互类型拆分：quest-dialogue.ts + trade-dialogue.ts + chat-dialogue.ts + functional-dialogue.ts |
-| `server/ws-server.ts` | 1085 | 负责过多 | 拆为 session-manager.ts + state-pusher.ts + minimap.ts |
-| `tui/client/game-client.ts` | 876 | WS 生命周期 + 状态管理 + 所有消息处理 | 拆为 ws-transport.ts + state-handlers.ts |
-| `core/types.ts` | 1040 | 所有领域类型定义集中在一个文件 | 拆为 entity-types.ts + quest-types.ts + delta-types.ts + content-pool-types.ts |
+| 文件 | 拆分前 | 拆分后 | 子模块 |
+|------|--------|--------|--------|
+| `core/world.ts` | 1765 | **61** | 7 files in `core/world/` |
+| `engine/command-executor.ts` | 1685 | **152** | 10 files in `engine/commands/` |
+| `llm/dialogue-generator.ts` | 2359 | **562** | 16 files in `llm/dialogue/`（类壳保留 6 个 public 方法） |
+| `server/ws-server.ts` | 1085 | **270** | 8 files in `server/ws/` |
+| `core/types.ts` | 1040 | **1**（barrel re-export） | 11 files in `core/types/` |
+| `tui/client/game-client.ts` | 876 | 876 | **待拆分** — 在 `openspec/changes/large-file-split-tui/` 中追踪 |
 
-> 状态：本批次只记录拆分顺序和前置测试依赖，未执行拆分。拆分仍属于后续重构，不应和 lint/边界修复混在一个变更里。
+> 策略：自由函数 re-export（world.ts, command-executor.ts, types.ts）、类壳 public 方法转发（dialogue-generator.ts）、工厂函数壳（ws-server.ts, game-client.ts）。Grit 插件豁免规则已更新覆盖新子模块路径。
+> 完整记录：`openspec/changes/2026-06-25-large-file-split/`
 
 ### 20. 循环依赖风险 ✅ 已修复当前确认项
 
@@ -591,8 +588,8 @@ const { stringify } = require("yaml");
 - [x] 9b-中危. dispatcher.ts 区域状态/纪元/增长原因标签迁移到 ContentPool（`regionStatusLabels` + `defaultTheme` + `calendar.eraName`）
 - [x] 9b-中危. ws-server.ts `getExitMask()` / 回退名 从 ContentPool 读取（`directionNames` + `spectatorFallbackName`）
 
-### P3 — 优化项
-- [ ] 19. 拆分大文件（详见 #19 文件体积热点表；本批次已记录拆分顺序和依赖，未执行拆分）
+### P3 — 优化项 ✅ 已完成 (2026-06-25)
+- [x] 19. 拆分大文件（5/6 个超千行文件已拆，仅 `game-client.ts` 在 `large-file-split-tui` 追踪中）
 - [x] 20. 消解 `src/simulation/index.ts` 中记录的 inline type import 风险
 - [x] 17. 修复 `shouldFlee()` 使用 config 参数
 - [x] 18. 修复 ESM/CJS 混用

@@ -14,13 +14,7 @@ description: >
 
 跳过任何一步都会导致"字段存在但 LLM 产出不生效"、"重启后丢失"，或运行时代码重新长出一份兜底数据。
 
-## 强制执行
-
-在开始修改前，先运行此命令找到所有已有消费者：
-
-```bash
-rg "你要加的字段名" src/ --type ts | grep -v __tests__ | grep -v "\.d\.ts"
-```
+边界约束（`plugins/*.grit` + depcruise）自动拦截硬编码映射表、越界 ContentPool 读写等反模式。改完跑 `npm run lint` 即可。
 
 ## Checklist
 

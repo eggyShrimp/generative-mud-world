@@ -1,10 +1,5 @@
 /**
- * 玩家可执行动作的唯一数据源。
- *
- * 新增动作时，TS 会强制要求同步修改：
- * 1. 本数组
- * 2. command-executor.ts 的 switch（无 default 分支，缺 case 编译报错）
- * 3. capability-provider.ts 的 deriveCapabilities
+ * @module 玩家动作注册 | PLAYER_ACTIONS 字典，定义 TUI 按钮与命令的映射
  */
 
 export const PLAYER_ACTIONS = [

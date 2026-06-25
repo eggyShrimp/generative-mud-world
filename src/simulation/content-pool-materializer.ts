@@ -1,3 +1,7 @@
+/**
+ * @module ContentPool 演化物化器 | 将 ContentPoolMutation 应用到 ContentPool，实现 LLM 驱动的世界演化
+ */
+
 import { writeEvolveDeltas } from "../core/content-pool-loader.ts";
 import type { ContentPool, ContentPoolMutation } from "../core/types.ts";
 import { logWrite } from "../shared/log.ts";

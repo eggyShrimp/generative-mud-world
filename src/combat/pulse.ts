@@ -1,8 +1,5 @@
 /**
- * 战斗系统 — PULSE_COMBAT: tick 驱动全局战斗结算
- *
- * 每 N tick (pulseInterval) 结算一次所有 combatTarget 非空的 entity 的攻击。
- * 攻击结果通过 SimulationDelta → applyDelta 走标准管道。
+ * @module 战斗心跳 | 驱动战斗回合，处理攻击/防御/逃跑定时器
  */
 
 import { renderTemplate } from "../core/template.ts";

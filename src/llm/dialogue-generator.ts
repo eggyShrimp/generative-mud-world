@@ -1,19 +1,5 @@
 /**
- * Dialogue Generator — 生成交互菜单和 NPC 回复
- *
- * 菜单生成: 系统入口确定性，闲聊入口由 LLM 基于 ContentPool.conversationDirections 包装。
- * 对话回复: LLM 只做定性分类 (tool_calls)，数值映射从 ContentPool.dialogueEffectMapping 查表。
- *
- * ✅ ContentPool 应该包含的数据:
- *   - 行为标签/名称映射 (action → display label)
- *   - 性格/情绪标签 (trait/emotion → display name)
- *   - 阈值/乘数配置
- *   - 叙事模板字符串
- *
- * ✅ 代码中可以硬编码的内容:
- *   - 命令路由 (action === "talk")
- *   - 数学公式 (clamp, linear interpolation)
- *   - 逻辑常量 (Math.PI, 方向数组)
+ * @module 对话生成器 | 对话菜单、闲聊、任务对话、交易的全链路 LLM 编排
  */
 
 import type { SaveManager } from "../core/save-manager.ts";

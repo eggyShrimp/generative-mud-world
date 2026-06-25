@@ -1,0 +1,20 @@
+language js(typescript, jsx)
+
+file($name, $body) where {
+    or {
+        $filename <: r".*src/engine/.*",
+        $filename <: r".*src/llm/.*",
+        $filename <: r".*src/combat/.*",
+        $filename <: r".*src/simulation/.*",
+        $filename <: r".*src/core/.*"
+    },
+    not $filename <: r".*types\.ts.*",
+    not $filename <: r".*tool.processing.*",
+    not $filename <: r".*name.generator.*",
+    $body <: r"[\s\S]*switch[\s\S]*",
+    not $body <: r"[\s\S]*contentPool[\s\S]*",
+    register_diagnostic(
+        span = $name,
+        message = "switch 语句中未使用 contentPool。检查标签/映射/数值是否应从 ContentPool 读取。"
+    )
+}

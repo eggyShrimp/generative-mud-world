@@ -43,8 +43,11 @@ async function main() {
         const e = entity as NPCEntity;
 
         // 每小时遍历 schedule，通过 act-loop 执行（ripple 生效，不创建单次记忆）
-        for (let hour = 6; hour <= 22; hour++) {
-          const schedule = e.schedule ?? [];
+        const startHour = world.contentPool.calendar.hourStart;
+        const nightPeriod = world.contentPool.dayNightConfig.periods.find((p) => p.id === "night");
+        const endHour = (nightPeriod?.startHour ?? 21) + 1;
+        for (let hour = startHour; hour <= endHour; hour++) {
+          const schedule = e.schedule;
           const entry = schedule.find((s) => hour >= s.startHour && hour < s.endHour);
           if (!entry) continue;
 
