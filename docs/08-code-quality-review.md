@@ -7,27 +7,51 @@ description: >
 
 # 代码质量评审报告
 
-> 评审日期：2026-06-07　|　P0 修复完成：2026-06-08　|　双源维护审计：2026-06-08　|　P1 修复完成：2026-06-08　|　P2 修复完成：2026-06-08　|　Need定义修复：2026-06-08
-> 评审范围：67 个源文件、38 个测试文件、23 份文档
-> 当前基线：TypeScript 编译错误 0，Biome lint 0 (114 files)，Vitest 566/566 通过
+> 评审日期：2026-06-07　|　P0 修复完成：2026-06-08　|　双源维护审计：2026-06-08　|　P1 修复完成：2026-06-08　|　P2 修复完成：2026-06-08　|　Need定义修复：2026-06-08　|　P3/P4 OpenSpec 批次完成：2026-06-25
+> 当前代码规模：108 个非测试 TS 源文件、58 个 TS 测试文件
+> 当前基线：TypeScript 编译错误 0，Biome lint 0 (220 files checked)，Vitest 969/969 通过
 
 ---
 
+## 2026-06-25 更新：engineering-quality-p3-p4
+
+本轮通过正式 OpenSpec change `engineering-quality-p3-p4` 收口。相关实现已提交：
+
+- `06375e7 chore(quality): complete engineering quality p3 p4`
+- `37292d8 fix(quality): address p3 p4 review regressions`
+
+本轮完成项：
+
+- `src/__tests__/content-pool-loader.test.ts` 删除本地 `require("yaml")`，改用 ESM import，并补充坏 YAML、空数组覆盖测试。
+- `src/simulation/index.ts` 清理内联 type import，改为顶层 `import type`。
+- 清理 `plugins/no-hardcoded-fallback.grit` 报告的硬编码中文兜底；新增确实属于内容数据的字段时，补到 ContentPool 类型、schema、默认值和 YAML。
+- 补齐边界测试：need clamp、missing target 的当前 `applyDelta` 行为、`combatState.maxHp === 0`、空 NamePool、空 LLM reply、缺失社交目标。
+- 修复 review 回归：自然语言中的方向字不再误触发移动；`look <不存在目标>` 恢复错误反馈；`wait` 不再泄露内部 entity id；对话和旁观事件不再生成空白或断裂文本。
+- Quest 状态更新为当前事实：`QuestObjective.condition` 是现行格式，旧 `QuestObjective.type` 枚举已不在 `src/core/types.ts` 和 `src/core/schemas/content-pool.ts` 中。
+- 大文件拆分没有在本批次执行；OpenSpec 已记录拆分顺序和依赖，作为后续重构项。
+
+验证记录：
+
+- `openspec validate engineering-quality-p3-p4 --strict`
+- `npm run lint`
+- `npm test`
+- `git diff --check`
+
 ## 总体数据
 
-| 指标 | 评审时 | P0修复 | P1修复 |
-|------|--------|--------|--------|
-| 源文件 | 97 | 97 | 67 |
-| 测试文件 | 38 | 38 | 38 |
-| TypeScript 编译错误 | 1 | **0** | **0** |
-| Biome lint 问题 | 0 | 0 | 0 |
-| Vitest 测试通过 | — | **567/567** | **567/567** |
-| 违反 AGENTS.md 约束 | 6 | **2** | **0** |
-| 空 catch 块（吞错） | 6 | **0** | 0 |
-| 硬编码阈值 (combat/balance) | 10 | 10 | **0** |
-| 双源维护问题 | — | **28** | **~20** |
-| ContentPool 管道断裂 | 9 | 9 | **0** |
-| 未注入 ContentPool 的 prompt | 3 | 3 | **0** |
+| 指标 | 评审时 | P0修复 | P1修复 | 2026-06-25 当前 |
+|------|--------|--------|--------|----------------|
+| 源文件 | 97 | 97 | 67 | 108 |
+| 测试文件 | 38 | 38 | 38 | 58 |
+| TypeScript 编译错误 | 1 | **0** | **0** | **0** |
+| Biome lint 问题 | 0 | 0 | 0 | **0** |
+| Vitest 测试通过 | — | **567/567** | **567/567** | **969/969** |
+| 违反 AGENTS.md 约束 | 6 | **2** | **0** | **0** |
+| 空 catch 块（吞错） | 6 | **0** | 0 | **0** |
+| 硬编码阈值 (combat/balance) | 10 | 10 | **0** | **0** |
+| 双源维护问题 | — | **28** | **~20** | 待重新全量审计 |
+| ContentPool 管道断裂 | 9 | 9 | **0** | **0** |
+| 未注入 ContentPool 的 prompt | 3 | 3 | **0** | **0** |
 
 ---
 
@@ -369,7 +393,7 @@ const current = Array.from(openSet).reduce((best, candidate) => {
 
 ---
 
-### 15. name-generator 缺少空数组保护
+### 15. name-generator 缺少空数组保护 ✅ 已修复
 
 #### 位置
 `src/simulation/name-generator.ts:43`
@@ -382,30 +406,27 @@ function pick<T>(arr: T[]): T {
 #### 问题
 如果 YAML 中的 `NamePool` 某个字段为空数组（如 `neutralGiven: []`），`pick()` 会抛 `RangeError`，导致模拟崩溃。
 
-#### 修复方向
-```typescript
-function pick<T>(arr: T[]): T | undefined {
-  if (arr.length === 0) return undefined;
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-// 或在调用处提供回退值：pick(names) ?? "无名氏"
-```
+#### 修复详情
+- `pick()` 改为返回 `T | undefined`
+- 空 NamePool 不再拼接硬编码姓名，而是抛出明确错误
+- `src/__tests__/name-generator.test.ts` 已覆盖空姓氏/名字池行为
 
 ---
 
-### 16. 缺少错误/边界路径测试
+### 16. 缺少错误/边界路径测试 ✅ 已补齐
 
-缺失的测试覆盖：
-- `applyDelta` 对不存在 `targetId` 的行为
+已补测试覆盖：
+- `applyDelta` 对不存在 `targetId` 的当前 warning-only / `void` 行为
 - 需求值超出 `[0, 100]` 范围的裁剪验证
-- YAML 解析失败 → 回退到默认值的行为
-- ContentPool YAML 文件中字段为空的情况
-- `combatState.maxHp` 为 0 时的除零保护
-- 空 NamePool 全字段的回退命名
+- base YAML 解析失败与 evolve YAML 解析失败行为
+- ContentPool YAML 空数组覆盖行为
+- `combatState.maxHp` 为 0 时的保护
+- 空 NamePool 的明确失败行为
+- 空 LLM reply、缺失社交目标、`look` 不存在目标、旧文本方向误判等 review 回归
 
 ---
 
-### 17. combat/ai.ts `shouldFlee()` 忽略 config 参数
+### 17. combat/ai.ts `shouldFlee()` 忽略 config 参数 ✅ 已修复
 
 #### 位置
 `src/combat/ai.ts:51`
@@ -416,13 +437,13 @@ export function shouldFlee(npc: NPCEntity, _config: CombatConfig): boolean {
 #### 问题
 函数接受 `CombatConfig` 参数但完全不使用（前缀 `_` 抑制了未使用变量警告），转而使用硬编码值。
 
-#### 修复方向
-- 从 `_config` 中读取 `fleeHpThreshold`, `fleeCourageThreshold`, `fleeProbability` 等字段
-- 或移除 `_config` 参数
+#### 修复详情
+- `shouldFlee()` 读取 `CombatConfig` 中的逃跑阈值、勇气阈值和尝试概率
+- `combatState.maxHp === 0` 时直接返回不逃跑，避免无效血量比例
 
 ---
 
-### 18. 遗留 `require()` ESM/CJS 混用
+### 18. 遗留 `require()` ESM/CJS 混用 ✅ 已修复
 
 #### 位置
 `src/__tests__/content-pool-loader.test.ts:19`
@@ -433,6 +454,10 @@ const { stringify } = require("yaml");
 #### 问题
 在 `"type": "module"` 项目中使用 `require()`。文件顶部已 import 了 `stringify`，应直接使用。
 
+#### 修复详情
+- `src/__tests__/content-pool-loader.test.ts` 已使用顶层 ESM `stringifyYaml` import
+- OpenSpec 已覆盖该要求
+
 ---
 
 ## 四、可维护性问题
@@ -441,57 +466,66 @@ const { stringify } = require("yaml");
 
 | 文件 | 行数 | 问题 | 拆分建议 |
 |------|------|------|----------|
-| `core/world.ts` | 1755 | 职责混杂（实体 CRUD + applyDelta + 时间推进 + 天气 + 发现） | 拆为 entity-ops.ts + delta-application.ts + defaults.ts |
-| `engine/command-executor.ts` | 1628 | 一个 switch 覆盖所有 20 个命令 | 按命令类别拆分：move.ts, combat.ts, dialogue.ts, item.ts |
-| `llm/dialogue-generator.ts` | 2201 | 对话菜单 + quest 协商 + 交易 + 闲聊 + functional 全在一个文件 | 按交互类型拆分：quest-dialogue.ts + trade-dialogue.ts + chat-dialogue.ts + functional-dialogue.ts |
+| `core/world.ts` | 1765 | 职责混杂（实体 CRUD + applyDelta + 时间推进 + 天气 + 发现） | 拆为 entity-ops.ts + delta-application.ts + defaults.ts；拆 `delta-application.ts` 前先决定是否保持 `applyDelta(world, delta): void` |
+| `engine/command-executor.ts` | 1685 | 一个 switch 覆盖所有 20 个命令 | 按命令类别拆分：move.ts, combat.ts, dialogue.ts, item.ts |
+| `llm/dialogue-generator.ts` | 2359 | 对话菜单 + quest 协商 + 交易 + 闲聊 + functional 全在一个文件 | 按交互类型拆分：quest-dialogue.ts + trade-dialogue.ts + chat-dialogue.ts + functional-dialogue.ts |
 | `server/ws-server.ts` | 1085 | 负责过多 | 拆为 session-manager.ts + state-pusher.ts + minimap.ts |
-| `tui/client/game-client.ts` | 1142 | WS 生命周期 + 状态管理 + 所有消息处理 | 拆为 ws-transport.ts + state-handlers.ts |
-| `core/types.ts` | 1014 | 所有领域类型定义集中在一个文件 | 拆为 entity-types.ts + quest-types.ts + delta-types.ts + content-pool-types.ts |
+| `tui/client/game-client.ts` | 876 | WS 生命周期 + 状态管理 + 所有消息处理 | 拆为 ws-transport.ts + state-handlers.ts |
+| `core/types.ts` | 1040 | 所有领域类型定义集中在一个文件 | 拆为 entity-types.ts + quest-types.ts + delta-types.ts + content-pool-types.ts |
 
-### 20. 循环依赖风险
+> 状态：本批次只记录拆分顺序和前置测试依赖，未执行拆分。拆分仍属于后续重构，不应和 lint/边界修复混在一个变更里。
 
-`src/simulation/index.ts` 中的 `checkNpcAggression()` 使用内联 `import("../core/types.ts")` 进行类型转换 — 存在潜在的运行时循环导入风险。
+### 20. 循环依赖风险 ✅ 已修复当前确认项
 
-### 21. 跨层违规：llm/ 和 simulation/ 直接依赖 engine/quest-tracker
+`src/simulation/index.ts` 中的 `checkNpcAggression()` 曾使用内联 `import("../core/types.ts")` 进行类型转换，存在潜在的运行时循环导入风险。
+
+当前状态：
+- `src/simulation/index.ts` 已改为顶层 `import type`
+- 本项只覆盖原记录的 simulation 文件；其他文件里的 inline `import("../core/types.ts")` 若要处理，应另开范围审计
+
+### 21. 跨层违规：llm/ 和 simulation/ 直接依赖 engine/quest-tracker ✅ 已修复
 
 #### 位置
 
 | 文件 | 导入函数 | 问题 |
 |------|---------|------|
-| `llm/dialogue-generator.ts` | `resolveQuestAccept`, `checkPrerequisites`, `collectSubQuestIds` | LLM 层不应引入引擎层内部函数 |
-| `simulation/storyline-engine.ts` | `resolveQuestAccept` | 模拟层不应依赖引擎层 |
+| ~~`llm/dialogue-generator.ts`~~ | ~~`resolveQuestAccept`, `checkPrerequisites`, `collectSubQuestIds`~~ | ✅ 已改为从 `core/quest-utils.ts` 导入 |
+| ~~`simulation/storyline-engine.ts`~~ | ~~`resolveQuestAccept`~~ | ✅ 已改为从 `core/quest-utils.ts` 导入 |
 
 #### 本质
 
 `resolveQuestAccept`、`checkPrerequisites`、`collectSubQuestIds` 是纯函数（无 I/O、无副作用），操作 ContentPool 和 WorldState 类型。它们的定位应该在 `core/` 层（领域工具函数），而不是 `engine/` 层。
 
-#### 修复方向
+#### 修复详情
 
-- 方案 A：将这三个函数迁移到 `core/` 下的 `core/quest-utils.ts`
-- 方案 B：在 quest-tracker 中导出一个查询 API（如 `getQuestInteractionsForEntity()`），上层通过 API 获取信息，不直接调用内部函数
+已采用方案 A：`resolveQuestAccept`、`checkPrerequisites`、`collectSubQuestIds` 下沉到 `core/quest-utils.ts`。
 
-### 22. Quest 目标检测系统设计债
+### 22. Quest 目标检测系统设计债 ✅ registry 主迁移已完成
 
 #### 问题
 
-`QuestObjective.type` 硬编码为 5 种枚举（`"explore" | "collect" | "talk" | "deliver" | "fetch"`），分别在三层硬编码：
+旧问题是 `QuestObjective.type` 硬编码为 5 种枚举（`"explore" | "collect" | "talk" | "deliver" | "fetch"`），分别在三层硬编码：
 
 | 层 | 文件 | 位置 |
 |----|------|------|
-| 类型定义 | `core/types.ts:362` | `type: "explore" \| "collect" \| ...` |
-| Schema 校验 | `core/schemas/content-pool.ts:317` | `z.enum(["explore", "collect", ...])` |
-| 检测逻辑 | `engine/quest-tracker.ts:379,490,557` | 3 个 switch-case |
+| 类型定义 | ~~`core/types.ts`~~ | ✅ 旧 `type` 枚举已不存在；当前为 `QuestObjective.condition` |
+| Schema 校验 | ~~`core/schemas/content-pool.ts`~~ | ✅ 旧 `z.enum(["explore", "collect", ...])` 已不存在 |
+| 检测逻辑 | ~~`engine/quest-tracker.ts` switch-case~~ | ✅ 当前通过 `core/quest-objective-registry.ts` 注册表分发 |
 
-每加一种目标类型（如 `defeat`、`travel`、`survive`）需要改 3 处。
+每加一种目标类型（如 `defeat`、`travel`、`survive`）不再需要同时修改类型枚举、schema enum 和 tracker switch。
 
 #### 关联问题
 
 - `evaluateQuestImpacts()` 接收 `action`/`targetId` 命令层参数，quest 检测逻辑和命令层概念耦合
 - 对话系统无法发现"当前 NPC 是哪个活跃任务的目标"，导致中间 talk objective（如千佛暗码中向张校尉求证）在对话中无任务相关选项
 
-#### 修复方向
+#### 当前状态
 
-→ 详见 spec: `docs/specs/quest-evaluator-registry.md`
+当前状态：
+- `QuestObjective.condition` 是现行格式
+- 目标定义位于 `core/quest-objective-registry.ts`
+- ContentPool schema 调用 registry 校验 condition
+- 后续若重开 quest work，应引用 `docs/specs/quest-evaluator-registry.md` 中具体失败 phase，不再写泛泛的“确认剩余项”
 
 ---
 
@@ -558,15 +592,15 @@ const { stringify } = require("yaml");
 - [x] 9b-中危. ws-server.ts `getExitMask()` / 回退名 从 ContentPool 读取（`directionNames` + `spectatorFallbackName`）
 
 ### P3 — 优化项
-- [ ] 19. 拆分大文件（详见 #19 文件体积热点表）
-- [ ] 20. 消解循环依赖风险
+- [ ] 19. 拆分大文件（详见 #19 文件体积热点表；本批次已记录拆分顺序和依赖，未执行拆分）
+- [x] 20. 消解 `src/simulation/index.ts` 中记录的 inline type import 风险
 - [x] 17. 修复 `shouldFlee()` 使用 config 参数
-- [ ] 18. 修复 ESM/CJS 混用
+- [x] 18. 修复 ESM/CJS 混用
 - [ ] 给 `types.ts` 中所有导出接口添加 JSDoc
 
 ### P4 — 架构债
-- [ ] 21. 跨层违规：将 `resolveQuestAccept`/`checkPrerequisites`/`collectSubQuestIds` 从 `engine/` 迁移到 `core/`
-- [ ] 22. Quest 目标检测系统重构（→ spec: `quest-evaluator-registry.md`）
+- [x] 21. 跨层违规：将 `resolveQuestAccept`/`checkPrerequisites`/`collectSubQuestIds` 从 `engine/` 迁移到 `core/`
+- [x] 22. Quest 目标检测系统重构（当前为 `QuestObjective.condition` + registry；后续回归引用 `quest-evaluator-registry.md` 的具体 phase）
 
 ---
 
@@ -586,6 +620,6 @@ const { stringify } = require("yaml");
 | 10 | `src/core/content-pool-loader.ts` | ContentPool checklist |
 | 12 | `src/__tests__/round-engine.test.ts` | 测试质量 |
 | 14 | `src/core/pathfinding.ts` | 代码健壮性 |
-| 15 | `src/simulation/name-generator.ts` | 边界处理 |
-| 21 | `llm/dialogue-generator.ts`, `simulation/storyline-engine.ts` | 跨层违规 |
-| 22 | `types.ts`, `schema.ts`, `quest-tracker.ts`, `quests.yaml` | 设计债 |
+| 15 | `src/simulation/name-generator.ts`, `src/__tests__/name-generator.test.ts` | 边界处理 |
+| 21 | `core/quest-utils.ts`, `llm/dialogue-generator.ts`, `simulation/storyline-engine.ts` | 跨层违规 |
+| 22 | `core/quest-objective-registry.ts`, `core/types.ts`, `core/schemas/content-pool.ts`, `engine/quest-tracker.ts` | 设计债 |
