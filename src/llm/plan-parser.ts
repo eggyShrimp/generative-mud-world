@@ -30,7 +30,7 @@ export async function parsePlanWithLLM(
 - talk: {"type":"talk","targetId":"NPC的ID"}
 
 当前环境:
-  ${entity.name} 在 "${currentRoom?.name ?? "未知"}" (${entity.roomId})
+  ${entity.name} 在 "${currentRoom?.name ?? entity.roomId ?? ""}" (${entity.roomId})
   可用出口: ${JSON.stringify(exits)}
   房间内实体: ${JSON.stringify(
     currentRoom

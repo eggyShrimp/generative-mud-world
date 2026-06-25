@@ -551,6 +551,15 @@ describe("NPC AI", () => {
     const result = shouldFlee(npc, config);
     expect(result).toBe(false);
   });
+
+  it("shouldFlee: maxHp 为 0 时不产生无效血量比例", () => {
+    const npc = makeCombatNPC({ traits: [{ name: "courage", value: -20 }] });
+    npc.combatState.hp = 0;
+    npc.combatState.maxHp = 0;
+
+    const result = shouldFlee(npc, config);
+    expect(result).toBe(false);
+  });
 });
 
 // ── 虚弱/死亡 ──
@@ -566,6 +575,18 @@ describe("虚弱/死亡", () => {
     const npc = makeCombatNPC();
     npc.combatState.hp = 10;
     expect(checkIncapacitation(npc)).toBe(false);
+  });
+
+  it("applyRecovery: maxHp 为 0 时 hp 保持有限数值", () => {
+    const npc = makeCombatNPC();
+    npc.combatState.maxHp = 0;
+    npc.combatState.hp = 0;
+    npc.combatState.isIncapacitated = true;
+
+    applyRecovery(npc);
+
+    expect(Number.isFinite(npc.combatState.hp)).toBe(true);
+    expect(npc.combatState.hp).toBe(0);
   });
 
   it("checkIncapacitation: 已虚弱不再触发", () => {

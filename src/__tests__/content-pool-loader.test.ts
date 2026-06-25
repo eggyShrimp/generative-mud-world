@@ -16,8 +16,7 @@ function cleanTestDir() {
 }
 
 function writeYamlFile(path: string, data: Record<string, unknown>) {
-  const { stringify } = require("yaml");
-  writeFileSync(path, stringify(data, { indent: 2 }), "utf-8");
+  writeFileSync(path, stringifyYaml(data, { indent: 2 }), "utf-8");
 }
 
 function defaultTimeEnvironment() {
@@ -96,6 +95,34 @@ describe("ContentPoolLoader", () => {
     expect(pool.actionEffects.length).toBeGreaterThanOrEqual(
       createDefaultContentPool().actionEffects.length,
     );
+  });
+
+  it("loadContentPoolFromDir: 空数组字段应完全替换默认值", () => {
+    const poolDir = join(TEST_DIR, "content-pool");
+    mkdirSync(poolDir, { recursive: true });
+
+    writeYamlFile(join(poolDir, "schedules.yaml"), { scheduleTemplates: [] });
+
+    const pool = loadContentPoolFromDir(poolDir);
+    expect(pool.scheduleTemplates).toEqual([]);
+  });
+
+  it("loadContentPoolFromDir: base YAML 解析失败应抛错", () => {
+    const poolDir = join(TEST_DIR, "content-pool");
+    mkdirSync(poolDir, { recursive: true });
+    writeFileSync(join(poolDir, "needs-actions.yaml"), "needDefinitions:\n  - [", "utf-8");
+
+    expect(() => loadContentPoolFromDir(poolDir)).toThrow("YAML 解析失败");
+  });
+
+  it("loadContentPoolFromDir: evolve YAML 解析失败应跳过坏文件", () => {
+    const poolDir = join(TEST_DIR, "content-pool");
+    const evolveDir = join(poolDir, "evolve");
+    mkdirSync(evolveDir, { recursive: true });
+    writeFileSync(join(evolveDir, "needs-actions.yaml"), "needDefinitions:\n  - [", "utf-8");
+
+    const pool = loadContentPoolFromDir(poolDir);
+    expect(pool.needDefinitions).toHaveLength(createDefaultContentPool().needDefinitions.length);
   });
 
   it("loadContentPoolFromDir: 多个 YAML 文件应合并", () => {

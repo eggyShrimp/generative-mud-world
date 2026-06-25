@@ -4,19 +4,21 @@ export function generateName(
   pool: NamePool,
   gender: "male" | "female" | "neutral" = "neutral",
 ): string {
-  const surname = pick(pool.surnames) ?? "无名";
-  let given: string;
+  const surname = pick(pool.surnames);
+  if (!surname) throw new Error(`NamePool ${pool.culture} has no surnames`);
+  let given: string | undefined;
 
   switch (gender) {
     case "male":
-      given = pick(pool.maleGiven.length > 0 ? pool.maleGiven : pool.neutralGiven) ?? "氏";
+      given = pick(pool.maleGiven.length > 0 ? pool.maleGiven : pool.neutralGiven);
       break;
     case "female":
-      given = pick(pool.femaleGiven.length > 0 ? pool.femaleGiven : pool.neutralGiven) ?? "氏";
+      given = pick(pool.femaleGiven.length > 0 ? pool.femaleGiven : pool.neutralGiven);
       break;
     default:
-      given = pick(pool.neutralGiven) ?? "氏";
+      given = pick(pool.neutralGiven);
   }
+  if (!given) throw new Error(`NamePool ${pool.culture} has no ${gender} given names`);
 
   return `${surname}${given}`;
 }

@@ -44,7 +44,8 @@ export function checkRecovery(entity: CombatEntity, currentTick: number): boolea
 export function applyRecovery(entity: CombatEntity): void {
   entity.combatState.isIncapacitated = false;
   entity.combatState.incapacitatedUntil = 0;
-  entity.combatState.hp = Math.max(1, Math.round(entity.combatState.maxHp * 0.3));
+  entity.combatState.hp =
+    entity.combatState.maxHp > 0 ? Math.max(1, Math.round(entity.combatState.maxHp * 0.3)) : 0;
   entity.combatState.combatTarget = null;
   entity.combatState.threatTable = {};
 }

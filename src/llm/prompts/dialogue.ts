@@ -30,23 +30,25 @@ export function buildDialoguePrompt(context: {
       ? `\nNPC 的近期记忆:\n${context.memories.map((m, i) => `  ${i + 1}. ${m}`).join("\n")}`
       : "";
 
-  const roomItems = context.roomItems?.join("、") || "无";
-  const roomNpcs = context.roomNpcs?.join("、") || "无";
-  const connectedRooms = context.connectedRooms?.join("，") || "无";
+  const roomLines = [
+    formatOptionalList("房间内的物品", context.roomItems, "、"),
+    formatOptionalList("房间内的其他人", context.roomNpcs, "、"),
+    formatOptionalList("邻近地点", context.connectedRooms, "，"),
+  ]
+    .filter((line): line is string => line !== null)
+    .join("\n");
 
   return {
     system: `你是角色扮演引擎。根据 NPC 的性格、记忆和当前环境，用中文生成真实可信的台词。
 
 NPC 设定:
   名字: ${context.speaker.name}
-  身份: ${context.speaker.role ?? "当地居民"}
+  身份: ${context.speaker.role ?? ""}
   性格: ${context.speaker.personality}
   心情: ${context.speaker.mood}
   与 ${context.listener.name} 的关系: ${relLabel}${memorySection}
 场景: ${context.room}
-房间内的物品: ${roomItems}
-房间内的其他人: ${roomNpcs}
-邻近地点: ${connectedRooms}
+${roomLines}
 
 规则:
 - 只输出对话文本，不加引号、叙述或旁白
@@ -60,4 +62,13 @@ NPC 设定:
 - 2-5句话，信息密度要足够`,
     user: `${context.listener.name} 对 ${context.speaker.name} 说: "${context.trigger}"`,
   };
+}
+
+function formatOptionalList(
+  label: string,
+  values: string[] | undefined,
+  separator: string,
+): string | null {
+  if (!values || values.length === 0) return null;
+  return `${label}: ${values.join(separator)}`;
 }

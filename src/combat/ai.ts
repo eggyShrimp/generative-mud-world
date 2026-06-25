@@ -49,6 +49,7 @@ export function selectCombatAction(): string {
  * 条件: hp < 30% 且 courage trait < 0
  */
 export function shouldFlee(npc: NPCEntity, config: CombatConfig): boolean {
+  if (npc.combatState.maxHp <= 0) return false;
   const hpRatio = npc.combatState.hp / npc.combatState.maxHp;
   if (hpRatio > config.fleeHpThreshold) return false;
 

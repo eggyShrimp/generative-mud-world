@@ -295,10 +295,10 @@ export function refreshDailyEnvironment(world: WorldState): void {
 export function formatDate(time: GameTime, pool?: { calendar: ContentPool["calendar"] }): string {
   const cal = pool?.calendar;
   const monthNames = cal?.monthNames ?? [];
-  const month = monthNames[time.month - 1] ?? `${time.month}月`;
+  const month = monthNames[time.month - 1] ?? String(time.month);
   const yearStr = cal?.yearFormat
     ? cal.yearFormat.replace("{era}", cal.eraName).replace("{year}", String(time.year))
-    : `第${time.year}年`;
+    : String(time.year);
   return `${yearStr} ${month} 第${time.day}日`;
 }
 
@@ -744,13 +744,13 @@ export function createPlayer(
     decayRate: n.decayRate,
   }));
   const coinTemplate = pool?.itemTemplates?.find((t) => t.id === "copper_coin");
-  const coinName = coinTemplate?.name ?? "铜币";
+  const coinName = coinTemplate?.name ?? "copper_coin";
   return {
     id,
     type: "player",
     name,
     roomId,
-    description: desc ?? `${name}，路过此地的旅人。`,
+    description: desc ?? name,
     traits: traits ?? [],
     needs:
       needs.length > 0

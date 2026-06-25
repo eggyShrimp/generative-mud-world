@@ -188,7 +188,7 @@ function computeTraitMultiplier(
  * 获取交互目标的名称
  */
 function getTargetName(world: WorldState, targetId?: EntityId): string {
-  if (!targetId) return "他人";
+  if (!targetId) return "";
   const entity = world.entities.get(targetId);
-  return entity?.name ?? "他人";
+  return entity?.name ?? targetId;
 }

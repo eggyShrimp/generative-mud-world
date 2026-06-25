@@ -452,7 +452,11 @@ function executeLook(
   if (!room) return fail("不在任何房间内");
 
   const target = params.target as string | undefined;
-  if (!target || target === "房间") {
+  const found = target
+    ? Array.from(world.entities.values()).find((e) => e.name === target)
+    : undefined;
+
+  if (!target || !found) {
     const npcs = Array.from(room.entities)
       .map((eid) => world.entities.get(eid))
       .filter((e): e is NPCEntity => Boolean(e && e.type === "npc" && e.id !== entityId))
@@ -470,9 +474,9 @@ function executeLook(
           description: renderTemplate(commandMessages(world).lookRoom, {
             room: room.name,
             description: room.description,
-            npcs: npcs.join(", ") || "无",
-            items: items.join(", ") || "无",
-            exits: exits.join(", ") || "无",
+            npcs: npcs.join(", "),
+            items: items.join(", "),
+            exits: exits.join(", "),
           }),
         },
       ],
@@ -481,37 +485,32 @@ function executeLook(
     };
   }
 
-  const found = Array.from(world.entities.values()).find((e) => e.name === target);
-  if (found) {
-    const details = [`观察 ${found.name}`];
-    if (found.type === "npc") {
-      details.push(`性格: ${found.personality}`);
-      if (found.description) details.push(`描述: ${found.description}`);
-    }
-    if (found.type === "item") {
-      if (found.description) details.push(`描述: ${found.description}`);
-      const propertyText = formatItemProperties(
-        found.properties,
-        world.contentPool.itemPropertyLabels,
-      );
-      if (propertyText) details.push(`属性: ${propertyText}`);
-    }
-    return {
-      events: [
-        {
-          type: "look",
-          description: renderTemplate(commandMessages(world).lookEntity, {
-            target: found.name,
-            details: details.slice(1).join("。"),
-          }),
-        },
-      ],
-      delta: buildDelta(world, entityId, "look"),
-      ended: false,
-    };
+  const details = [`观察 ${found.name}`];
+  if (found.type === "npc") {
+    details.push(`性格: ${found.personality}`);
+    if (found.description) details.push(`描述: ${found.description}`);
   }
-
-  return fail(`没有看到 "${target}"`);
+  if (found.type === "item") {
+    if (found.description) details.push(`描述: ${found.description}`);
+    const propertyText = formatItemProperties(
+      found.properties,
+      world.contentPool.itemPropertyLabels,
+    );
+    if (propertyText) details.push(`属性: ${propertyText}`);
+  }
+  return {
+    events: [
+      {
+        type: "look",
+        description: renderTemplate(commandMessages(world).lookEntity, {
+          target: found.name,
+          details: details.slice(1).join("。"),
+        }),
+      },
+    ],
+    delta: buildDelta(world, entityId, "look"),
+    ended: false,
+  };
 }
 
 function executeTalk(
@@ -819,7 +818,7 @@ function executeWait(
   params: Record<string, unknown>,
 ): CommandResult {
   const entity = getEntity(world, entityId);
-  const name = entity?.name ?? "某人";
+  const name = entity?.name ?? entityId;
   const t = world.contentPool.narrativeTemplates;
 
   const raw = (params.raw ?? "") as string;
@@ -928,7 +927,7 @@ function executeEndDay(
 ): CommandResult {
   const entity = getEntity(world, entityId);
   if (!entity) return fail("找不到自己");
-  const name = entity.name ?? "某人";
+  const name = entity.name;
   const context = params.context as string | undefined;
   const itemId = params.itemId as string | undefined;
 
@@ -973,7 +972,7 @@ function executeEndDay(
   const groundEffect = world.contentPool.actionEffects.find((a) => a.action === "end_day");
   const groundRest = Number(groundEffect?.needDeltas.rest ?? 20);
   const t = world.contentPool.narrativeTemplates;
-  const endCmd = t.endingCommands[0] ?? "结束今天";
+  const endCmd = t.endingCommands[0] ?? "end_day";
 
   return {
     events: [

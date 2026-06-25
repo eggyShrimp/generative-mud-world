@@ -146,6 +146,22 @@ describe("applyDelta 处理 combatHpChanges", () => {
     expect(npc.combatState.hp).toBe(0);
   });
 
+  it("maxHp 为 0 时 hp 保持有限数值", () => {
+    const world = createWorld();
+    const npc = createNPC("npc_01", { name: "山贼", roomId: "room_01" });
+    npc.combatState.hp = 0;
+    npc.combatState.maxHp = 0;
+    addRoom(world, createRoom("room_01", "测试", "test", ""));
+    addEntity(world, npc);
+
+    applyDelta(world, {
+      combatHpChanges: [{ targetId: "npc_01", delta: 10 }],
+    });
+
+    expect(Number.isFinite(npc.combatState.hp)).toBe(true);
+    expect(npc.combatState.hp).toBe(0);
+  });
+
   it("玩家也支持 combatHpChanges", () => {
     const world = createWorld();
     const player = createPlayer("player_01", "冒险者", "room_01");

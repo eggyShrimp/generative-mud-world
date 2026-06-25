@@ -496,12 +496,6 @@ export class RoundEngine {
       if (npc) {
         return { action: "talk", params: { npcId: npc.id, topic: text } };
       }
-      if (npcName === "人" || npcName === "下人" || npcName === "个人") {
-        const firstNpc = npcs.find((n) => n.type === "npc");
-        if (firstNpc) {
-          return { action: "talk", params: { npcId: firstNpc.id, topic: text } };
-        }
-      }
       return { action: "wait", params: { raw: t.npcNotFound.replace("{npcName}", npcName) } };
     }
 
@@ -511,7 +505,7 @@ export class RoundEngine {
     const currentRoom = entity?.roomId ? this.world.rooms.get(entity.roomId) : null;
 
     for (const [dir] of Object.entries(dirNames)) {
-      if (text.includes(`往${dir}`) || text.includes(`去${dir}`)) {
+      if (text.includes(dir)) {
         const direction = dirNames[dir];
         const exit = currentRoom?.exits.get(dir);
         if (exit && !exit.hidden) {
@@ -527,19 +521,6 @@ export class RoundEngine {
         if (roomId !== entity?.roomId) {
           return { action: "move", params: { direction: room.name } };
         }
-      }
-    }
-
-    // Default: if text starts with "找" / "问", try any NPC
-    if (text.startsWith("找") || text.startsWith("问")) {
-      const currentRoom2 = entity?.roomId ? this.world.rooms.get(entity.roomId) : null;
-      const npcs2 = currentRoom2
-        ? Array.from(currentRoom2.entities)
-            .map((eid) => this.world.entities.get(eid))
-            .filter((e): e is NonNullable<typeof e> => !!e && e.type === "npc")
-        : [];
-      if (npcs2.length > 0) {
-        return { action: "talk", params: { npcId: npcs2[0].id, topic: text } };
       }
     }
 

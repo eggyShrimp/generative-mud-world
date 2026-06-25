@@ -139,7 +139,7 @@ export function materialize(world: WorldState, mutation: WorldMutation): string[
         leaderId: factionDef.leaderNPCId,
         governanceForm: factionDef.governanceForm,
         identityLabel: factionDef.identityLabel ?? factionDef.name,
-        economicBasis: factionDef.economicBasis ?? "待演化",
+        economicBasis: factionDef.economicBasis ?? factionDef.goal,
         traits: factionDef.traits ?? [],
         needs: [],
         relations: [],

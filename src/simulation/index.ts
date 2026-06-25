@@ -2,6 +2,7 @@ import type {
   ContentPool,
   NeedType,
   NPCEntity,
+  PlayerEntity,
   ScheduleEntry,
   SimulationDelta,
   WorldState,
@@ -80,7 +81,7 @@ export function decayNeeds(
   return {
     needChanges: npc.needs.map((n) => ({
       targetId: npcId,
-      needType: n.type as unknown as import("../core/types.ts").NeedType,
+      needType: n.type as unknown as NeedType,
       delta: -n.decayRate * baseMultiplier * warmthMultiplier,
     })),
   };
@@ -150,7 +151,7 @@ export function checkNpcAggression(
 
   for (const [npcId, entity] of world.entities) {
     if (entity.type !== "npc") continue;
-    const npc = entity as import("../core/types.ts").NPCEntity;
+    const npc = entity as NPCEntity;
     if (!npc.roomId) continue;
     if (npc.combatState.isIncapacitated) continue;
     if (npc.combatState.combatTarget) continue;
@@ -162,9 +163,7 @@ export function checkNpcAggression(
     const playerId = playersByRoom.get(npc.roomId);
     if (!playerId) continue;
 
-    const player = world.entities.get(playerId) as
-      | import("../core/types.ts").PlayerEntity
-      | undefined;
+    const player = world.entities.get(playerId) as PlayerEntity | undefined;
     if (!player) continue;
     if (player.combatState.isIncapacitated) continue;
 

@@ -46,4 +46,14 @@ describe("NameGenerator", () => {
     const pool = findNamePool([testPool], "nonexistent");
     expect(pool).toBe(testPool);
   });
+
+  it("generateName should fail when name pool has no surname", () => {
+    expect(() => generateName({ ...testPool, surnames: [] }, "neutral")).toThrow("has no surnames");
+  });
+
+  it("generateName should fail when gender has no usable given name", () => {
+    expect(() => generateName({ ...testPool, maleGiven: [], neutralGiven: [] }, "male")).toThrow(
+      "has no male given names",
+    );
+  });
 });

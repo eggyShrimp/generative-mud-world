@@ -15,7 +15,6 @@ export async function generateRoom(
   const fromRoom = world.rooms.get(params.fromRoomId);
   if (!fromRoom) return null;
   const region = world.regions.get(params.regionId);
-  const _reverseDir = getReverseDirection(params.direction) ?? "南";
 
   const tools: ToolDefinition[] = [
     {
@@ -79,7 +78,7 @@ export async function generateRoom(
 - 1-2个NPC，角色合理
 - 出口必须包含返回原房间的反向路径`,
 
-    user: `从${fromRoom.name}往${params.direction}探索。当前区域: ${region?.name ?? "未知"}(${region?.dominantCulture ?? ""})`,
+    user: `从${fromRoom.name}往${params.direction}探索。当前区域: ${region?.name ?? params.regionId}(${region?.dominantCulture ?? ""})`,
   };
 
   try {
@@ -103,15 +102,16 @@ export function getFallbackRoom(
   params: { fromRoomId: RoomId; direction: string; regionId: RegionId },
 ): WorldMutation {
   const region = world.regions.get(params.regionId);
-  const culture = region?.dominantCulture ?? "农耕";
+  const culture = region?.dominantCulture;
   const pool = world.contentPool.roomTemplates;
-  const templates = pool.find((t) => t.culture === culture) ?? pool[0];
+  const templates = culture ? (pool.find((t) => t.culture === culture) ?? pool[0]) : pool[0];
 
   if (!templates) throw new Error("No room templates available");
 
   const roomTemplate = pick(templates.rooms);
   const roomName: string = roomTemplate.name;
-  const reverseDir = getReverseDirection(params.direction) ?? "南";
+  const reverseDir = getReverseDirection(params.direction);
+  if (!reverseDir) throw new Error(`No reverse direction for ${params.direction}`);
 
   return {
     newRooms: [

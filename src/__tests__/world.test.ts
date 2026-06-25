@@ -61,6 +61,34 @@ describe("WorldState", () => {
     expect(npc.needs[0].value).toBe(80);
   });
 
+  it("applyDelta: needChanges clamp need values into range", () => {
+    const world = createWorld();
+    const npc = createNPC("npc_01", {
+      needs: [{ type: "hunger", value: 50, baseUrgency: 0.5, decayRate: 5 }],
+    });
+    addEntity(world, npc);
+
+    applyDelta(world, {
+      needChanges: [{ targetId: "npc_01", needType: "hunger", delta: 100 }],
+    });
+    expect(npc.needs[0].value).toBe(100);
+
+    applyDelta(world, {
+      needChanges: [{ targetId: "npc_01", needType: "hunger", delta: -200 }],
+    });
+    expect(npc.needs[0].value).toBe(0);
+  });
+
+  it("applyDelta: missing need target keeps void warning-only contract", () => {
+    const world = createWorld();
+    expect(() =>
+      applyDelta(world, {
+        needChanges: [{ targetId: "missing", needType: "hunger", delta: 10 }],
+      }),
+    ).not.toThrow();
+    expect(world.entities.size).toBe(0);
+  });
+
   it("should apply SimulationDelta to NPC traits", () => {
     const world = createWorld();
     const npc = createNPC("npc_01", {

@@ -342,6 +342,13 @@ export class DialogueGenerator {
     const directionLines = directions
       .map((direction) => `- ${direction.key}: ${direction.instruction}`)
       .join("\n");
+    const nearbyContextLines = [
+      formatOptionalList("附近地点", context.connectedRooms, "，"),
+      formatOptionalList("房间物品", context.roomItems, "、"),
+      formatOptionalList("其他人物", context.roomNpcs, "、"),
+    ]
+      .filter((line): line is string => line !== null)
+      .join("\n");
 
     return {
       system: `你是 MUD 游戏的对话选项生成器。根据 NPC、地点和对话方向，生成玩家可以选择的自然中文对话选项。
@@ -353,9 +360,7 @@ NPC: ${context.npcName}
 关系: ${context.relationshipLabel} (${context.relationshipLevel})
 地点: ${context.roomName}
 地点描述: ${context.roomDescription}
-附近地点: ${context.connectedRooms.join("，") || "无"}
-房间物品: ${context.roomItems.join("、") || "无"}
-其他人物: ${context.roomNpcs.join("、") || "无"}
+${nearbyContextLines}
 
 对话方向:
 ${directionLines}
@@ -944,7 +949,7 @@ ${directionLines}
     quest: WorldState["contentPool"]["questTemplates"][number],
   ): Promise<z.infer<typeof QuestMenuSchema> | null> {
     const context = this.buildContext(world, player, npc);
-    const objectives = quest.objectives.map((o) => `- ${o.description}`).join("\n") || "无";
+    const objectives = quest.objectives.map((o) => `- ${o.description}`).join("\n");
     const system = `你是 MUD 游戏的任务对话生成器。请根据 NPC、地点和任务资料生成一个任务协商回合。
 
 NPC: ${context.npcName}
@@ -1388,7 +1393,7 @@ ${objectives}
 
   private getCurrencyName(world: WorldState): string {
     const template = world.contentPool.itemTemplates.find((t) => t.properties.currency === true);
-    return template?.name ?? "铜币";
+    return template?.name ?? "copper_coin";
   }
 
   private async generateTradeReply(
@@ -1406,13 +1411,14 @@ ${objectives}
   ): Promise<string> {
     const npcCtx = this.buildMinimalContext(world, npc);
     const rel = this.getRelation(npc, player);
-    const relLabel = rel?.label ?? "陌生人";
+    const relLabel =
+      rel?.label ??
+      labelForLevel(world.contentPool.narrativeTemplates.relationLabels, rel?.level ?? 0);
     const relLevel = rel?.level ?? 0;
-    const npcTraits =
-      npc.traits
-        .filter((t) => t.value > 0)
-        .map((t) => t.name)
-        .join("、") || "无";
+    const npcTraits = npc.traits
+      .filter((t) => t.value > 0)
+      .map((t) => t.name)
+      .join("、");
     const { itemName, buyPrice, playerCoins, actualPrice, currencyName } = context;
 
     const prompts: Record<string, { instruction: string; user: string }> = {
@@ -1751,7 +1757,7 @@ ${objectives}
 
   private buildMinimalContext(world: WorldState, npc: NPCEntity) {
     return {
-      npcRole: (npc.tags?.[0] && world.contentPool.entityTagLabels[npc.tags[0]]) ?? "居民",
+      npcRole: (npc.tags?.[0] && world.contentPool.entityTagLabels[npc.tags[0]]) ?? npc.npcTier,
     };
   }
 
@@ -1794,10 +1800,10 @@ ${objectives}
     return {
       playerName: player.name,
       npcName: npc.name,
-      npcPersonality: npc.personality ?? "普通",
+      npcPersonality: npc.personality,
       npcMood: moodLabel(npc.mood ?? 50, world.contentPool.narrativeTemplates.moodLabels),
       npcRole: this.buildMinimalContext(world, npc).npcRole,
-      roomName: room?.name ?? "未知地点",
+      roomName: room?.name ?? roomId ?? "",
       roomDescription: room?.description ?? "",
       npcNeeds: npc.needs
         .map(
@@ -1806,7 +1812,9 @@ ${objectives}
         )
         .join(", "),
       relationshipLevel: rel?.level ?? 0,
-      relationshipLabel: rel?.label ?? "陌生人",
+      relationshipLabel:
+        rel?.label ??
+        labelForLevel(world.contentPool.narrativeTemplates.relationLabels, rel?.level ?? 0),
       roomItems,
       roomNpcs,
       npcItems,
@@ -1840,8 +1848,7 @@ ${objectives}
         ? `\nNPC 已知线索（可在对话中分享, share_information 的 clue_id 必须来自此列表）:\n${context.npcKnownClues.map((c) => `  - [${c.id}] ${c.description}`).join("\n")}`
         : "";
 
-    const summaryLabel =
-      world.contentPool.narrativeTemplates.conversationSummaryLabel || "此前对话概要";
+    const summaryLabel = world.contentPool.narrativeTemplates.conversationSummaryLabel;
     const summarySection = conversationSummary
       ? `\n${summaryLabel}:\n  ${conversationSummary}`
       : "";
@@ -1989,9 +1996,7 @@ NPC 说的原文: "${selectedText}"
     const npc = world.entities.get(npcId);
     const npcName = npc?.name ?? "NPC";
 
-    const summaryPrompt =
-      world.contentPool.narrativeTemplates.conversationSummaryPrompt ||
-      "请概括以下对话的内容，生成一句中文总结（不超过40字）：\n{history}";
+    const summaryPrompt = world.contentPool.narrativeTemplates.conversationSummaryPrompt;
 
     const historyText = history
       .map((e) => `${e.speaker === "player" ? "玩家" : npcName}: ${e.content}`)
@@ -2290,7 +2295,7 @@ NPC 说的原文: "${selectedText}"
     return world.contentPool.questTemplates.find((t) => t.id === templateId);
   }
 
-  private extractReplyText(text: string, npcName: string): string {
+  private extractReplyText(text: string, _npcName: string): string {
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       try {
@@ -2306,7 +2311,7 @@ NPC 说的原文: "${selectedText}"
       .replace(/^```[\s\S]*?\n/, "")
       .replace(/\n```$/, "")
       .trim();
-    return cleaned || `${npcName}看着你，没有说话。`;
+    return cleaned || "";
   }
 
   private getFallbackDelta(_playerId: EntityId, npcId: EntityId, roomId?: string): SimulationDelta {
@@ -2330,11 +2335,20 @@ function isNpc(entity: Entity | undefined): entity is NPCEntity {
 }
 
 function moodLabel(mood: number, moodLabels: Array<{ threshold: number; label: string }>): string {
-  const sorted = [...moodLabels].sort((a, b) => b.threshold - a.threshold);
-  const found = sorted.find((m) => mood >= m.threshold);
-  return found?.label ?? sorted[sorted.length - 1]?.label ?? "平静";
+  return labelForLevel(moodLabels, mood) || String(mood);
 }
 
 function emotionTranslate(emotion: string, labels: Record<string, string>): string {
   return labels[emotion] ?? emotion;
+}
+
+function labelForLevel(labels: Array<{ threshold: number; label: string }>, level: number): string {
+  const sorted = [...labels].sort((a, b) => b.threshold - a.threshold);
+  const found = sorted.find((label) => level >= label.threshold);
+  return found?.label ?? sorted[sorted.length - 1]?.label ?? "";
+}
+
+function formatOptionalList(label: string, values: string[], separator: string): string | null {
+  if (values.length === 0) return null;
+  return `${label}: ${values.join(separator)}`;
 }
