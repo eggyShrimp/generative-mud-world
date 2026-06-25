@@ -192,6 +192,26 @@ describe("RoundEngine — 基础命令", () => {
     expect(result.events[0].description).toContain("酒馆");
   });
 
+  it("legacy text parser does not treat ordinary words containing direction chars as movement", async () => {
+    const world = setupWorld();
+    const engine = new RoundEngine(world, new EventBus(), stubDispatcher(), stubSimulation());
+    const result = await engine.executeCommand("p1", "我想看看这里有什么东西");
+    const player = world.entities.get("p1");
+
+    expect(result.events[0].type).toBe("wait");
+    expect(player?.roomId).toBe("market");
+  });
+
+  it("legacy text parser still accepts explicit direction commands", async () => {
+    const world = setupWorld();
+    const engine = new RoundEngine(world, new EventBus(), stubDispatcher(), stubSimulation());
+    const result = await engine.executeCommand("p1", "往北走");
+    const player = world.entities.get("p1");
+
+    expect(result.events[0].type).toBe("move");
+    expect(player?.roomId).toBe("tavern");
+  });
+
   it("should return error for invalid move direction", async () => {
     const world = setupWorld();
     const engine = new RoundEngine(world, new EventBus(), stubDispatcher(), stubSimulation());

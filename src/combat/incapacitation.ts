@@ -7,6 +7,10 @@ import type { CombatConfig } from "./types.ts";
 
 type CombatEntity = NPCEntity | PlayerEntity;
 
+export function calculateRecoveryHp(entity: CombatEntity): number {
+  return entity.combatState.maxHp > 0 ? Math.max(1, Math.round(entity.combatState.maxHp * 0.3)) : 0;
+}
+
 /**
  * 检查 entity 是否 hp ≤ 0 且未处于虚弱状态
  */
@@ -44,8 +48,7 @@ export function checkRecovery(entity: CombatEntity, currentTick: number): boolea
 export function applyRecovery(entity: CombatEntity): void {
   entity.combatState.isIncapacitated = false;
   entity.combatState.incapacitatedUntil = 0;
-  entity.combatState.hp =
-    entity.combatState.maxHp > 0 ? Math.max(1, Math.round(entity.combatState.maxHp * 0.3)) : 0;
+  entity.combatState.hp = calculateRecoveryHp(entity);
   entity.combatState.combatTarget = null;
   entity.combatState.threatTable = {};
 }

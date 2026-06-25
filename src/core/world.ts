@@ -299,7 +299,8 @@ export function formatDate(time: GameTime, pool?: { calendar: ContentPool["calen
   const yearStr = cal?.yearFormat
     ? cal.yearFormat.replace("{era}", cal.eraName).replace("{year}", String(time.year))
     : String(time.year);
-  return `${yearStr} ${month} 第${time.day}日`;
+  const day = cal?.dayFormat ? cal.dayFormat.replace("{day}", String(time.day)) : String(time.day);
+  return `${yearStr} ${month} ${day}`;
 }
 
 let itemCounter = 0;
@@ -1298,8 +1299,10 @@ export function createDefaultContentPool(): ContentPool {
         defend: "{actor} 摆出防御姿态，减少受到的伤害。",
       },
       commandMessages: {
+        lookRoomTarget: "房间",
         lookRoom: "{room}: {description}。在场: {npcs}。物品: {items}。出口: {exits}",
         lookEntity: "观察 {target}。{details}",
+        lookTargetNotFound: "没有看到 {target}。",
         take: "捡起了 {item}",
         drop: "放下了 {item}",
         useWithEffect: "使用了 {item}（{effect}）",
@@ -1387,6 +1390,7 @@ export function createDefaultContentPool(): ContentPool {
       ],
       eraName: "铁器纪元",
       yearFormat: "{era}第{year}年",
+      dayFormat: "第{day}日",
     },
 
     dayNightConfig: {

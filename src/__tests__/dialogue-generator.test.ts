@@ -1597,6 +1597,40 @@ describe("DialogueGenerator.handleChatOption — idle_chat", () => {
     const result = await gen.handleChatOption(world, "p1", "npc1", "idle_chat", "menu:chat");
     expect(result.delta.dialogues![0].content).toBe("你好，年轻人。");
   });
+
+  it("空回复不会写入空白对话历史", async () => {
+    const world = setupWorld();
+    const adapter = {
+      chat: vi
+        .fn()
+        .mockResolvedValueOnce({ text: '{"reply":""}', toolCalls: [] })
+        .mockResolvedValueOnce({ text: "第二次回应。", toolCalls: [] }),
+      generate: vi.fn(),
+    } as unknown as LLMAdapter;
+    const gen = new DialogueGenerator(adapter, mockSaveManager());
+
+    await gen.handleChatOption(world, "p1", "npc1", "idle_chat", "menu:chat", "第一句");
+    await gen.handleChatOption(world, "p1", "npc1", "idle_chat", "menu:chat", "第二句");
+
+    const secondPrompt = vi.mocked(adapter.chat).mock.calls[1][0];
+    expect(secondPrompt).not.toContain("第一句");
+    expect(secondPrompt).not.toContain("老马: ");
+  });
+
+  it("缺少心情和关系标签时不生成数字心情或空关系标签", async () => {
+    const world = setupWorld();
+    world.contentPool.narrativeTemplates.moodLabels = [];
+    world.contentPool.narrativeTemplates.relationLabels = [];
+    const adapter = mockAdapter("你好。");
+    const gen = new DialogueGenerator(adapter, mockSaveManager());
+
+    await gen.handleChatOption(world, "p1", "npc1", "idle_chat", "menu:chat");
+
+    const prompt = vi.mocked(adapter.chat).mock.calls[0][0];
+    expect(prompt).not.toContain("心情: 50");
+    expect(prompt).toContain("关系: 0");
+    expect(prompt).not.toContain("关系:  (0)");
+  });
 });
 
 // ============================================================

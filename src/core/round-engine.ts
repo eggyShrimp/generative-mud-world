@@ -53,6 +53,19 @@ import {
   refreshDailyEnvironment,
 } from "./world.ts";
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function isDirectionCommand(text: string, dir: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed === dir) return true;
+  const escapedDir = escapeRegExp(dir);
+  return new RegExp(
+    `^(?:向|往|朝|去)?${escapedDir}(?:边|方|面|方向)?(?:走|去|移动|前进)?[。！？!?.\\s]*$`,
+  ).test(trimmed);
+}
+
 export interface SimulationEngine {
   runDay(world: WorldState, playerActions: unknown[]): SimulationDelta;
 }
@@ -505,9 +518,9 @@ export class RoundEngine {
     const currentRoom = entity?.roomId ? this.world.rooms.get(entity.roomId) : null;
 
     for (const [dir] of Object.entries(dirNames)) {
-      if (text.includes(dir)) {
+      if (isDirectionCommand(text, dir)) {
         const direction = dirNames[dir];
-        const exit = currentRoom?.exits.get(dir);
+        const exit = currentRoom?.exits.get(direction);
         if (exit && !exit.hidden) {
           return { action: "move", params: { direction } };
         }

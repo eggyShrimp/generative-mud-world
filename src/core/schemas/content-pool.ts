@@ -102,8 +102,10 @@ const CombatTemplatesSchema = z.object({
 });
 
 const CommandMessagesSchema = z.object({
+  lookRoomTarget: z.string(),
   lookRoom: z.string(),
   lookEntity: z.string(),
+  lookTargetNotFound: z.string(),
   take: z.string(),
   drop: z.string(),
   useWithEffect: z.string(),
@@ -191,6 +193,7 @@ export const CalendarConfigSchema = z.object({
   monthNames: z.array(z.string()),
   eraName: z.string(),
   yearFormat: z.string(),
+  dayFormat: z.string(),
 });
 
 // dayNightConfig

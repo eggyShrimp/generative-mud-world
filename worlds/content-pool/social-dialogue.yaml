@@ -95,8 +95,10 @@ narrativeTemplates:
     defend: "{actor} 摆出防御姿态，减少受到的伤害。"
 
   commandMessages:
+    lookRoomTarget: "房间"
     lookRoom: "{room}: {description}。在场: {npcs}。物品: {items}。出口: {exits}"
     lookEntity: "观察 {target}。{details}"
+    lookTargetNotFound: "没有看到 {target}。"
     take: "捡起了 {item}"
     drop: "放下了 {item}"
     useWithEffect: "使用了 {item}（{effect}）"

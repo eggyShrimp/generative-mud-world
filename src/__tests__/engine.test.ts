@@ -53,6 +53,23 @@ describe("command-executor", () => {
     expect(result.ended).toBe(false);
   });
 
+  it("look returns an error when a named target is not in the room", () => {
+    const world = setupWorld();
+    const result = executeCommand(world, "p1", "look", { target: "张三" });
+    expect(result.events[0].type).toBe("error");
+    expect(result.events[0].description).toContain("张三");
+    expect(result.events[0].description).not.toContain("热闹的市场");
+  });
+
+  it("wait without a bound entity does not expose internal ids", () => {
+    const world = setupWorld();
+    const result = executeCommand(world, "player_01", "wait", { raw: "看看情况" });
+    expect(result.events[0].description).toContain(
+      world.contentPool.narrativeTemplates.spectatorFallbackName,
+    );
+    expect(result.events[0].description).not.toContain("player_01");
+  });
+
   it("should execute move command", () => {
     const world = setupWorld();
     const result = executeCommand(world, "p1", "move", { direction: "north" });

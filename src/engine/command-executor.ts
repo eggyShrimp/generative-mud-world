@@ -452,11 +452,19 @@ function executeLook(
   if (!room) return fail("不在任何房间内");
 
   const target = params.target as string | undefined;
+  const messages = commandMessages(world);
+  const isRoomLook = !target || target === room.name || target === messages.lookRoomTarget;
   const found = target
-    ? Array.from(world.entities.values()).find((e) => e.name === target)
+    ? Array.from(room.entities)
+        .map((eid) => world.entities.get(eid))
+        .find((e): e is Entity => Boolean(e && e.name === target))
     : undefined;
 
-  if (!target || !found) {
+  if (target && !isRoomLook && !found) {
+    return fail(renderTemplate(messages.lookTargetNotFound, { target }));
+  }
+
+  if (isRoomLook) {
     const npcs = Array.from(room.entities)
       .map((eid) => world.entities.get(eid))
       .filter((e): e is NPCEntity => Boolean(e && e.type === "npc" && e.id !== entityId))
@@ -471,7 +479,7 @@ function executeLook(
       events: [
         {
           type: "look",
-          description: renderTemplate(commandMessages(world).lookRoom, {
+          description: renderTemplate(messages.lookRoom, {
             room: room.name,
             description: room.description,
             npcs: npcs.join(", "),
@@ -483,6 +491,10 @@ function executeLook(
       delta: buildDelta(world, entityId, "look"),
       ended: false,
     };
+  }
+
+  if (!found) {
+    return fail(renderTemplate(messages.lookTargetNotFound, { target: target ?? "" }));
   }
 
   const details = [`观察 ${found.name}`];
@@ -502,7 +514,7 @@ function executeLook(
     events: [
       {
         type: "look",
-        description: renderTemplate(commandMessages(world).lookEntity, {
+        description: renderTemplate(messages.lookEntity, {
           target: found.name,
           details: details.slice(1).join("。"),
         }),
@@ -818,8 +830,8 @@ function executeWait(
   params: Record<string, unknown>,
 ): CommandResult {
   const entity = getEntity(world, entityId);
-  const name = entity?.name ?? entityId;
   const t = world.contentPool.narrativeTemplates;
+  const name = entity?.name ?? t.spectatorFallbackName;
 
   const raw = (params.raw ?? "") as string;
   const desc =

@@ -7,6 +7,7 @@ import {
   createPlayer,
   createRoom,
   createWorld,
+  formatDate,
   initializePlayer,
   moveEntity,
 } from "../core/world";
@@ -19,6 +20,12 @@ describe("WorldState", () => {
     expect(world.round).toBe(0);
     expect(world.contentPool.needDefinitions.length).toBeGreaterThan(0);
     expect(world.contentPool.actionEffects.length).toBeGreaterThan(0);
+  });
+
+  it("formatDate uses day format from ContentPool calendar", () => {
+    const world = createWorld();
+    world.contentPool.calendar.dayFormat = "Day {day}";
+    expect(formatDate(world.time, { calendar: world.contentPool.calendar })).toContain("Day 1");
   });
 
   it("should add and retrieve entities", () => {

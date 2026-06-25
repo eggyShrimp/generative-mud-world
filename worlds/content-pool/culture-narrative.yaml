@@ -96,3 +96,4 @@ calendar:
     - 暮冬月
   eraName: 大历
   yearFormat: "{era}{year}年"
+  dayFormat: "第{day}日"

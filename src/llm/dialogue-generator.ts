@@ -1742,7 +1742,9 @@ ${objectives}
         ];
       }
 
-      this.recordConversationHistory(historyKey, playerMessage ?? "", replyText ?? "", world.tick);
+      if (replyText) {
+        this.recordConversationHistory(historyKey, playerMessage ?? "", replyText, world.tick);
+      }
 
       return { delta, followUpTopics };
     } catch {
@@ -1801,7 +1803,7 @@ ${objectives}
       playerName: player.name,
       npcName: npc.name,
       npcPersonality: npc.personality,
-      npcMood: moodLabel(npc.mood ?? 50, world.contentPool.narrativeTemplates.moodLabels),
+      npcMood: labelForLevel(world.contentPool.narrativeTemplates.moodLabels, npc.mood ?? 50),
       npcRole: this.buildMinimalContext(world, npc).npcRole,
       roomName: room?.name ?? roomId ?? "",
       roomDescription: room?.description ?? "",
@@ -1859,12 +1861,16 @@ ${objectives}
       ? `玩家刚才说: ${playerMessage}`
       : `玩家向 ${context.npcName} 打了个招呼。`;
 
+    const moodLine = context.npcMood ? `心情: ${context.npcMood}\n` : "";
+    const relationshipText = context.relationshipLabel
+      ? `${context.relationshipLabel} (${context.relationshipLevel})`
+      : String(context.relationshipLevel);
+
     return {
       system: `你正在扮演 ${context.npcName}（${context.npcRole}，${context.npcPersonality}性格）。
 
-心情: ${context.npcMood}
-需求: ${context.npcNeeds}
-关系: ${context.relationshipLabel} (${context.relationshipLevel})
+${moodLine}需求: ${context.npcNeeds}
+关系: ${relationshipText}
 场景: ${context.roomName}${memorySection}${directionSection}${clueSection}${summarySection}
 ${historySection}
 ---
@@ -2303,6 +2309,9 @@ NPC 说的原文: "${selectedText}"
         if (typeof parsed.reply === "string" && parsed.reply.length > 0) {
           return parsed.reply;
         }
+        if (typeof parsed.reply === "string") {
+          return "";
+        }
       } catch {
         logWrite("srv", "dbg", "JSON 解析失败，回退到文本清理");
       }
@@ -2332,10 +2341,6 @@ NPC 说的原文: "${selectedText}"
 
 function isNpc(entity: Entity | undefined): entity is NPCEntity {
   return Boolean(entity && entity.type === "npc");
-}
-
-function moodLabel(mood: number, moodLabels: Array<{ threshold: number; label: string }>): string {
-  return labelForLevel(moodLabels, mood) || String(mood);
 }
 
 function emotionTranslate(emotion: string, labels: Record<string, string>): string {

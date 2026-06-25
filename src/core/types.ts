@@ -746,8 +746,10 @@ export interface CombatTemplates {
 }
 
 export interface CommandMessages {
+  lookRoomTarget: string;
   lookRoom: string;
   lookEntity: string;
+  lookTargetNotFound: string;
   take: string;
   drop: string;
   useWithEffect: string;
@@ -834,6 +836,7 @@ export interface CalendarConfig {
   monthNames: string[];
   eraName: string; // "铁器纪元" / "帝国纪元"
   yearFormat: string; // "第{year}年" / "{era}第{year}年"
+  dayFormat: string; // "第{day}日"
 }
 
 export interface NeedDefinition {

@@ -104,11 +104,16 @@ export function evaluateSocialRipples(world: WorldState, signal: SocialSignal): 
       delta,
     });
 
+    const targetName = getTargetName(world, signal.targetId);
+    const actionTitle =
+      world.contentPool.narrativeTemplates.eventTitles[signal.action] ?? signal.action;
+    const observedAction = targetName ? `你和${targetName}的${actionTitle}` : `你的${actionTitle}`;
+
     events.push({
       id: `ripple_${entityId}_${signal.actorId}_${world.tick}`,
       type: "observer_reaction",
       title: "旁观者反应",
-      description: `${npc.name} 注意到了你和${getTargetName(world, signal.targetId)}的${world.contentPool.narrativeTemplates.eventTitles[signal.action] ?? signal.action}`,
+      description: `${npc.name} 注意到了${observedAction}`,
       scope: room.id,
       tick: world.tick,
       source: "simulation",

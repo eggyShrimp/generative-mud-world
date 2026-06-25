@@ -243,6 +243,23 @@ describe("evaluateSocialRipples", () => {
     expect(delta.worldEvents?.[0].description).toContain("对话");
   });
 
+  it("observer event stays grammatical without a target", () => {
+    const world = setupWorldWithObservers({ threshold: 0 });
+    addObserver(world, {
+      id: "obs1",
+      name: "老王",
+      relations: [{ targetId: "p1", level: 100, label: "朋友", lastInteractionTick: 0 }],
+    });
+    const delta = evaluateSocialRipples(world, {
+      actorId: "p1",
+      action: "talk",
+      roomId: "tavern",
+    });
+
+    expect(delta.worldEvents?.[0].description).toContain("你的");
+    expect(delta.worldEvents?.[0].description).not.toContain("你和的");
+  });
+
   it("should skip actor and target from observers", () => {
     const world = setupWorldWithObservers();
     // The actor (p1) and target (npc1) should not be observers

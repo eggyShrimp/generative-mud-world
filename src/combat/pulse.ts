@@ -19,6 +19,7 @@ import { isExhausted } from "./energy.ts";
 import {
   applyCombatExhaustion,
   applyIncapacitation,
+  calculateRecoveryHp,
   checkIncapacitation,
   handleNpcDeath,
 } from "./incapacitation.ts";
@@ -229,8 +230,7 @@ export function executeCombatPulse(world: WorldState, config: CombatConfig): Com
     if (e.combatState.isIncapacitated && world.tick >= e.combatState.incapacitatedUntil) {
       e.combatState.isIncapacitated = false;
       e.combatState.incapacitatedUntil = 0;
-      e.combatState.hp =
-        e.combatState.maxHp > 0 ? Math.max(1, Math.round(e.combatState.maxHp * 0.3)) : 0;
+      e.combatState.hp = calculateRecoveryHp(e);
       e.combatState.combatTarget = null;
       e.combatState.threatTable = {};
     }
