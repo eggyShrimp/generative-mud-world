@@ -67,7 +67,7 @@
 
 | 文件 | 何时阅读 |
 |------|----------|
-| `docs/00-architecture.md` | 架构全景 |
+| `docs/architecture.md` | 架构全景 |
 | `docs/dev-guide/add-contentpool-field.md` | 新增 ContentPool 字段 |
 | `docs/dev-guide/design-errors.md` | 不确定是否在踩已知坑 |
 | `docs/dev-guide/testing.md` | 写测试 |

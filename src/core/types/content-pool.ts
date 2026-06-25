@@ -14,7 +14,7 @@
  * - 列表数据：数组，路由到对应 domain
  * - 配置对象：复杂嵌套，路由到对应 domain
  *
- * @see docs/00-architecture.md — 架构全景
+ * @see docs/architecture.md — 架构全景
  * @see docs/dev-guide/add-contentpool-field.md — 新增字段 checklist
  */
 

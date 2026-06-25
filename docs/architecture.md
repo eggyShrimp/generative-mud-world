@@ -41,7 +41,7 @@ LLM 只在阶段 2 介入。其余四个阶段都是规则层，不需要 LLM。
 
 ### LLM 交互场景
 
-最多 14 种交互（按触发频率分：一次性 / 每月 / 每日 / 按需），详见 [03-llm-interactions.md](./03-llm-interactions.md)。
+最多 14 种交互（按触发频率分：一次性 / 每月 / 每日 / 按需），详见 [llm-interactions.md](./llm-interactions.md)。
 
 ---
 
