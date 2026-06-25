@@ -117,6 +117,7 @@ const CommandMessagesSchema = z.object({
   inventoryList: z.string(),
   say: z.string(),
   endDay: z.string(),
+  endDayRestItem: z.string(),
   equip: z.string(),
   equipWithSwap: z.string(),
   unequip: z.string(),

@@ -8,8 +8,9 @@ file($name, $body) where {
         $filename <: r".*src/core/.*"
     },
     not $filename <: r".*src/core/world\.ts.*",
+    not $filename <: r".*src/core/world/.*",
     not $filename <: r".*src/engine/delta-registry\.ts.*",
-    not $filename <: r".*src/engine/command-executor\.ts.*",
+    not $filename <: r".*src/engine/commands/.*",
     not $filename <: r".*src/combat/pulse\.ts.*",
     not $filename <: r".*src/combat/incapacitation\.ts.*",
     not $filename <: r".*src/core/content-pool-loader\.ts.*",

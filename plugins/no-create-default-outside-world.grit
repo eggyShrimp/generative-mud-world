@@ -2,6 +2,7 @@ language js(typescript, jsx)
 
 file($name, $body) where {
     not $filename <: r".*src/core/world\.ts.*",
+    not $filename <: r".*src/core/world/.*",
     not $filename <: r".*src/core/content-pool-loader\.ts.*",
     not $filename <: r".*src/core/world-loader\.ts.*",
     not $filename <: r".*src/__tests__/.*",
