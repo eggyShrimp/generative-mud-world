@@ -12,7 +12,9 @@ import {
   createWorld,
 } from "../core/world.ts";
 import type { LLMAdapter } from "../llm/adapter.ts";
+import { extractReplyText } from "../llm/dialogue/internal-helpers.ts";
 import { DialogueGenerator } from "../llm/dialogue-generator.ts";
+import { IDLE_CHAT_REPLY_JSON, IDLE_CHAT_REPLY_WITH_NPC_PREFIX } from "./fixtures/llm-responses.ts";
 
 function mockAdapter(
   responseText: string,
@@ -1906,5 +1908,79 @@ describe("DialogueGenerator.handleChatOption — 连续对话", () => {
     expect(result.subOptions).toBeDefined();
     expect(result.subOptions!.length).toBe(1);
     expect(result.subOptions![0].label).toBe("告别");
+  });
+});
+
+describe("extractReplyText", () => {
+  it("剥离全角冒号的 NPC 名称前缀", () => {
+    const result = extractReplyText(IDLE_CHAT_REPLY_WITH_NPC_PREFIX, "法显");
+    expect(result).toBe("这里的天很蓝，你从哪里来？");
+  });
+
+  it("剥离半角冒号的 NPC 名称前缀", () => {
+    const result = extractReplyText("法显: 这里的天很蓝", "法显");
+    expect(result).toBe("这里的天很蓝");
+  });
+
+  it("无前缀时保持原文本", () => {
+    const result = extractReplyText("这里的天很蓝", "法显");
+    expect(result).toBe("这里的天很蓝");
+  });
+
+  it("JSON 格式回复优先于前缀剥离", () => {
+    const result = extractReplyText(IDLE_CHAT_REPLY_JSON, "法显");
+    expect(result).toBe("这里的天很蓝，你从哪里来？");
+  });
+
+  it("名称前缀剥离后不需要再次 trim 空格", () => {
+    const result = extractReplyText("张校尉：  这里有危险，快走。", "张校尉");
+    expect(result).toBe("这里有危险，快走。");
+  });
+});
+
+describe("idle-chat JSON 格式回复", () => {
+  function setupWorld() {
+    const world = createWorld();
+    world.contentPool.conversationDirections = [
+      { key: "personal_story", instruction: "询问NPC背景或个人过往经历" },
+    ];
+    addRegion(world, {
+      id: "test",
+      name: "test",
+      dominantCulture: "test",
+      prosperity: 50,
+      threatLevel: 10,
+    });
+    const room = createRoom("tavern", "酒馆", "test", "昏暗的酒馆");
+    addRoom(world, room);
+    const player = createPlayer("p1", "赵行舟", "tavern", world.contentPool);
+    addEntity(world, player);
+    const npc = createNPC("npc1", { name: "老马" }, world.contentPool);
+    npc.roomId = "tavern";
+    npc.npcTier = "core";
+    npc.personality = "热情";
+    npc.needs = [{ type: "hunger", value: 50, baseUrgency: 5, decayRate: 2 }];
+    addEntity(world, npc);
+    return world;
+  }
+
+  it("解析 JSON 格式的 idle-chat 回复", async () => {
+    const world = setupWorld();
+    const adapter = mockAdapter(IDLE_CHAT_REPLY_JSON);
+    const gen = new DialogueGenerator(adapter, mockSaveManager());
+
+    const result = await gen.handleChatOption(
+      world,
+      "p1",
+      "npc1",
+      "idle_chat",
+      "chat:personal_story",
+      "询问经历",
+    );
+
+    expect(result.delta.dialogues).toBeDefined();
+    expect(result.delta.dialogues!.length).toBe(1);
+    expect(result.delta.dialogues![0].content).toBe("这里的天很蓝，你从哪里来？");
+    expect(result.delta.dialogues![0].content).not.toContain("老马");
   });
 });

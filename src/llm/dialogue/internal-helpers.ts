@@ -20,7 +20,7 @@ export function getQuestTemplate(world: WorldState, templateId: string) {
   return world.contentPool.questTemplates.find((t) => t.id === templateId);
 }
 
-export function extractReplyText(text: string, _npcName: string): string {
+export function extractReplyText(text: string, npcName: string): string {
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (jsonMatch) {
     try {
@@ -35,10 +35,16 @@ export function extractReplyText(text: string, _npcName: string): string {
       logWrite("srv", "dbg", "JSON 解析失败，回退到文本清理");
     }
   }
-  const cleaned = text
+  let cleaned = text
     .replace(/^```[\s\S]*?\n/, "")
     .replace(/\n```$/, "")
     .trim();
+
+  if (npcName && cleaned.startsWith(npcName)) {
+    const afterName = cleaned.slice(npcName.length);
+    cleaned = afterName.replace(/^[：:]\s*/, "").trim();
+  }
+
   return cleaned || "";
 }
 

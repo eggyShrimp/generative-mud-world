@@ -68,7 +68,9 @@ ${userLine}
 - 根据对话效果调用 shift_relation/affect_need/share_information/express_emotion
 - 只在有明确的副作用时才调用工具，不必每次对话都调用
 - 不要调用 exchange_item 或 activate_quest
-- 若分享已知线索，在 share_information 中使用 clue_id 参数`,
+- 若分享已知线索，在 share_information 中使用 clue_id 参数
+- 回复用 JSON 格式输出，不要用 markdown 代码块包裹
+- {"reply": "NPC的对话回复文本"}`,
     user: userLine,
   };
 }

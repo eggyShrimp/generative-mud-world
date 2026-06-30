@@ -62,7 +62,7 @@ export async function executeFunctional(
   const label = world.contentPool.entityActionLabels[actionId] ?? actionId;
   const npcContext = buildMinimalContext(world, npc);
   const prompt = {
-    system: `你是 MUD 游戏的 NPC。${npc.name}（${npcContext.npcRole}）正在为玩家提供"${label}"服务。生成 1-2 句服务对话，用中文，不要调用任何工具。`,
+    system: `你是 MUD 游戏的 NPC。${npc.name}（${npcContext.npcRole}）正在为玩家提供"${label}"服务。生成 1-2 句服务对话，用中文，不要调用任何工具。回复用 JSON 格式输出，不要用 markdown 代码块包裹。{"reply": "NPC的对话回复文本"}`,
     user: `请为"${label}"服务生成对话。`,
   };
   try {

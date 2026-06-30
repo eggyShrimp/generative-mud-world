@@ -59,6 +59,16 @@ export const MULTI_TOOL_CALLS: ToolCallResult[] = [
 ];
 
 // ============================================================
+// idle-chat JSON 格式回复 (配合新 prompt schema)
+// ============================================================
+
+/** LLM 返回的 JSON 格式 idle-chat 回复 */
+export const IDLE_CHAT_REPLY_JSON = '{"reply": "这里的天很蓝，你从哪里来？"}';
+
+/** LLM 返回的带 NPC 名称前缀的原始文本 (用于测试 fallback 剥离) */
+export const IDLE_CHAT_REPLY_WITH_NPC_PREFIX = "法显：这里的天很蓝，你从哪里来？";
+
+// ============================================================
 // 对话回复 —— 完整 SimulationDelta 产出
 // ============================================================
 

@@ -291,4 +291,21 @@ describe("集成: 对话全链路", () => {
     expect(result.chatSubOptions).toHaveLength(3);
     expect(result.chatSubOptions![2].type).toBe("close");
   });
+
+  it("dialogue 事件不含双重名称前缀", async () => {
+    const world = setupWorldWithNPC();
+    const llmDelta = dialogueDeltaSimple("npc1", "tavern");
+    const engine = createTestEngine(world, { dialogueDelta: llmDelta });
+
+    const result = await engine.executeStructuredCommand("p1", "talk", {
+      npcId: "npc1",
+      optionId: "opt_1",
+      optionLabel: "你好",
+    });
+
+    const dialogueEvents = result.events.filter((e) => e.type === "dialogue");
+    expect(dialogueEvents).toHaveLength(1);
+    expect(dialogueEvents[0].description).toBe("老马：你好，年轻人。");
+    expect(dialogueEvents[0].description).not.toMatch(/老马：老马/);
+  });
 });
