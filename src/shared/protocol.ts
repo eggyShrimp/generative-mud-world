@@ -244,6 +244,7 @@ export interface TradeOption {
 export interface CommandEvent {
   type: string;
   description: string;
+  content?: string;
 }
 
 export interface BookDisplay {

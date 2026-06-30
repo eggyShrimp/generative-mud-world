@@ -270,6 +270,7 @@ export class RoundEngine {
         type: event.type,
         title: event.type,
         description: event.description,
+        content: event.content,
         scope,
         tick: this.world.tick,
         source: "player",
@@ -565,7 +566,7 @@ export class RoundEngine {
       let summary = t.emptyDaySummary;
       if (visibleEvents.length > 0) {
         try {
-          const eventTexts = visibleEvents.map((e) => e.description);
+          const eventTexts = visibleEvents.map((e) => e.content || e.description);
           const result = await (
             this.dispatcher.getSettlementAdapter() ?? this.dispatcher.getAdapter()
           ).chat(
@@ -575,9 +576,10 @@ export class RoundEngine {
             undefined,
             "day-summary",
           );
-          summary = result.text.trim() || visibleEvents.map((e) => e.description).join("\n\n");
+          summary =
+            result.text.trim() || visibleEvents.map((e) => e.content || e.description).join("\n\n");
         } catch {
-          summary = visibleEvents.map((e) => e.description).join("\n\n");
+          summary = visibleEvents.map((e) => e.content || e.description).join("\n\n");
         }
       }
 

@@ -1,4 +1,5 @@
 import type { Accessor, Setter } from "solid-js";
+import { logWrite } from "../../shared/log.ts";
 import type {
   BookDisplay,
   CommandEvent,
@@ -62,6 +63,15 @@ export function handleMessage(message: ServerMessage, deps: MessageHandlerDeps):
       }
       break;
     case "command_result": {
+      for (const e of message.events) {
+        if (e.type === "dialogue") {
+          logWrite(
+            "cli",
+            "dbg",
+            `[DIAG] cmd_result dialogue content="${e.content}" desc="${e.description?.slice(0, 50)}"`,
+          );
+        }
+      }
       deps.pushEvents(message.events);
       if (deps.hasLayer("combat")) {
         deps.pushCombatLog(message.events, deps.combatRound());

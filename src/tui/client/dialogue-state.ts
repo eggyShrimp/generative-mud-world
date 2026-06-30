@@ -88,7 +88,7 @@ export function buildLoadingDialogueState(
 
 export function extractNpcReply(events: CommandEvent[]): string | undefined {
   const dialogueEvent = events.find((e) => e.type === "dialogue");
-  return dialogueEvent?.description;
+  return dialogueEvent?.content ?? dialogueEvent?.description;
 }
 
 export function appendToHistory(

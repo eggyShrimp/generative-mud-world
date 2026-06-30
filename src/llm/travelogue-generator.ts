@@ -153,7 +153,7 @@ export function buildTraveloguePrompt(
   lines.push("");
   lines.push("今日事件:");
   for (let i = 0; i < events.length; i++) {
-    lines.push(`${i + 1}. ${events[i].description}`);
+    lines.push(`${i + 1}. ${events[i].content || events[i].description}`);
   }
 
   return { system: systemPrompt, user: lines.join("\n") };

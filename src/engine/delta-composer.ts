@@ -146,6 +146,7 @@ export function deltaToEvents(
         speaker: entityName(line.speakerId),
         content: line.content,
       }),
+      content: line.content,
     });
   }
 

@@ -307,5 +307,6 @@ describe("集成: 对话全链路", () => {
     expect(dialogueEvents).toHaveLength(1);
     expect(dialogueEvents[0].description).toBe("老马：你好，年轻人。");
     expect(dialogueEvents[0].description).not.toMatch(/老马：老马/);
+    expect(dialogueEvents[0].content).toBe("你好，年轻人。");
   });
 });

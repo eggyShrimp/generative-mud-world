@@ -66,6 +66,7 @@ export interface WorldEvent {
   type: string;
   title: string;
   description: string;
+  content?: string;
   scope: RoomId | RegionId | "global";
   tick: Tick;
   source: "simulation" | "llm" | "player";

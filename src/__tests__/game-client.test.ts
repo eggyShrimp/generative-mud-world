@@ -464,6 +464,17 @@ describe("extractNpcReply", () => {
     expect(extractNpcReply(events)).toBe("老马：今天酒馆很热闹。");
   });
 
+  it("dialogue 有 content 字段 → 返回 content（纯文本）", () => {
+    const events = [
+      {
+        type: "dialogue",
+        description: "老马：今天酒馆很热闹。",
+        content: "今天酒馆很热闹。",
+      },
+    ];
+    expect(extractNpcReply(events)).toBe("今天酒馆很热闹。");
+  });
+
   it("无 dialogue → 返回 undefined", () => {
     const events = [{ type: "relation", description: "与老马的关系 +1" }];
     expect(extractNpcReply(events)).toBeUndefined();
